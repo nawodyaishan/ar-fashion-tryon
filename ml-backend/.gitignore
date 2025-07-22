@@ -1,0 +1,213 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environments
+venv/
+ENV/
+env/
+.venv
+.ENV
+.env
+*.env
+env.bak/
+venv.bak/
+virtualenv/
+
+# PyCharm
+.idea/
+*.iml
+*.iws
+out/
+
+# VS Code
+.vscode/
+*.code-workspace
+.history/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb
+
+# Machine Learning Models
+models/*.pt
+models/*.pth
+models/*.onnx
+models/*.pb
+models/*.h5
+models/*.tflite
+models/*.weights
+models/*.caffemodel
+checkpoints/
+*.ckpt
+saved_models/
+model_weights/
+
+# Datasets
+datasets/
+data/
+*.csv
+*.json
+*.xml
+*.txt
+!requirements.txt
+!requirements-dev.txt
+
+# Images and Media
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.bmp
+*.svg
+*.webp
+*.mp4
+*.avi
+*.mov
+*.wmv
+test_images/
+sample_data/
+uploads/
+output/
+results/
+
+# Logs
+logs/
+*.log
+*.out
+*.err
+tensorboard/
+wandb/
+mlruns/
+
+# OS Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# Testing
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
+test-results/
+junit.xml
+
+# Documentation
+docs/_build/
+docs/.doctrees/
+site/
+
+# Package files
+*.tar.gz
+*.zip
+*.7z
+*.rar
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+.cache/
+tmp/
+temp/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+instance/
+
+# FastAPI specific
+.fastapi_cache/
+static/uploads/
+
+# YOLO specific
+runs/
+yolov5/
+yolov8/
+
+# MediaPipe specific
+mediapipe_models/
+
+# ONNX
+*.onnx.data
+
+# TensorRT
+*.engine
+*.plan
+
+# CoreML
+*.mlmodel
+
+# Secrets and credentials
+*.pem
+*.key
+*.crt
+*.pfx
+.env.local
+.env.production
+.env.staging
+secrets/
+credentials/
+
+# Docker
+docker-compose.override.yml
+.dockerignore
+
+# Profiling
+*.prof
+*.lprof
+profile_output/
+
+# Model experiments
+experiments/
+mlflow/
+outputs/
+
+# Custom
+scratch/
+playground/
+local_tests/
+*.bak
+debug/
+
+# Keep these
+!.gitkeep
+!app/models/__init__.py
+!tests/test_*.py
+!docs/examples/*.py
