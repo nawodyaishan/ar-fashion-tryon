@@ -3,9 +3,7 @@ import { ThemeProvider } from '@/components/theme-provider';
 import NavBar from '@/components/NavBar';
 import { useSettingsStore } from '@/lib/settings-store';
 import { useEffect, useState } from 'react';
-
-const geistSans = 'var(--font-geist-sans)';
-const geistMono = 'var(--font-geist-mono)';
+import { Toaster } from '@/components/ui/sonner';
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const lighting = useSettingsStore((s) => s.lighting);
@@ -20,6 +18,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
         <NavBar />
         {children}
+        <Toaster />
       </ThemeProvider>
     </div>
   );
