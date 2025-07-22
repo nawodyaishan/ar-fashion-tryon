@@ -4,18 +4,22 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Development Commands
 
-- **Development server**: `npm run dev` or `yarn dev` (uses Turbopack for faster builds)
-- **Build**: `npm run build`
-- **Start production**: `npm start`
-- **Lint**: `npm run lint`
-- **Lint with fix**: `npm run lint:fix`
-- **Format**: `npm run format`
+This project uses **pnpm** as the package manager. Make sure you have pnpm installed globally (`npm install -g pnpm`).
+
+- **Development server**: `pnpm dev` (uses Turbopack for faster builds)
+- **Build**: `pnpm build`
+- **Start production**: `pnpm start`
+- **Lint**: `pnpm lint`
+- **Lint with fix**: `pnpm lint:fix`
+- **Format**: `pnpm format`
+- **Install dependencies**: `pnpm install`
 
 ## Project Architecture
 
 This is an AR Fashion Try-On web application built with Next.js 15, featuring a futuristic neon aesthetic and glassmorphic design. The project uses the App Router architecture.
 
 ### Key Technologies
+- **Package Manager**: pnpm (specified in package.json)
 - **Framework**: Next.js 15.4.2 with App Router
 - **Styling**: Tailwind CSS v4 with custom glassmorphic effects
 - **UI Components**: shadcn/ui with Radix UI primitives
