@@ -137,3 +137,39 @@ dist
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# Dependencies
+__pycache__/
+*.pyc
+.env.local
+
+# Build outputs
+dist/
+build/
+*.egg-info/
+
+# ML artifacts
+*.pt
+*.onnx
+*.tflite
+models/
+checkpoints/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+
+# Test coverage
+coverage/
+.coverage
+htmlcov/
+
+.idea
