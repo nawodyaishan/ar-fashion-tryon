@@ -1,0 +1,12 @@
+# Ignore build output and dependencies
+.next/
+node_modules/
+
+# Ignore config and type files
+*.config.js
+*.config.ts
+*.d.ts
+
+# Ignore documentation and lock files
+docs/
+yarn.lock 

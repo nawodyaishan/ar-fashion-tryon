@@ -25,4 +25,4 @@
 
 ---
 
-*This file is auto-generated from the project improvement conversation. Update as needed for future context.* 
+_This file is auto-generated from the project improvement conversation. Update as needed for future context._
