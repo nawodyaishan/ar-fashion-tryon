@@ -29,6 +29,10 @@ class Settings(BaseSettings):
     # Performance
     enable_gpu: bool = True
     batch_size: int = 1
+    
+    # Logging
+    log_level: str = "INFO"
+    log_to_file: bool = True
 
     class Config:
         env_file = ".env"
