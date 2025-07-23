@@ -10,20 +10,26 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { 
-  HelpCircle, 
-  Upload, 
-  RotateCcw, 
-  Play, 
-  Maximize2, 
-  Github, 
-  CheckCircle, 
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import {
+  HelpCircle,
+  Upload,
+  RotateCcw,
+  Play,
+  Maximize2,
+  Github,
+  CheckCircle,
   Camera,
   Shirt,
   AlertCircle,
   Sparkles,
-  Settings
+  Settings,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -43,7 +49,7 @@ function UploadCard({ title, description, file, onFileSelect, icon, step }: Uplo
     e.preventDefault();
     setIsDragOver(false);
     const files = Array.from(e.dataTransfer.files);
-    const imageFile = files.find(file => file.type.startsWith('image/'));
+    const imageFile = files.find((file) => file.type.startsWith('image/'));
     if (imageFile) {
       onFileSelect(imageFile);
       toast.success(`${title} uploaded successfully`, {
@@ -67,14 +73,21 @@ function UploadCard({ title, description, file, onFileSelect, icon, step }: Uplo
   };
 
   return (
-    <Card className={`group relative transition-all duration-500 hover:shadow-xl ${
-      isDragOver ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/50 scale-[1.02]' : 
-      file ? 'border-green-500 bg-green-50 dark:bg-green-950/50' : 
-      'border-border hover:border-primary/50'
-    }`}>
+    <Card
+      className={`group relative transition-all duration-500 hover:shadow-xl ${
+        isDragOver
+          ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/50 scale-[1.02]'
+          : file
+            ? 'border-green-500 bg-green-50 dark:bg-green-950/50'
+            : 'border-border hover:border-primary/50'
+      }`}
+    >
       <CardHeader className="pb-4">
         <div className="flex items-center gap-3">
-          <Badge variant="outline" className="w-8 h-8 rounded-full p-0 flex items-center justify-center">
+          <Badge
+            variant="outline"
+            className="w-8 h-8 rounded-full p-0 flex items-center justify-center"
+          >
             {step}
           </Badge>
           <div className="flex items-center gap-2">
@@ -93,11 +106,15 @@ function UploadCard({ title, description, file, onFileSelect, icon, step }: Uplo
       <CardContent>
         <div
           className={`relative h-56 border-2 border-dashed rounded-xl transition-all duration-300 ${
-            isDragOver ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/30' : 
-            'border-muted-foreground/25 hover:border-primary/50'
+            isDragOver
+              ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/30'
+              : 'border-muted-foreground/25 hover:border-primary/50'
           } ${file ? 'p-2' : 'p-8'} group-hover:shadow-inner`}
           onDrop={handleDrop}
-          onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setIsDragOver(true);
+          }}
           onDragLeave={() => setIsDragOver(false)}
         >
           {file ? (
@@ -139,9 +156,7 @@ function UploadCard({ title, description, file, onFileSelect, icon, step }: Uplo
                     />
                   </label>
                 </p>
-                <p className="text-xs text-muted-foreground">
-                  Supports JPG, PNG, WebP up to 10MB
-                </p>
+                <p className="text-xs text-muted-foreground">Supports JPG, PNG, WebP up to 10MB</p>
               </div>
             </div>
           )}
@@ -151,7 +166,15 @@ function UploadCard({ title, description, file, onFileSelect, icon, step }: Uplo
   );
 }
 
-function FitControls({ disabled, scale, offsetX, offsetY, onScaleChange, onOffsetXChange, onOffsetYChange }: {
+function FitControls({
+  disabled,
+  scale,
+  offsetX,
+  offsetY,
+  onScaleChange,
+  onOffsetXChange,
+  onOffsetYChange,
+}: {
   disabled: boolean;
   scale: number[];
   offsetX: number[];
@@ -161,7 +184,9 @@ function FitControls({ disabled, scale, offsetX, offsetY, onScaleChange, onOffse
   onOffsetYChange: (value: number[]) => void;
 }) {
   return (
-    <Card className={`transition-all duration-300 ${disabled ? 'opacity-50 pointer-events-none' : 'hover:shadow-md'}`}>
+    <Card
+      className={`transition-all duration-300 ${disabled ? 'opacity-50 pointer-events-none' : 'hover:shadow-md'}`}
+    >
       <CardHeader>
         <div className="flex items-center gap-2">
           <Settings className="w-5 h-5 text-primary" />
@@ -170,9 +195,7 @@ function FitControls({ disabled, scale, offsetX, offsetY, onScaleChange, onOffse
         {disabled && (
           <Alert>
             <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              Upload both images to enable fit controls
-            </AlertDescription>
+            <AlertDescription>Upload both images to enable fit controls</AlertDescription>
           </Alert>
         )}
       </CardHeader>
@@ -205,7 +228,8 @@ function FitControls({ disabled, scale, offsetX, offsetY, onScaleChange, onOffse
           <div className="flex items-center justify-between">
             <label className="text-sm font-medium">Horizontal Position</label>
             <Badge variant="outline" className="text-xs">
-              {offsetX[0] > 0 ? '+' : ''}{offsetX[0]}px
+              {offsetX[0] > 0 ? '+' : ''}
+              {offsetX[0]}px
             </Badge>
           </div>
           <Slider
@@ -227,7 +251,8 @@ function FitControls({ disabled, scale, offsetX, offsetY, onScaleChange, onOffse
           <div className="flex items-center justify-between">
             <label className="text-sm font-medium">Vertical Position</label>
             <Badge variant="outline" className="text-xs">
-              {offsetY[0] > 0 ? '+' : ''}{offsetY[0]}px
+              {offsetY[0] > 0 ? '+' : ''}
+              {offsetY[0]}px
             </Badge>
           </div>
           <Slider
@@ -251,7 +276,7 @@ function FitControls({ disabled, scale, offsetX, offsetY, onScaleChange, onOffse
 
 function CanvasPreview({ processing, progress }: { processing: boolean; progress: number }) {
   const [isFullScreen, setIsFullScreen] = useState(false);
-  
+
   return (
     <Card className="h-full group">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
@@ -274,7 +299,10 @@ function CanvasPreview({ processing, progress }: { processing: boolean; progress
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="relative bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-900 rounded-xl overflow-hidden border-2 border-dashed border-muted-foreground/25" style={{ aspectRatio: '4/3' }}>
+        <div
+          className="relative bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-900 rounded-xl overflow-hidden border-2 border-dashed border-muted-foreground/25"
+          style={{ aspectRatio: '4/3' }}
+        >
           <div className="absolute inset-0 flex items-center justify-center">
             {processing ? (
               <div className="text-center space-y-4">
@@ -301,7 +329,7 @@ function CanvasPreview({ processing, progress }: { processing: boolean; progress
             )}
           </div>
         </div>
-        
+
         <Tabs defaultValue="controls" className="w-full">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="controls">Controls</TabsTrigger>
@@ -310,15 +338,21 @@ function CanvasPreview({ processing, progress }: { processing: boolean; progress
           <TabsContent value="controls" className="mt-4">
             <div className="space-y-2 text-sm">
               <div className="flex items-center gap-2">
-                <Badge variant="outline" className="text-xs">Future</Badge>
+                <Badge variant="outline" className="text-xs">
+                  Future
+                </Badge>
                 <span>Drag to rotate garment</span>
               </div>
               <div className="flex items-center gap-2">
-                <Badge variant="outline" className="text-xs">Future</Badge>
+                <Badge variant="outline" className="text-xs">
+                  Future
+                </Badge>
                 <span>Pinch to zoom</span>
               </div>
               <div className="flex items-center gap-2">
-                <Badge variant="secondary" className="text-xs">Active</Badge>
+                <Badge variant="secondary" className="text-xs">
+                  Active
+                </Badge>
                 <span>Click to full-screen</span>
               </div>
             </div>
@@ -346,7 +380,9 @@ function CanvasPreview({ processing, progress }: { processing: boolean; progress
             <div className="text-center space-y-4">
               <Camera className="w-16 h-16 text-primary mx-auto" />
               <p className="text-lg font-medium">Full Screen Mode</p>
-              <p className="text-muted-foreground">Enhanced preview coming soon with AR capabilities</p>
+              <p className="text-muted-foreground">
+                Enhanced preview coming soon with AR capabilities
+              </p>
             </div>
           </div>
         </DialogContent>
@@ -368,27 +404,27 @@ export default function TryOnPage() {
 
   const handleTryOn = async () => {
     if (!canTryOn) return;
-    
+
     setProcessing(true);
     setProgress(0);
     toast.info('Starting AR try-on process...', {
       icon: <Sparkles className="w-4 h-4" />,
     });
-    
+
     // Simulate processing with progress
     const intervals = [0, 25, 50, 75, 100];
     for (let i = 0; i < intervals.length; i++) {
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise((resolve) => setTimeout(resolve, 500));
       setProgress(intervals[i]);
     }
-    
+
     setProcessing(false);
     toast.success('AR Try-On completed successfully!', {
       icon: <CheckCircle className="w-4 h-4" />,
       action: {
         label: 'Download',
-        onClick: () => toast.info('Download feature coming soon!')
-      }
+        onClick: () => toast.info('Download feature coming soon!'),
+      },
     });
   };
 
@@ -418,10 +454,12 @@ export default function TryOnPage() {
                 <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                   AR Try-On Studio
                 </h1>
-                <p className="text-sm text-muted-foreground">Virtual fashion fitting powered by AI</p>
+                <p className="text-sm text-muted-foreground">
+                  Virtual fashion fitting powered by AI
+                </p>
               </div>
             </div>
-            
+
             <div className="flex items-center gap-3">
               <Badge variant="outline" className="text-xs">
                 Beta v1.0
@@ -443,7 +481,9 @@ export default function TryOnPage() {
                   <div className="space-y-6">
                     <div className="space-y-3">
                       <div className="flex items-start gap-3">
-                        <Badge className="w-6 h-6 rounded-full p-0 flex items-center justify-center text-xs">1</Badge>
+                        <Badge className="w-6 h-6 rounded-full p-0 flex items-center justify-center text-xs">
+                          1
+                        </Badge>
                         <div>
                           <h4 className="font-medium">Upload Garment Image</h4>
                           <p className="text-sm text-muted-foreground">
@@ -452,7 +492,9 @@ export default function TryOnPage() {
                         </div>
                       </div>
                       <div className="flex items-start gap-3">
-                        <Badge className="w-6 h-6 rounded-full p-0 flex items-center justify-center text-xs">2</Badge>
+                        <Badge className="w-6 h-6 rounded-full p-0 flex items-center justify-center text-xs">
+                          2
+                        </Badge>
                         <div>
                           <h4 className="font-medium">Upload Your Photo</h4>
                           <p className="text-sm text-muted-foreground">
@@ -461,7 +503,9 @@ export default function TryOnPage() {
                         </div>
                       </div>
                       <div className="flex items-start gap-3">
-                        <Badge className="w-6 h-6 rounded-full p-0 flex items-center justify-center text-xs">3</Badge>
+                        <Badge className="w-6 h-6 rounded-full p-0 flex items-center justify-center text-xs">
+                          3
+                        </Badge>
                         <div>
                           <h4 className="font-medium">Adjust & Preview</h4>
                           <p className="text-sm text-muted-foreground">
@@ -473,7 +517,8 @@ export default function TryOnPage() {
                     <Alert>
                       <Sparkles className="h-4 w-4" />
                       <AlertDescription>
-                        Our AI uses advanced pose detection for the most realistic virtual try-on experience.
+                        Our AI uses advanced pose detection for the most realistic virtual try-on
+                        experience.
                       </AlertDescription>
                     </Alert>
                   </div>
@@ -535,16 +580,11 @@ export default function TryOnPage() {
                       <Play className="w-5 h-5 mr-2" />
                       {processing ? 'Processing...' : 'Try-On'}
                     </Button>
-                    <Button
-                      variant="outline"
-                      onClick={handleReset}
-                      size="lg"
-                      className="h-12"
-                    >
+                    <Button variant="outline" onClick={handleReset} size="lg" className="h-12">
                       <RotateCcw className="w-5 h-5" />
                     </Button>
                   </div>
-                  
+
                   {!canTryOn && (
                     <Alert>
                       <AlertCircle className="h-4 w-4" />

@@ -8,10 +8,10 @@ import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { 
-  Search, 
-  Filter, 
-  Grid3X3, 
+import {
+  Search,
+  Filter,
+  Grid3X3,
   List,
   Heart,
   Eye,
@@ -21,7 +21,7 @@ import {
   Star,
   Clock,
   TrendingUp,
-  Info
+  Info,
 } from 'lucide-react';
 
 const categories = [
@@ -29,7 +29,7 @@ const categories = [
   { id: 'tops', label: 'Tops', count: 45 },
   { id: 'dresses', label: 'Dresses', count: 32 },
   { id: 'outerwear', label: 'Outerwear', count: 28 },
-  { id: 'accessories', label: 'Accessories', count: 22 }
+  { id: 'accessories', label: 'Accessories', count: 22 },
 ];
 
 const mockItems = Array.from({ length: 12 }, (_, i) => ({
@@ -41,7 +41,7 @@ const mockItems = Array.from({ length: 12 }, (_, i) => ({
   reviews: Math.floor(Math.random() * 500) + 10,
   isNew: Math.random() > 0.7,
   isTrending: Math.random() > 0.8,
-  colors: Math.floor(Math.random() * 5) + 1
+  colors: Math.floor(Math.random() * 5) + 1,
 }));
 
 function ItemSkeleton() {
@@ -70,9 +70,9 @@ function ItemSkeleton() {
   );
 }
 
-function ItemCard({ item }: { item: typeof mockItems[0] }) {
+function ItemCard({ item }: { item: (typeof mockItems)[0] }) {
   const [isLiked, setIsLiked] = useState(false);
-  
+
   return (
     <Card className="group overflow-hidden transition-all duration-300 hover:shadow-xl hover:shadow-primary/10 hover:-translate-y-1">
       {/* Image Placeholder */}
@@ -80,14 +80,10 @@ function ItemCard({ item }: { item: typeof mockItems[0] }) {
         <div className="absolute inset-0 flex items-center justify-center">
           <Shirt className="w-16 h-16 text-muted-foreground/50" />
         </div>
-        
+
         {/* Overlay Badges */}
         <div className="absolute top-3 left-3 flex flex-col gap-2">
-          {item.isNew && (
-            <Badge className="bg-green-500 hover:bg-green-600">
-              New
-            </Badge>
-          )}
+          {item.isNew && <Badge className="bg-green-500 hover:bg-green-600">New</Badge>}
           {item.isTrending && (
             <Badge variant="secondary" className="bg-orange-500 hover:bg-orange-600 text-white">
               <TrendingUp className="w-3 h-3 mr-1" />
@@ -95,7 +91,7 @@ function ItemCard({ item }: { item: typeof mockItems[0] }) {
             </Badge>
           )}
         </div>
-        
+
         {/* Actions */}
         <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
           <Button
@@ -107,11 +103,11 @@ function ItemCard({ item }: { item: typeof mockItems[0] }) {
             <Heart className={`w-4 h-4 ${isLiked ? 'fill-red-500 text-red-500' : ''}`} />
           </Button>
         </div>
-        
+
         {/* Quick View */}
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all duration-300 flex items-center justify-center">
-          <Button 
-            variant="secondary" 
+          <Button
+            variant="secondary"
             size="sm"
             className="opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-2 group-hover:translate-y-0"
           >
@@ -120,13 +116,13 @@ function ItemCard({ item }: { item: typeof mockItems[0] }) {
           </Button>
         </div>
       </div>
-      
+
       <CardContent className="p-4 space-y-3">
         {/* Title */}
         <h3 className="font-medium line-clamp-1 group-hover:text-primary transition-colors">
           {item.name}
         </h3>
-        
+
         {/* Price and Rating */}
         <div className="flex items-center justify-between">
           <span className="text-lg font-bold">${item.price}</span>
@@ -136,25 +132,23 @@ function ItemCard({ item }: { item: typeof mockItems[0] }) {
             <span>({item.reviews})</span>
           </div>
         </div>
-        
+
         {/* Colors */}
         <div className="flex items-center gap-1">
           {Array.from({ length: item.colors }).map((_, i) => (
-            <div 
+            <div
               key={i}
               className="w-4 h-4 rounded-full border border-border"
-              style={{ 
-                backgroundColor: `hsl(${i * 60}, 70%, 50%)`
+              style={{
+                backgroundColor: `hsl(${i * 60}, 70%, 50%)`,
               }}
             />
           ))}
           {item.colors > 4 && (
-            <span className="text-xs text-muted-foreground ml-1">
-              +{item.colors - 4} more
-            </span>
+            <span className="text-xs text-muted-foreground ml-1">+{item.colors - 4} more</span>
           )}
         </div>
-        
+
         {/* Try On Button */}
         <Button className="w-full group/btn">
           <Camera className="w-4 h-4 mr-2" />
@@ -177,11 +171,11 @@ export default function GalleryPage() {
     const timer = setTimeout(() => {
       setLoading(false);
     }, 1500);
-    
+
     return () => clearTimeout(timer);
   }, []);
 
-  const filteredItems = mockItems.filter(item => {
+  const filteredItems = mockItems.filter((item) => {
     const matchesCategory = selectedCategory === 'all' || item.category === selectedCategory;
     const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesCategory && matchesSearch;
@@ -201,7 +195,7 @@ export default function GalleryPage() {
               <p className="text-muted-foreground">Discover and try on the latest fashion trends</p>
             </div>
           </div>
-          
+
           <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
             <div className="flex gap-2">
               <Badge variant="outline" className="text-xs">
@@ -212,7 +206,7 @@ export default function GalleryPage() {
                 127+ items
               </Badge>
             </div>
-            
+
             <div className="flex items-center gap-2">
               <Button
                 variant={viewMode === 'grid' ? 'default' : 'outline'}
@@ -237,8 +231,8 @@ export default function GalleryPage() {
           <div className="flex gap-4">
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input 
-                placeholder="Search fashion items..." 
+              <Input
+                placeholder="Search fashion items..."
                 className="pl-10"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -249,7 +243,7 @@ export default function GalleryPage() {
               Filters
             </Button>
           </div>
-          
+
           {/* Category Tabs */}
           <Tabs value={selectedCategory} onValueChange={setSelectedCategory}>
             <TabsList className="grid w-full grid-cols-5">
@@ -269,8 +263,9 @@ export default function GalleryPage() {
         <Alert className="mb-8 border-blue-500/20 bg-blue-500/5">
           <Info className="h-4 w-4 text-blue-500" />
           <AlertDescription>
-            <strong>Coming Soon:</strong> Our fashion gallery is currently being curated with the latest trends. 
-            In the meantime, try our <strong>AR Try-On Studio</strong> with your own garment images!
+            <strong>Coming Soon:</strong> Our fashion gallery is currently being curated with the
+            latest trends. In the meantime, try our <strong>AR Try-On Studio</strong> with your own
+            garment images!
           </AlertDescription>
         </Alert>
 
@@ -287,21 +282,24 @@ export default function GalleryPage() {
               <div className="flex items-center justify-between">
                 <p className="text-sm text-muted-foreground">
                   Showing {filteredItems.length} items
-                  {selectedCategory !== 'all' && ` in ${categories.find(c => c.id === selectedCategory)?.label}`}
+                  {selectedCategory !== 'all' &&
+                    ` in ${categories.find((c) => c.id === selectedCategory)?.label}`}
                   {searchQuery && ` matching "${searchQuery}"`}
                 </p>
               </div>
-              
-              <div className={`grid gap-6 ${
-                viewMode === 'grid' 
-                  ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' 
-                  : 'grid-cols-1'
-              }`}>
+
+              <div
+                className={`grid gap-6 ${
+                  viewMode === 'grid'
+                    ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
+                    : 'grid-cols-1'
+                }`}
+              >
                 {filteredItems.map((item) => (
                   <ItemCard key={item.id} item={item} />
                 ))}
               </div>
-              
+
               {filteredItems.length === 0 && (
                 <div className="text-center py-12">
                   <div className="mb-4">
@@ -311,10 +309,13 @@ export default function GalleryPage() {
                       Try adjusting your search or category filters
                     </p>
                   </div>
-                  <Button variant="outline" onClick={() => {
-                    setSearchQuery('');
-                    setSelectedCategory('all');
-                  }}>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setSearchQuery('');
+                      setSelectedCategory('all');
+                    }}
+                  >
                     Clear Filters
                   </Button>
                 </div>

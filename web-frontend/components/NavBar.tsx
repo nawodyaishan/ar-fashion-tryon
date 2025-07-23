@@ -5,7 +5,8 @@ import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ModeToggle } from '@/components/ModeToggle';
-import { 
+import { NavigationLink } from '@/components/NavigationLink';
+import {
   NavigationMenu,
   NavigationMenuContent,
   NavigationMenuItem,
@@ -13,44 +14,9 @@ import {
   NavigationMenuList,
   NavigationMenuTrigger,
 } from '@/components/ui/navigation-menu';
-import { 
-  Sparkles, 
-  Home, 
-  Camera, 
-  Image as ImageIcon, 
-  Info, 
-  Settings,
-  Zap
-} from 'lucide-react';
+import { Sparkles, Settings, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
-
-const navigationItems = [
-  {
-    title: 'Home',
-    href: '/',
-    description: 'Welcome to AR Fashion Try-On',
-    icon: Home,
-  },
-  {
-    title: 'Try-On Studio',
-    href: '/try-on',
-    description: 'Virtual fitting with AR technology',
-    icon: Camera,
-    badge: 'New',
-  },
-  {
-    title: 'Gallery',
-    href: '/gallery',
-    description: 'Browse fashion collections',
-    icon: ImageIcon,
-  },
-  {
-    title: 'About',
-    href: '/about',
-    description: 'Learn more about the project',
-    icon: Info,
-  },
-];
+import { navigationItems } from '@/lib/constants';
 
 export default function NavBar() {
   const pathname = usePathname();
@@ -71,9 +37,7 @@ export default function NavBar() {
               <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                 AR Fashion
               </h1>
-              <p className="text-xs text-muted-foreground -mt-1">
-                Try-On Studio
-              </p>
+              <p className="text-xs text-muted-foreground -mt-1">Try-On Studio</p>
             </div>
           </Link>
 
@@ -81,36 +45,7 @@ export default function NavBar() {
           <div className="hidden md:flex items-center space-x-1">
             {navigationItems.map((item) => {
               const isActive = pathname === item.href;
-              const Icon = item.icon;
-              
-              return (
-                <Link key={item.href} href={item.href}>
-                  <Button 
-                    variant={isActive ? "default" : "ghost"}
-                    size="sm"
-                    className={cn(
-                      "relative h-10 px-4 transition-all duration-200",
-                      isActive 
-                        ? "bg-primary text-primary-foreground shadow-md" 
-                        : "hover:bg-muted/80"
-                    )}
-                  >
-                    <Icon className="w-4 h-4 mr-2" />
-                    {item.title}
-                    {item.badge && (
-                      <Badge 
-                        variant="secondary" 
-                        className="ml-2 h-5 px-2 text-xs bg-gradient-to-r from-green-500 to-emerald-500 text-white border-0"
-                      >
-                        {item.badge}
-                      </Badge>
-                    )}
-                    {isActive && (
-                      <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-primary rounded-full" />
-                    )}
-                  </Button>
-                </Link>
-              );
+              return <NavigationLink key={item.href} item={item} isActive={isActive} />;
             })}
           </div>
 
@@ -131,16 +66,14 @@ export default function NavBar() {
                       {navigationItems.map((item) => {
                         const isActive = pathname === item.href;
                         const Icon = item.icon;
-                        
+
                         return (
                           <NavigationMenuLink key={item.href} asChild>
                             <Link
                               href={item.href}
                               className={cn(
-                                "flex items-start space-x-3 rounded-lg p-3 transition-colors duration-200",
-                                isActive 
-                                  ? "bg-primary text-primary-foreground" 
-                                  : "hover:bg-muted"
+                                'flex items-start space-x-3 rounded-lg p-3 transition-colors duration-200',
+                                isActive ? 'bg-primary text-primary-foreground' : 'hover:bg-muted',
                               )}
                             >
                               <Icon className="w-5 h-5 mt-0.5 flex-shrink-0" />
@@ -153,9 +86,7 @@ export default function NavBar() {
                                     </Badge>
                                   )}
                                 </div>
-                                <p className="text-xs text-muted-foreground">
-                                  {item.description}
-                                </p>
+                                <p className="text-xs text-muted-foreground">{item.description}</p>
                               </div>
                             </Link>
                           </NavigationMenuLink>
@@ -173,8 +104,8 @@ export default function NavBar() {
             {/* Settings Button - Desktop */}
             <div className="hidden md:block">
               <Link href="/settings">
-                <Button 
-                  variant={pathname === '/settings' ? "default" : "outline"}
+                <Button
+                  variant={pathname === '/settings' ? 'default' : 'outline'}
                   size="sm"
                   className="h-10"
                 >
@@ -187,9 +118,7 @@ export default function NavBar() {
             {/* Performance Indicator */}
             <div className="hidden lg:flex items-center space-x-2 px-3 py-2 rounded-lg bg-muted/50">
               <Zap className="w-4 h-4 text-green-500" />
-              <span className="text-xs font-medium text-muted-foreground">
-                Ready
-              </span>
+              <span className="text-xs font-medium text-muted-foreground">Ready</span>
             </div>
 
             {/* Theme Toggle */}

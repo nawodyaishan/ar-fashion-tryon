@@ -8,12 +8,18 @@ import { Separator } from '@/components/ui/separator';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { 
-  Settings, 
-  Palette, 
-  Zap, 
-  Camera, 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Settings,
+  Palette,
+  Zap,
+  Camera,
   Monitor,
   Moon,
   Sun,
@@ -21,60 +27,13 @@ import {
   Shield,
   Download,
   RotateCcw,
-  Info
+  Info,
 } from 'lucide-react';
-import { useSettingsStore } from '@/lib/settings-store';
-import { useTheme } from 'next-themes';
-import { toast } from 'sonner';
-
-const performanceOptions = [
-  { value: 'high', label: 'High Quality', description: 'Best visual quality, higher CPU usage' },
-  { value: 'balanced', label: 'Balanced', description: 'Good quality with optimal performance' },
-  { value: 'performance', label: 'Performance', description: 'Prioritize speed over quality' }
-];
-
-const languageOptions = [
-  { value: 'en', label: 'English', flag: '🇺🇸' },
-  { value: 'es', label: 'Español', flag: '🇪🇸' },
-  { value: 'fr', label: 'Français', flag: '🇫🇷' },
-  { value: 'de', label: 'Deutsch', flag: '🇩🇪' },
-  { value: 'ja', label: '日本語', flag: '🇯🇵' }
-];
+import { useSettings } from '@/lib/hooks/useSettings';
+import { performanceOptions, languageOptions } from '@/lib/constants';
 
 export default function SettingsPage() {
-  const lighting = useSettingsStore((s) => s.lighting);
-  const setLighting = useSettingsStore((s) => s.setLighting);
-  const { theme, setTheme } = useTheme();
-
-  const handleExportSettings = () => {
-    const settings = {
-      lighting,
-      theme,
-      timestamp: new Date().toISOString()
-    };
-    
-    const blob = new Blob([JSON.stringify(settings, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'ar-fashion-settings.json';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    
-    toast.success('Settings exported successfully!', {
-      icon: <Download className="w-4 h-4" />
-    });
-  };
-
-  const handleResetSettings = () => {
-    setLighting(false);
-    setTheme('system');
-    toast.info('Settings reset to default values', {
-      icon: <RotateCcw className="w-4 h-4" />
-    });
-  };
+  const { lighting, setLighting, theme, setTheme, exportSettings, resetSettings } = useSettings();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
@@ -134,7 +93,7 @@ export default function SettingsPage() {
                       {[
                         { value: 'light', label: 'Light', icon: Sun },
                         { value: 'dark', label: 'Dark', icon: Moon },
-                        { value: 'system', label: 'System', icon: Monitor }
+                        { value: 'system', label: 'System', icon: Monitor },
                       ].map((option) => (
                         <Button
                           key={option.value}
@@ -159,8 +118,8 @@ export default function SettingsPage() {
                         Dynamic background animations and lighting
                       </p>
                     </div>
-                    <Switch 
-                      checked={lighting} 
+                    <Switch
+                      checked={lighting}
                       onCheckedChange={setLighting}
                       className="data-[state=checked]:bg-primary"
                     />
@@ -200,7 +159,9 @@ export default function SettingsPage() {
                             <div className="flex items-start gap-3">
                               <div>
                                 <p className="font-medium">{option.label}</p>
-                                <p className="text-xs text-muted-foreground">{option.description}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {option.description}
+                                </p>
                               </div>
                             </div>
                           </SelectItem>
@@ -222,7 +183,9 @@ export default function SettingsPage() {
                     <div className="flex items-center justify-between">
                       <div>
                         <Label className="text-sm font-medium">Auto-Optimization</Label>
-                        <p className="text-xs text-muted-foreground">Adjust quality based on device</p>
+                        <p className="text-xs text-muted-foreground">
+                          Adjust quality based on device
+                        </p>
                       </div>
                       <Switch defaultChecked />
                     </div>
@@ -231,7 +194,8 @@ export default function SettingsPage() {
                   <Alert>
                     <Zap className="h-4 w-4" />
                     <AlertDescription>
-                      High-performance settings provide better quality but may consume more battery on mobile devices.
+                      High-performance settings provide better quality but may consume more battery
+                      on mobile devices.
                     </AlertDescription>
                   </Alert>
                 </CardContent>
@@ -270,7 +234,9 @@ export default function SettingsPage() {
                     <div className="flex items-center justify-between">
                       <div>
                         <Label className="text-sm font-medium">Mirror Camera</Label>
-                        <p className="text-xs text-muted-foreground">Show mirrored view like a mirror</p>
+                        <p className="text-xs text-muted-foreground">
+                          Show mirrored view like a mirror
+                        </p>
                       </div>
                       <Switch defaultChecked />
                     </div>
@@ -309,14 +275,18 @@ export default function SettingsPage() {
                     <div className="flex items-center justify-between">
                       <div>
                         <Label className="text-sm font-medium">Analytics</Label>
-                        <p className="text-xs text-muted-foreground">Help improve the app with usage data</p>
+                        <p className="text-xs text-muted-foreground">
+                          Help improve the app with usage data
+                        </p>
                       </div>
                       <Switch defaultChecked />
                     </div>
                     <div className="flex items-center justify-between">
                       <div>
                         <Label className="text-sm font-medium">Crash Reports</Label>
-                        <p className="text-xs text-muted-foreground">Send crash reports to improve stability</p>
+                        <p className="text-xs text-muted-foreground">
+                          Send crash reports to improve stability
+                        </p>
                       </div>
                       <Switch defaultChecked />
                     </div>
@@ -346,7 +316,8 @@ export default function SettingsPage() {
                   <Alert>
                     <Shield className="h-4 w-4" />
                     <AlertDescription>
-                      Your privacy is important to us. All data processing happens locally on your device when possible.
+                      Your privacy is important to us. All data processing happens locally on your
+                      device when possible.
                     </AlertDescription>
                   </Alert>
                 </CardContent>
@@ -359,11 +330,11 @@ export default function SettingsPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="flex flex-col sm:flex-row gap-3">
-                    <Button onClick={handleExportSettings} variant="outline" className="flex-1">
+                    <Button onClick={exportSettings} variant="outline" className="flex-1">
                       <Download className="w-4 h-4 mr-2" />
                       Export Settings
                     </Button>
-                    <Button onClick={handleResetSettings} variant="outline" className="flex-1">
+                    <Button onClick={resetSettings} variant="outline" className="flex-1">
                       <RotateCcw className="w-4 h-4 mr-2" />
                       Reset to Defaults
                     </Button>

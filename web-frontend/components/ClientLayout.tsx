@@ -2,15 +2,13 @@
 import { ThemeProvider } from '@/components/theme-provider';
 import NavBar from '@/components/NavBar';
 import { useSettingsStore } from '@/lib/settings-store';
-import { useEffect, useState } from 'react';
 import { Toaster } from '@/components/ui/sonner';
+import { useMount } from '@/lib/hooks/useMount';
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const lighting = useSettingsStore((s) => s.lighting);
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const mounted = useMount();
+
   if (!mounted) return null;
   return (
     <div className="min-h-screen relative">

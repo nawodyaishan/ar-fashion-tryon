@@ -5,10 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { 
-  Sparkles, 
-  Camera, 
-  Cpu, 
+import {
+  Sparkles,
+  Camera,
+  Cpu,
   Globe,
   Github,
   Heart,
@@ -23,7 +23,7 @@ import {
   Target,
   CheckCircle,
   ArrowRight,
-  ExternalLink
+  ExternalLink,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -33,7 +33,7 @@ const techStack = [
   { name: 'Three.js', description: '3D graphics and rendering', icon: Cpu },
   { name: 'TypeScript', description: 'Type-safe development', icon: Shield },
   { name: 'Tailwind CSS', description: 'Modern styling framework', icon: Lightbulb },
-  { name: 'shadcn/ui', description: 'Beautiful UI components', icon: Sparkles }
+  { name: 'shadcn/ui', description: 'Beautiful UI components', icon: Sparkles },
 ];
 
 const roadmapItems = [
@@ -42,37 +42,38 @@ const roadmapItems = [
   { title: 'Real-time Processing', status: 'in-progress', progress: 75 },
   { title: 'Fashion Gallery', status: 'in-progress', progress: 45 },
   { title: 'AI Recommendations', status: 'planned', progress: 0 },
-  { title: 'Social Sharing', status: 'planned', progress: 0 }
+  { title: 'Social Sharing', status: 'planned', progress: 0 },
 ];
 
 const features = [
   {
     icon: Camera,
     title: 'Advanced AR Technology',
-    description: 'State-of-the-art augmented reality for realistic virtual try-on experiences.'
+    description: 'State-of-the-art augmented reality for realistic virtual try-on experiences.',
   },
   {
     icon: Zap,
     title: 'Real-time Processing',
-    description: 'Lightning-fast processing with optimized algorithms for instant results.'
+    description: 'Lightning-fast processing with optimized algorithms for instant results.',
   },
   {
     icon: Shield,
     title: 'Privacy-First Design',
-    description: 'All processing happens locally on your device. Your images never leave your browser.'
+    description:
+      'All processing happens locally on your device. Your images never leave your browser.',
   },
   {
     icon: Smartphone,
     title: 'Cross-Platform',
-    description: 'Works seamlessly across desktop, mobile, and tablet devices.'
-  }
+    description: 'Works seamlessly across desktop, mobile, and tablet devices.',
+  },
 ];
 
 const stats = [
   { label: 'Beta Users', value: '10K+', icon: Users },
   { label: 'Try-On Sessions', value: '50K+', icon: Camera },
   { label: 'Accuracy Rate', value: '98%', icon: Target },
-  { label: 'Processing Speed', value: '<2s', icon: Zap }
+  { label: 'Processing Speed', value: '<2s', icon: Zap },
 ];
 
 export default function AboutPage() {
@@ -87,18 +88,19 @@ export default function AboutPage() {
             </div>
             <div>
               <h1 className="text-4xl md:text-5xl font-bold">
-                About <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                About{' '}
+                <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                   AR Fashion Try-On
                 </span>
               </h1>
             </div>
           </div>
-          
+
           <p className="text-xl text-muted-foreground leading-relaxed max-w-3xl mx-auto mb-8">
-            Revolutionizing online fashion shopping with cutting-edge augmented reality technology. 
+            Revolutionizing online fashion shopping with cutting-edge augmented reality technology.
             Try on clothes virtually with unprecedented realism and accuracy.
           </p>
-          
+
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link href="/try-on">
               <Button size="lg" className="h-12 px-6">
@@ -143,9 +145,9 @@ export default function AboutPage() {
               </div>
               <h2 className="text-2xl font-bold mb-4">Our Mission</h2>
               <p className="text-lg text-muted-foreground leading-relaxed">
-                We believe the future of fashion retail is virtual. Our mission is to eliminate the guesswork 
-                in online shopping by providing the most accurate and intuitive AR try-on experience possible, 
-                making fashion accessible and enjoyable for everyone.
+                We believe the future of fashion retail is virtual. Our mission is to eliminate the
+                guesswork in online shopping by providing the most accurate and intuitive AR try-on
+                experience possible, making fashion accessible and enjoyable for everyone.
               </p>
             </div>
           </CardContent>
@@ -156,13 +158,17 @@ export default function AboutPage() {
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold mb-4">Why Choose AR Fashion Try-On?</h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Built with the latest technology to deliver an unparalleled virtual shopping experience
+              Built with the latest technology to deliver an unparalleled virtual shopping
+              experience
             </p>
           </div>
-          
+
           <div className="grid md:grid-cols-2 gap-8">
             {features.map((feature) => (
-              <Card key={feature.title} className="group hover:shadow-lg transition-all duration-300">
+              <Card
+                key={feature.title}
+                className="group hover:shadow-lg transition-all duration-300"
+              >
                 <CardContent className="pt-6">
                   <div className="flex items-start gap-4">
                     <div className="p-3 rounded-xl bg-primary/10 group-hover:bg-primary/20 transition-colors">
@@ -187,7 +193,7 @@ export default function AboutPage() {
               Powered by cutting-edge technologies and modern web standards
             </p>
           </div>
-          
+
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             {techStack.map((tech) => (
               <Card key={tech.name} className="group hover:shadow-md transition-all duration-300">
@@ -211,7 +217,7 @@ export default function AboutPage() {
               Track our progress as we continue to innovate and improve the AR try-on experience
             </p>
           </div>
-          
+
           <Card>
             <CardContent className="pt-6">
               <div className="space-y-6">
@@ -228,12 +234,23 @@ export default function AboutPage() {
                         )}
                         <span className="font-medium">{item.title}</span>
                       </div>
-                      <Badge 
-                        variant={item.status === 'completed' ? 'default' : item.status === 'in-progress' ? 'secondary' : 'outline'}
-                        className={item.status === 'completed' ? 'bg-green-500 hover:bg-green-600' : ''}
+                      <Badge
+                        variant={
+                          item.status === 'completed'
+                            ? 'default'
+                            : item.status === 'in-progress'
+                              ? 'secondary'
+                              : 'outline'
+                        }
+                        className={
+                          item.status === 'completed' ? 'bg-green-500 hover:bg-green-600' : ''
+                        }
                       >
-                        {item.status === 'completed' ? 'Done' : 
-                         item.status === 'in-progress' ? 'In Progress' : 'Planned'}
+                        {item.status === 'completed'
+                          ? 'Done'
+                          : item.status === 'in-progress'
+                            ? 'In Progress'
+                            : 'Planned'}
                       </Badge>
                     </div>
                     <Progress value={item.progress} className="h-2" />
@@ -253,14 +270,15 @@ export default function AboutPage() {
                   <Rocket className="w-8 h-8 text-white" />
                 </div>
               </div>
-              
+
               <div>
                 <h2 className="text-2xl font-bold mb-2">Ready to Experience the Future?</h2>
                 <p className="text-muted-foreground">
-                  Join thousands of users who are already experiencing the magic of AR fashion try-on
+                  Join thousands of users who are already experiencing the magic of AR fashion
+                  try-on
                 </p>
               </div>
-              
+
               <div className="flex flex-col sm:flex-row gap-4 items-center justify-center">
                 <Link href="/try-on">
                   <Button size="lg" className="h-12 px-8">
@@ -283,8 +301,8 @@ export default function AboutPage() {
           <Alert className="max-w-2xl mx-auto">
             <Globe className="h-4 w-4" />
             <AlertDescription>
-              This project is open source and built with ❤️ for the community. 
-              Contributions and feedback are always welcome!
+              This project is open source and built with ❤️ for the community. Contributions and
+              feedback are always welcome!
             </AlertDescription>
           </Alert>
         </div>
