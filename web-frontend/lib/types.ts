@@ -22,3 +22,30 @@ export interface NavigationItem {
   icon: React.ComponentType<{ className?: string }>;
   badge?: string;
 }
+
+export interface Garment {
+  id: string;
+  name: string;
+  src: string;
+  width: number;
+  height: number;
+  sizeKb: number;
+  category?: 'tops' | 'jackets' | 'misc';
+}
+
+export interface Transform {
+  x: number;
+  y: number;
+  scale: number;
+  rotation: number;
+  opacity: number;
+  lockAspect: boolean;
+}
+
+export type PoseConfidence = 'Low' | 'Okay' | 'Good';
+
+export interface Status {
+  fps?: number;
+  processing?: boolean;
+  message?: string;
+}

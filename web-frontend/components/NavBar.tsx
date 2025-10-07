@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ModeToggle } from '@/components/ModeToggle';
 import { NavigationLink } from '@/components/NavigationLink';
 import {
@@ -14,12 +15,15 @@ import {
   NavigationMenuList,
   NavigationMenuTrigger,
 } from '@/components/ui/navigation-menu';
-import { Sparkles, Settings, Zap } from 'lucide-react';
+import { Sparkles, Settings, Zap, HelpCircle, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { navigationItems } from '@/lib/constants';
+import { useTryonStore } from '@/lib/tryon-store';
 
 export default function NavBar() {
   const pathname = usePathname();
+  const { activeMode, setMode, openHelp, openAbout } = useTryonStore();
+  const isTryOnPage = pathname === '/try-on';
 
   return (
     <nav className="w-full border-b bg-background/80 backdrop-blur-xl sticky top-0 z-50">
@@ -41,13 +45,24 @@ export default function NavBar() {
             </div>
           </Link>
 
-          {/* Navigation Menu - Desktop */}
-          <div className="hidden md:flex items-center space-x-1">
-            {navigationItems.map((item) => {
-              const isActive = pathname === item.href;
-              return <NavigationLink key={item.href} item={item} isActive={isActive} />;
-            })}
-          </div>
+          {/* Center: Tabs (Try-On page only) or Navigation Menu */}
+          {isTryOnPage ? (
+            <div className="hidden md:block">
+              <Tabs value={activeMode} onValueChange={(value) => setMode(value as 'ar' | 'photo')}>
+                <TabsList>
+                  <TabsTrigger value="ar">Live AR Preview</TabsTrigger>
+                  <TabsTrigger value="photo">Photo Try-On (HD)</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
+          ) : (
+            <div className="hidden md:flex items-center space-x-1">
+              {navigationItems.map((item) => {
+                const isActive = pathname === item.href;
+                return <NavigationLink key={item.href} item={item} isActive={isActive} />;
+              })}
+            </div>
+          )}
 
           {/* Mobile Navigation Menu */}
           <div className="md:hidden">
@@ -100,26 +115,44 @@ export default function NavBar() {
           </div>
 
           {/* Right Section */}
-          <div className="flex items-center space-x-3">
-            {/* Settings Button - Desktop */}
-            <div className="hidden md:block">
-              <Link href="/settings">
-                <Button
-                  variant={pathname === '/settings' ? 'default' : 'outline'}
-                  size="sm"
-                  className="h-10"
-                >
-                  <Settings className="w-4 h-4 mr-2" />
-                  Settings
+          <div className="flex items-center space-x-2">
+            {/* Try-On Page Actions */}
+            {isTryOnPage && (
+              <>
+                <Button variant="ghost" size="sm" onClick={openHelp} aria-label="Help">
+                  <HelpCircle className="w-4 h-4" />
+                  <span className="ml-2 hidden lg:inline">Help</span>
                 </Button>
-              </Link>
-            </div>
+                <Button variant="ghost" size="sm" onClick={openAbout} aria-label="About">
+                  <Info className="w-4 h-4" />
+                  <span className="ml-2 hidden lg:inline">About</span>
+                </Button>
+              </>
+            )}
+
+            {/* Settings Button - Desktop (not on try-on page) */}
+            {!isTryOnPage && (
+              <div className="hidden md:block">
+                <Link href="/settings">
+                  <Button
+                    variant={pathname === '/settings' ? 'default' : 'outline'}
+                    size="sm"
+                    className="h-10"
+                  >
+                    <Settings className="w-4 h-4 mr-2" />
+                    Settings
+                  </Button>
+                </Link>
+              </div>
+            )}
 
             {/* Performance Indicator */}
-            <div className="hidden lg:flex items-center space-x-2 px-3 py-2 rounded-lg bg-muted/50">
-              <Zap className="w-4 h-4 text-green-500" />
-              <span className="text-xs font-medium text-muted-foreground">Ready</span>
-            </div>
+            {!isTryOnPage && (
+              <div className="hidden lg:flex items-center space-x-2 px-3 py-2 rounded-lg bg-muted/50">
+                <Zap className="w-4 h-4 text-green-500" />
+                <span className="text-xs font-medium text-muted-foreground">Ready</span>
+              </div>
+            )}
 
             {/* Theme Toggle */}
             <ModeToggle />

@@ -4,14 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Development Commands
 
-This project uses **pnpm** as the package manager. Make sure you have pnpm installed globally (`npm install -g pnpm`).
+This project uses **pnpm** as the package manager (version 10.13.1 specified in packageManager field).
 
-- **Development server**: `pnpm dev` (uses Turbopack for faster builds)
+- **Development server**: `pnpm dev` (uses Turbopack, runs on http://localhost:3000)
 - **Build**: `pnpm build`
 - **Start production**: `pnpm start`
-- **Lint**: `pnpm lint`
-- **Lint with fix**: `pnpm lint:fix`
-- **Format**: `pnpm format`
+- **Lint**: `pnpm lint` (ESLint with TypeScript support)
+- **Lint with fix**: `pnpm lint:fix` (auto-fixes issues)
+- **Format**: `pnpm format` (Prettier formatting)
 - **Install dependencies**: `pnpm install`
 
 ## Project Architecture
@@ -62,11 +62,12 @@ This is an AR Fashion Try-On web application built with Next.js 15, featuring a 
 
 ### Development Notes
 
-- Client/server boundary properly separated (ClientLayout handles client-side logic)
-- All pages use consistent glassmorphic styling patterns
-- Settings are globally applied through the settings store
-- Mobile-responsive design with adaptive grid layouts
-- Uses TypeScript with strict mode enabled
+- **Client/Server Boundary**: ClientLayout handles all client-side logic (theme provider, navigation) while main layout is server-side
+- **Styling Consistency**: All pages use glassmorphic patterns with backdrop-blur effects
+- **State Management**: Zustand store with localStorage persistence for settings (e.g., lighting toggle)
+- **Type Safety**: TypeScript strict mode enabled with custom types in `lib/types.ts`
+- **Code Quality**: ESLint configured with Next.js, TypeScript, and Prettier plugins
+- **Import Aliases**: `@/*` maps to project root for clean imports
 
 ### MediaPipe Integration
 
@@ -75,9 +76,15 @@ The project includes MediaPipe dependencies for pose detection, indicating plann
 - `@mediapipe/camera_utils`
 - `@mediapipe/pose`
 
-### Import Aliases
+### Project Constants
 
-- `@/components` - Components directory
-- `@/lib` - Library utilities
-- `@/components/ui` - UI components
-- Base URL configured for absolute imports from project root
+The application uses centralized configuration in `lib/constants.ts`:
+- **features**: Homepage feature cards with icons, routes, and gradients
+- **highlights**: Key selling points displayed on homepage
+- **navigationItems**: Navigation menu structure
+- **performanceOptions** & **languageOptions**: Settings configurations
+
+### Custom Hooks
+
+- `useMount` (lib/hooks/useMount.ts): Client-side mount detection for hydration safety
+- `useSettings` (lib/hooks/useSettings.ts): Wrapper for settings store access
