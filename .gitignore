@@ -173,3 +173,5 @@ coverage/
 htmlcov/
 
 .idea
+
+image-extraction-backend/static
