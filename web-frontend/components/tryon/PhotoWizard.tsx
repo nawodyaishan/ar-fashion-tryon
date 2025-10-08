@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
@@ -8,8 +8,9 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Slider } from '@/components/ui/slider';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { useVtonStore } from '@/lib/store/useVtonStore';
 import { useTryonStore } from '@/lib/tryon-store';
-import { loadImageFromFile } from '@/lib/canvas';
 import {
   Upload,
   Image as ImageIcon,
@@ -21,32 +22,39 @@ import {
   Download,
   RotateCcw,
   Sparkles,
+  AlertCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import Image from 'next/image';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 export default function PhotoWizard() {
-  const [currentStep, setCurrentStep] = useState(1);
-  const [removeBackground, setRemoveBackground] = useState(false);
-  const [splitPosition, setSplitPosition] = useState(50);
-
   const bodyFileInputRef = useRef<HTMLInputElement>(null);
   const garmentFileInputRef = useRef<HTMLInputElement>(null);
 
+  // VTON Store (backend integration)
   const {
-    bodyPhoto,
-    garmentPhoto,
-    resultPhoto,
-    setBodyPhoto,
-    setGarmentPhoto,
-    setResultPhoto,
-    resetPhotoMode,
+    step,
+    setStep,
+    body,
+    garment,
+    options,
+    setBody,
+    setGarmentFile,
+    setGarmentId,
+    setOptions,
     status,
-    setStatus,
-    garments,
-    selectGarment,
-    openGallery,
-  } = useTryonStore();
+    error,
+    resultUrl,
+    tryOn,
+    regenerate,
+    reset,
+  } = useVtonStore();
+
+  // Legacy tryon store for garment gallery
+  const { garments, openGallery } = useTryonStore();
+
+  const [splitPosition, setSplitPosition] = useState(50);
 
   // Handle body photo upload
   const handleBodyUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -63,14 +71,8 @@ export default function PhotoWizard() {
       return;
     }
 
-    try {
-      const src = await loadImageFromFile(file);
-      setBodyPhoto(src);
-      toast.success('Body photo uploaded');
-    } catch (err) {
-      toast.error('Failed to upload photo');
-      console.error(err);
-    }
+    setBody(file);
+    toast.success('Body photo uploaded');
   };
 
   // Handle garment photo upload
@@ -88,43 +90,30 @@ export default function PhotoWizard() {
       return;
     }
 
-    try {
-      const src = await loadImageFromFile(file);
-      setGarmentPhoto(src);
-      toast.success('Garment photo uploaded');
-    } catch (err) {
-      toast.error('Failed to upload photo');
-      console.error(err);
-    }
+    setGarmentFile(file);
+    toast.success('Garment photo uploaded');
   };
 
   // Select from gallery
-  const handleSelectFromGallery = (garmentSrc: string) => {
-    setGarmentPhoto(garmentSrc);
+  const handleSelectFromGallery = (garmentSrc: string, garmentId: string) => {
+    setGarmentId(garmentId, garmentSrc);
     toast.success('Garment selected');
   };
 
-  // Generate try-on (simulated)
+  // Generate try-on
   const handleGenerate = async () => {
-    if (!bodyPhoto || !garmentPhoto) return;
-
-    setStatus({ processing: true, message: 'Generating try-on result...' });
-
-    // Simulate API call (10-30s)
-    await new Promise((resolve) => setTimeout(resolve, 3000));
-
-    // For demo, use body photo as result (in real implementation, this would be the API response)
-    setResultPhoto(bodyPhoto);
-    setStatus({ processing: false, message: 'Try-on complete!' });
-    toast.success('Try-on generated successfully!');
+    await tryOn();
+    if (error) {
+      toast.error(error);
+    }
   };
 
   // Download result
   const handleDownload = () => {
-    if (!resultPhoto) return;
+    if (!resultUrl) return;
 
     const link = document.createElement('a');
-    link.href = resultPhoto;
+    link.href = resultUrl;
     link.download = `photo-tryon-${Date.now()}.png`;
     document.body.appendChild(link);
     link.click();
@@ -133,47 +122,73 @@ export default function PhotoWizard() {
   };
 
   // Regenerate
-  const handleRegenerate = () => {
-    setResultPhoto(null);
-    setCurrentStep(3);
+  const handleRegenerate = async () => {
+    await regenerate();
+    if (error) {
+      toast.error(error);
+    }
   };
 
   // New try-on
   const handleNewTryOn = () => {
-    resetPhotoMode();
-    setCurrentStep(1);
-    setRemoveBackground(false);
+    reset();
+    toast.info('Starting new try-on');
   };
 
-  const canProceedToStep2 = bodyPhoto !== null;
-  const canProceedToStep3 = bodyPhoto !== null && garmentPhoto !== null;
+  // Navigate steps
+  const handleBack = () => {
+    const steps: Array<typeof step> = ['BODY', 'GARMENT', 'GENERATE'];
+    const currentIndex = steps.indexOf(step);
+    if (currentIndex > 0) {
+      setStep(steps[currentIndex - 1]);
+    }
+  };
+
+  const handleNext = () => {
+    const steps: Array<typeof step> = ['BODY', 'GARMENT', 'GENERATE'];
+    const currentIndex = steps.indexOf(step);
+    if (currentIndex < steps.length - 1) {
+      setStep(steps[currentIndex + 1]);
+    }
+  };
+
+  const canProceedFromBody = body.file !== undefined;
+  const canProceedFromGarment = garment.file !== undefined || garment.id !== undefined;
+  const canGenerate = canProceedFromBody && canProceedFromGarment;
+
+  const stepNumber = {
+    BODY: 1,
+    GARMENT: 2,
+    GENERATE: 3,
+    RESULT: 4,
+  }[step];
 
   return (
     <div className="w-full h-full flex flex-col">
       {/* Stepper */}
       <div className="p-4 border-b">
         <div className="flex items-center justify-between max-w-md mx-auto">
-          {[1, 2, 3].map((step) => (
-            <div key={step} className="flex items-center">
+          {[1, 2, 3].map((num) => (
+            <div key={num} className="flex items-center">
               <div
                 className={`flex items-center justify-center w-8 h-8 rounded-full border-2 transition-all ${
-                  currentStep >= step
+                  stepNumber >= num
                     ? 'bg-primary border-primary text-primary-foreground'
                     : 'border-muted-foreground/30 text-muted-foreground'
                 }`}
               >
-                {(step === 1 && bodyPhoto) ||
-                (step === 2 && garmentPhoto) ||
-                (step === 3 && resultPhoto) ? (
+                {(num === 1 && body.file) ||
+                (num === 2 && (garment.file || garment.id)) ||
+                (num === 3 && resultUrl) ? (
                   <Check className="h-4 w-4" />
                 ) : (
-                  <span>{step}</span>
+                  <span>{num}</span>
                 )}
               </div>
-              {step < 3 && (
+              {num < 3 && (
                 <div
                   className={`w-16 sm:w-24 h-0.5 mx-2 ${
-                    currentStep > step ? 'bg-primary' : 'bg-muted-foreground/30'
+                    stepNumber > num ? 'bg-primary' : 'bg-muted-foreground/30'
                   }`}
                 />
               )}
@@ -185,16 +200,16 @@ export default function PhotoWizard() {
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-6">
         {/* Step 1: Body Photo */}
-        {currentStep === 1 && (
+        {step === 'BODY' && (
           <div className="max-w-2xl mx-auto space-y-6">
             <div className="text-center space-y-2">
               <h2 className="text-2xl font-bold">Upload Body Photo</h2>
               <p className="text-sm text-muted-foreground">
-                Upload a clear photo of yourself facing the camera
+                Use a clear, front-facing upper-body photo
               </p>
             </div>
 
-            {!bodyPhoto ? (
+            {!body.file ? (
               <Card
                 className="border-2 border-dashed cursor-pointer hover:border-primary/50 transition-all"
                 onClick={() => bodyFileInputRef.current?.click()}
@@ -208,7 +223,7 @@ export default function PhotoWizard() {
                   <div className="space-y-2">
                     <p className="font-medium">Click to upload or drag and drop</p>
                     <p className="text-xs text-muted-foreground">
-                      JPG, PNG up to 10MB • Best with plain background
+                      JPG, PNG up to 10MB • Plain background recommended
                     </p>
                   </div>
                 </div>
@@ -216,12 +231,12 @@ export default function PhotoWizard() {
             ) : (
               <div className="space-y-4">
                 <div className="relative aspect-[3/4] max-w-md mx-auto rounded-lg overflow-hidden border">
-                  <Image src={bodyPhoto} alt="Body photo" fill className="object-contain" />
+                  <Image src={body.previewUrl!} alt="Body photo" fill className="object-contain" />
                   <Button
                     size="icon"
                     variant="destructive"
                     className="absolute top-2 right-2"
-                    onClick={() => setBodyPhoto(null)}
+                    onClick={() => setBody(undefined)}
                   >
                     <X className="h-4 w-4" />
                   </Button>
@@ -231,11 +246,11 @@ export default function PhotoWizard() {
                   <div className="flex items-center gap-2">
                     <Switch
                       id="remove-bg"
-                      checked={removeBackground}
-                      onCheckedChange={setRemoveBackground}
+                      checked={options.removeBg || false}
+                      onCheckedChange={(checked) => setOptions({ removeBg: checked })}
                     />
                     <Label htmlFor="remove-bg" className="text-sm cursor-pointer">
-                      Remove background (coming soon)
+                      Remove background
                     </Label>
                   </div>
                   <Button
@@ -260,40 +275,35 @@ export default function PhotoWizard() {
         )}
 
         {/* Step 2: Garment Photo */}
-        {currentStep === 2 && (
+        {step === 'GARMENT' && (
           <div className="max-w-3xl mx-auto space-y-6">
             <div className="text-center space-y-2">
               <h2 className="text-2xl font-bold">Choose Garment</h2>
               <p className="text-sm text-muted-foreground">
-                Select from gallery or upload your own garment photo
+                Transparent PNGs align best; avoid heavy folds
               </p>
             </div>
 
             <Tabs defaultValue="gallery" className="w-full">
               <TabsList className="grid w-full grid-cols-2 max-w-md mx-auto">
-                <TabsTrigger value="gallery">Gallery</TabsTrigger>
+                <TabsTrigger value="gallery">Select from Gallery</TabsTrigger>
                 <TabsTrigger value="upload">Upload</TabsTrigger>
               </TabsList>
 
               <TabsContent value="gallery" className="mt-6">
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                  {garments.slice(0, 8).map((garment) => (
+                  {garments.slice(0, 12).map((g) => (
                     <button
-                      key={garment.id}
-                      onClick={() => handleSelectFromGallery(garment.src)}
+                      key={g.id}
+                      onClick={() => handleSelectFromGallery(g.src, g.id)}
                       className={`relative aspect-square rounded-lg border-2 overflow-hidden transition-all hover:scale-105 ${
-                        garmentPhoto === garment.src
+                        garment.id === g.id
                           ? 'border-primary ring-2 ring-primary/20'
                           : 'border-border hover:border-primary/50'
                       }`}
                     >
-                      <Image
-                        src={garment.src}
-                        alt={garment.name}
-                        fill
-                        className="object-contain p-2"
-                      />
-                      {garmentPhoto === garment.src && (
+                      <Image src={g.src} alt={g.name} fill className="object-contain p-2" />
+                      {garment.id === g.id && (
                         <div className="absolute inset-0 bg-primary/10 flex items-center justify-center">
                           <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center">
                             <Check className="h-5 w-5 text-primary-foreground" />
@@ -312,7 +322,7 @@ export default function PhotoWizard() {
               </TabsContent>
 
               <TabsContent value="upload" className="mt-6">
-                {!garmentPhoto ? (
+                {!garment.file ? (
                   <Card
                     className="border-2 border-dashed cursor-pointer hover:border-primary/50 transition-all max-w-md mx-auto"
                     onClick={() => garmentFileInputRef.current?.click()}
@@ -334,12 +344,17 @@ export default function PhotoWizard() {
                 ) : (
                   <div className="space-y-4 max-w-md mx-auto">
                     <div className="relative aspect-square rounded-lg overflow-hidden border">
-                      <Image src={garmentPhoto} alt="Garment photo" fill className="object-contain p-4" />
+                      <Image
+                        src={garment.previewUrl!}
+                        alt="Garment photo"
+                        fill
+                        className="object-contain p-4"
+                      />
                       <Button
                         size="icon"
                         variant="destructive"
                         className="absolute top-2 right-2"
-                        onClick={() => setGarmentPhoto(null)}
+                        onClick={() => setGarmentFile(undefined)}
                       >
                         <X className="h-4 w-4" />
                       </Button>
@@ -368,7 +383,7 @@ export default function PhotoWizard() {
         )}
 
         {/* Step 3: Generate */}
-        {currentStep === 3 && !resultPhoto && (
+        {step === 'GENERATE' && !resultUrl && (
           <div className="max-w-2xl mx-auto space-y-6">
             <div className="text-center space-y-2">
               <h2 className="text-2xl font-bold">Generate Try-On</h2>
@@ -382,11 +397,15 @@ export default function PhotoWizard() {
               <Card className="p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">Body Photo</span>
-                  {bodyPhoto && <Badge variant="outline"><Check className="h-3 w-3" /></Badge>}
+                  {body.file && (
+                    <Badge variant="outline">
+                      <Check className="h-3 w-3" />
+                    </Badge>
+                  )}
                 </div>
-                {bodyPhoto && (
+                {body.previewUrl && (
                   <div className="relative aspect-[3/4] rounded-md overflow-hidden border">
-                    <Image src={bodyPhoto} alt="Body" fill className="object-cover" />
+                    <Image src={body.previewUrl} alt="Body" fill className="object-cover" />
                   </div>
                 )}
               </Card>
@@ -395,45 +414,143 @@ export default function PhotoWizard() {
               <Card className="p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">Garment</span>
-                  {garmentPhoto && <Badge variant="outline"><Check className="h-3 w-3" /></Badge>}
+                  {(garment.file || garment.id) && (
+                    <Badge variant="outline">
+                      <Check className="h-3 w-3" />
+                    </Badge>
+                  )}
                 </div>
-                {garmentPhoto && (
+                {garment.previewUrl && (
                   <div className="relative aspect-[3/4] rounded-md overflow-hidden border bg-muted/20">
-                    <Image src={garmentPhoto} alt="Garment" fill className="object-contain p-4" />
+                    <Image
+                      src={garment.previewUrl}
+                      alt="Garment"
+                      fill
+                      className="object-contain p-4"
+                    />
                   </div>
                 )}
               </Card>
             </div>
 
+            {/* Advanced Settings */}
+            <Accordion type="single" collapsible className="w-full">
+              <AccordionItem value="advanced">
+                <AccordionTrigger className="text-sm">Advanced Settings (Optional)</AccordionTrigger>
+                <AccordionContent className="space-y-4 pt-4">
+                  {/* Inference Steps */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm">Inference Steps</Label>
+                      <span className="text-xs text-muted-foreground">
+                        {options.numInferenceSteps ?? 50}
+                      </span>
+                    </div>
+                    <Slider
+                      value={[options.numInferenceSteps ?? 50]}
+                      onValueChange={([value]) => setOptions({ numInferenceSteps: value })}
+                      min={20}
+                      max={100}
+                      step={5}
+                      className="w-full"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Higher values = better quality, slower processing (default: 50)
+                    </p>
+                  </div>
+
+                  {/* Guidance Scale */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm">Guidance Scale</Label>
+                      <span className="text-xs text-muted-foreground">
+                        {(options.guidanceScale ?? 2.5).toFixed(1)}
+                      </span>
+                    </div>
+                    <Slider
+                      value={[options.guidanceScale ?? 2.5]}
+                      onValueChange={([value]) => setOptions({ guidanceScale: value })}
+                      min={1.0}
+                      max={10.0}
+                      step={0.5}
+                      className="w-full"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Higher values = more faithful to garment (default: 2.5)
+                    </p>
+                  </div>
+
+                  {/* Seed */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm">Seed</Label>
+                      <span className="text-xs text-muted-foreground">
+                        {options.seed ?? 42}
+                      </span>
+                    </div>
+                    <Slider
+                      value={[options.seed ?? 42]}
+                      onValueChange={([value]) => setOptions({ seed: value })}
+                      min={-1}
+                      max={999}
+                      step={1}
+                      className="w-full"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      -1 for random, fixed seed for reproducibility (default: 42)
+                    </p>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+
+            {error && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+
             <Button
               size="lg"
               onClick={handleGenerate}
-              disabled={!canProceedToStep3 || status.processing}
+              disabled={!canGenerate || status === 'uploading' || status === 'processing'}
               className="w-full"
             >
-              {status.processing ? (
+              {status === 'uploading' ? (
                 <>
                   <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                  Generating... (10-30s)
+                  Uploading...
+                </>
+              ) : status === 'processing' ? (
+                <>
+                  <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                  Generating... (10-30s typical)
                 </>
               ) : (
                 <>
                   <Sparkles className="h-5 w-5 mr-2" />
-                  Generate Try-On
+                  Try-On
                 </>
               )}
             </Button>
 
-            {status.processing && (
-              <div className="text-center text-sm text-muted-foreground" role="status" aria-live="polite">
-                {status.message}
+            {(status === 'uploading' || status === 'processing') && (
+              <div
+                className="text-center text-sm text-muted-foreground"
+                role="status"
+                aria-live="polite"
+              >
+                {status === 'uploading'
+                  ? 'Uploading images to server...'
+                  : 'High-fidelity mode may take longer during peak times'}
               </div>
             )}
           </div>
         )}
 
         {/* Result View */}
-        {resultPhoto && (
+        {step === 'RESULT' && resultUrl && (
           <div className="max-w-4xl mx-auto space-y-6">
             <div className="text-center space-y-2">
               <h2 className="text-2xl font-bold">Your Try-On Result</h2>
@@ -444,14 +561,14 @@ export default function PhotoWizard() {
 
             {/* Before/After Slider */}
             <div className="relative aspect-[3/4] max-w-2xl mx-auto rounded-lg overflow-hidden border">
-              {bodyPhoto && (
-                <Image src={bodyPhoto} alt="Before" fill className="object-cover" />
+              {body.previewUrl && (
+                <Image src={body.previewUrl} alt="Before" fill className="object-cover" />
               )}
               <div
                 className="absolute inset-0"
                 style={{ clipPath: `inset(0 ${100 - splitPosition}% 0 0)` }}
               >
-                <Image src={resultPhoto} alt="After" fill className="object-cover" />
+                <Image src={resultUrl} alt="After" fill className="object-cover" />
               </div>
 
               {/* Slider control */}
@@ -481,7 +598,7 @@ export default function PhotoWizard() {
                 <Download className="h-4 w-4 mr-2" />
                 Download
               </Button>
-              <Button variant="outline" onClick={handleRegenerate}>
+              <Button variant="outline" onClick={handleRegenerate} disabled={status === 'processing'}>
                 <RotateCcw className="h-4 w-4 mr-2" />
                 Regenerate
               </Button>
@@ -494,30 +611,30 @@ export default function PhotoWizard() {
       </div>
 
       {/* Navigation */}
-      {!resultPhoto && (
+      {step !== 'RESULT' && (
         <div className="p-4 border-t flex items-center justify-between">
           <Button
             variant="outline"
-            onClick={() => setCurrentStep(Math.max(1, currentStep - 1))}
-            disabled={currentStep === 1}
+            onClick={handleBack}
+            disabled={step === 'BODY'}
           >
             <ChevronLeft className="h-4 w-4 mr-2" />
             Back
           </Button>
 
           <div className="text-sm text-muted-foreground">
-            Step {currentStep} of 3
+            Step {stepNumber} of 3
           </div>
 
-          {currentStep < 3 ? (
+          {step !== 'GENERATE' ? (
             <Button
-              onClick={() => setCurrentStep(currentStep + 1)}
+              onClick={handleNext}
               disabled={
-                (currentStep === 1 && !canProceedToStep2) ||
-                (currentStep === 2 && !canProceedToStep3)
+                (step === 'BODY' && !canProceedFromBody) ||
+                (step === 'GARMENT' && !canProceedFromGarment)
               }
             >
-              Next
+              Continue
               <ChevronRight className="h-4 w-4 ml-2" />
             </Button>
           ) : (
