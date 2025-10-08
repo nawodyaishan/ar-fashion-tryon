@@ -1,0 +1,20 @@
+# FastAPI and server
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+python-multipart==0.0.6
+
+# Pydantic for settings
+pydantic==2.5.3
+pydantic-settings==2.1.0
+
+# ML and Computer Vision
+tensorflow==2.15.0
+numpy==1.24.3
+pillow==10.2.0
+opencv-python==4.9.0.80
+
+# Background Removal
+rembg==2.0.55
+
+# Logging and utilities
+python-json-logger==2.0.7
