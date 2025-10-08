@@ -2,14 +2,14 @@
 
 import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { Slider } from '@/components/ui/slider';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { useTryonStore } from '@/lib/tryon-store';
 import { loadImageFromFile, getImageDimensions, getFileSizeKB } from '@/lib/canvas';
-import { Plus, Trash2, Image as ImageIcon } from 'lucide-react';
+import { TransformControls } from './TransformControls';
+import { Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import Image from 'next/image';
 
@@ -20,9 +20,6 @@ export default function ARPanel() {
     selectGarment,
     addGarment,
     removeGarment,
-    transform,
-    setTransform,
-    toggleLockAspect,
     snapToShoulders,
     setSnapToShoulders,
     poseConfidence,
@@ -161,76 +158,7 @@ export default function ARPanel() {
       <Separator />
 
       {/* Transform Controls */}
-      {selectedGarment ? (
-        <section className="space-y-4">
-          <h3 className="font-semibold">Transform</h3>
-
-          {/* Size */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label className="text-sm">Size</Label>
-              <span className="text-xs text-muted-foreground">{(transform.scale * 100).toFixed(0)}%</span>
-            </div>
-            <Slider
-              value={[transform.scale]}
-              onValueChange={([scale]) => setTransform({ scale })}
-              min={0.5}
-              max={2.0}
-              step={0.05}
-              className="w-full"
-            />
-          </div>
-
-          {/* Rotation */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label className="text-sm">Rotation</Label>
-              <span className="text-xs text-muted-foreground">{transform.rotation}°</span>
-            </div>
-            <Slider
-              value={[transform.rotation]}
-              onValueChange={([rotation]) => setTransform({ rotation })}
-              min={-180}
-              max={180}
-              step={1}
-              className="w-full"
-            />
-          </div>
-
-          {/* Opacity */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label className="text-sm">Opacity</Label>
-              <span className="text-xs text-muted-foreground">{transform.opacity}%</span>
-            </div>
-            <Slider
-              value={[transform.opacity]}
-              onValueChange={([opacity]) => setTransform({ opacity })}
-              min={0}
-              max={100}
-              step={1}
-              className="w-full"
-            />
-          </div>
-
-          {/* Lock Aspect Ratio */}
-          <div className="flex items-center justify-between">
-            <Label htmlFor="lock-aspect" className="text-sm cursor-pointer">
-              Lock Aspect Ratio
-            </Label>
-            <Switch
-              id="lock-aspect"
-              checked={transform.lockAspect}
-              onCheckedChange={toggleLockAspect}
-            />
-          </div>
-        </section>
-      ) : (
-        <section className="flex flex-col items-center justify-center py-12 text-center">
-          <ImageIcon className="h-12 w-12 text-muted-foreground/50 mb-3" />
-          <p className="text-sm text-muted-foreground">Select a garment to adjust transform</p>
-        </section>
-      )}
+      <TransformControls />
 
       <Separator />
 

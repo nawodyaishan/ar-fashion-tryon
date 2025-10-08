@@ -6,15 +6,15 @@ This directory should contain sample garment PNG images with transparency for th
 
 The application expects the following garment images:
 
-1. **white-tshirt.png** - A white t-shirt on transparent background (512x512px)
-2. **black-hoodie.png** - A black hoodie on transparent background (512x512px)
-3. **denim-jacket.png** - A denim jacket on transparent background (512x512px)
+1. **white-tshirt.jpg** - A white t-shirt garment image
+2. **black-hoodie.jpg** - A black hoodie garment image
+3. **denim-jacket.jpg** - A denim jacket garment image
 
 ## Image Requirements
 
-- **Format**: PNG with transparency
+- **Format**: JPG or PNG (PNG with transparency preferred for best results)
 - **Size**: Recommended 512x512px or larger
-- **Background**: Transparent (alpha channel)
+- **Background**: Transparent (for PNG) or clean background (for JPG)
 - **Orientation**: Front-facing garment view
 - **Quality**: High resolution for best AR results
 
