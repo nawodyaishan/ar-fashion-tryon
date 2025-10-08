@@ -60,11 +60,11 @@ interface TryonState {
 }
 
 const defaultTransform: Transform = {
-  x: 0,
-  y: 0,
+  x: 320,      // Center of typical video width
+  y: 180,      // Upper chest area
   scale: 1.0,
   rotation: 0,
-  opacity: 100,
+  opacity: 90,  // 0-100 range
   lockAspect: true,
 };
 
@@ -73,28 +73,28 @@ const sampleGarments: Garment[] = [
   {
     id: 'sample-1',
     name: 'White T-Shirt',
-    src: '/garments/white-tshirt.png',
+    src: '/garments/white-tshirt.jpg',
     width: 512,
     height: 512,
-    sizeKb: 45,
+    sizeKb: 3,
     category: 'tops',
   },
   {
     id: 'sample-2',
     name: 'Black Hoodie',
-    src: '/garments/black-hoodie.png',
+    src: '/garments/black-hoodie.jpg',
     width: 512,
     height: 512,
-    sizeKb: 52,
+    sizeKb: 4,
     category: 'tops',
   },
   {
     id: 'sample-3',
     name: 'Denim Jacket',
-    src: '/garments/denim-jacket.png',
+    src: '/garments/denim-jacket.jpg',
     width: 512,
     height: 512,
-    sizeKb: 68,
+    sizeKb: 41,
     category: 'jackets',
   },
 ];
@@ -212,7 +212,7 @@ export const useTryonStore = create<TryonState>()(
         }),
     }),
     {
-      name: 'tryon-store',
+      name: 'tryon-store-v2',
       partialize: (state) => ({
         // Only persist garments and settings, not transient state
         garments: state.garments,
