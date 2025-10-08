@@ -1,15 +1,10 @@
 // lib/services/garmentApi.ts - Garment Extraction API Service
 
-import type {
-  GarmentProcessResponse,
-  GarmentExtractionError,
-  GarmentHealthCheck,
-} from '@/lib/types';
+import type { GarmentExtractionError, GarmentHealthCheck, GarmentProcessResponse, } from '@/lib/types';
 import { http } from './http';
 
 // API Base URL for Garment Extraction Service
-const GARMENT_API_BASE =
-  process.env.NEXT_PUBLIC_GARMENT_API_BASE || 'http://localhost:5000';
+const GARMENT_API_BASE = process.env.NEXT_PUBLIC_GARMENT_API_BASE || 'http://localhost:6000';
 
 /**
  * Process a garment image through the extraction API
@@ -105,9 +100,7 @@ export async function extractGarment(
  */
 export async function checkGarmentApiHealth(): Promise<GarmentHealthCheck> {
   try {
-    const { data } = await http.get<GarmentHealthCheck>(
-      `${GARMENT_API_BASE}/api/health`,
-    );
+    const { data } = await http.get<GarmentHealthCheck>(`${GARMENT_API_BASE}/api/health`);
 
     console.log('🏥 Garment API Health:', data);
     return data;
