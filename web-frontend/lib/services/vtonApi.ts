@@ -121,7 +121,8 @@ export async function startTryOn(payload: ProcessImagesPayload, signal?: AbortSi
   return processImages(payload, signal);
 }
 
-export async function getJob(_jobId: string, _signal?: AbortSignal) {
+export async function getJob(jobId: string, signal?: AbortSignal) {
   // ML backend doesn't use job polling, so this is a no-op
+  console.warn('Job polling not supported by ML backend', { jobId, signal });
   throw new Error('Job polling not supported by ML backend');
 }

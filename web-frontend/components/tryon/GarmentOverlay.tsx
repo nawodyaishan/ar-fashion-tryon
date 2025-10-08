@@ -11,8 +11,15 @@ interface GarmentOverlayProps {
   containerHeight: number;
 }
 
-export function GarmentOverlay({ containerWidth: _containerWidth, containerHeight: _containerHeight }: GarmentOverlayProps) {
+export function GarmentOverlay({
+  containerWidth, // Reserved for future bounds calculation
+  containerHeight, // Reserved for future bounds calculation
+}: GarmentOverlayProps) {
   const { selectedGarmentId, garments, transform, setTransform } = useTryonStore();
+
+  // Suppress unused variable warnings - these are reserved for future use
+  void containerWidth;
+  void containerHeight;
 
   const [garmentDimensions, setGarmentDimensions] = useState({ width: 200, height: 300 });
   const imageRef = useRef<HTMLImageElement>(null);

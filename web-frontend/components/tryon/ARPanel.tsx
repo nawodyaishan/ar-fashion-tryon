@@ -8,8 +8,9 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { useTryonStore } from '@/lib/tryon-store';
 import { loadImageFromFile, getImageDimensions, getFileSizeKB } from '@/lib/canvas';
+import { extractAndPrepareGarment } from '@/lib/services/garmentApi';
 import { TransformControls } from './TransformControls';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import Image from 'next/image';
 
@@ -32,46 +33,65 @@ export default function ARPanel() {
 
   const selectedGarment = garments.find((g) => g.id === selectedGarmentId);
 
-  // Handle file upload
+  // Handle file upload with garment extraction
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     // Validate file type
-    if (!file.type.startsWith('image/png')) {
-      toast.error('Please upload a PNG file with transparency');
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please upload an image file (JPEG, PNG, WEBP)');
       return;
     }
 
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('File size must be less than 5MB');
+    // Validate file size (max 10MB for extraction API)
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('File size must be less than 10MB');
       return;
     }
 
     try {
       setUploading(true);
+      toast.loading('Extracting garment...', { id: 'extraction' });
 
-      // Load image
-      const src = await loadImageFromFile(file);
-      const dimensions = await getImageDimensions(src);
+      // Step 1: Extract garment through API
+      const { result, extractedFile } = await extractAndPrepareGarment(file);
 
-      // Create new garment
+      // Check if extraction was successful
+      if (!result.success || !extractedFile) {
+        toast.error(result.message || 'Failed to extract garment', { id: 'extraction' });
+        return;
+      }
+
+      // Step 2: Load extracted image
+      const extractedSrc = await loadImageFromFile(extractedFile);
+      const dimensions = await getImageDimensions(extractedSrc);
+
+      // Step 3: Create new garment with extraction metadata
       const newGarment = {
         id: `custom-${Date.now()}`,
         name: file.name.replace(/\.[^/.]+$/, ''),
-        src,
+        src: extractedSrc,
         width: dimensions.width,
         height: dimensions.height,
-        sizeKb: getFileSizeKB(file),
+        sizeKb: getFileSizeKB(extractedFile),
         category: 'misc' as const,
+        extracted: true,
+        extractedUrl: result.extraction?.cutout_url,
+        classification: result.classification || undefined,
+        processingTime: result.processing_time_ms || undefined,
       };
 
       addGarment(newGarment);
       selectGarment(newGarment.id);
-      toast.success('Garment uploaded successfully');
+
+      toast.success(
+        `Garment extracted: ${result.classification?.label.toUpperCase()} (${(result.classification!.confidence * 100).toFixed(0)}% confidence)`,
+        { id: 'extraction' },
+      );
     } catch (err) {
-      toast.error('Failed to upload garment');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to upload garment';
+      toast.error(errorMessage, { id: 'extraction' });
       console.error(err);
     } finally {
       setUploading(false);
@@ -128,8 +148,17 @@ export default function ARPanel() {
             disabled={uploading}
             className="flex-1"
           >
-            <Plus className="h-4 w-4 mr-2" />
-            {uploading ? 'Uploading...' : 'Add PNG'}
+            {uploading ? (
+              <>
+                <Sparkles className="h-4 w-4 mr-2 animate-pulse" />
+                Extracting...
+              </>
+            ) : (
+              <>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Garment
+              </>
+            )}
           </Button>
 
           {selectedGarment && selectedGarment.id.startsWith('custom-') && (
@@ -149,7 +178,7 @@ export default function ARPanel() {
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/png"
+          accept="image/jpeg,image/jpg,image/png,image/webp"
           onChange={handleFileUpload}
           className="hidden"
         />

@@ -23,6 +23,41 @@ export interface NavigationItem {
   badge?: string;
 }
 
+// Garment Extraction API Types
+export type GarmentLabel = 'tshirt' | 'trousers' | 'unknown';
+
+export interface ClassificationResult {
+  label: GarmentLabel;
+  confidence: number; // 0.0 to 1.0
+}
+
+export interface ExtractionResult {
+  cutout_url: string;      // URL path to extracted image (e.g., "/static/outputs/cutout_xxx.png")
+  cutout_path: string;     // Relative path for download
+  original_url: string;    // URL to original uploaded image
+}
+
+export interface GarmentProcessResponse {
+  success: boolean;
+  message: string;
+  classification: ClassificationResult | null;
+  extraction: ExtractionResult | null;
+  processing_time_ms: number | null;
+}
+
+export interface GarmentExtractionError {
+  detail: string;
+  error_code?: string;
+  details?: Record<string, unknown>;
+}
+
+export interface GarmentHealthCheck {
+  status: 'healthy' | 'unhealthy';
+  model_loaded: boolean;
+  model_name: string;
+  version: string;
+}
+
 export interface Garment {
   id: string;
   name: string;
@@ -31,6 +66,17 @@ export interface Garment {
   height: number;
   sizeKb: number;
   category?: 'tops' | 'jackets' | 'misc';
+
+  // Extraction metadata (populated after extraction)
+  extracted?: boolean;
+  extractedUrl?: string;    // URL to extracted/cutout image
+  classification?: ClassificationResult;
+  processingTime?: number;
+}
+
+export interface ImageSelection {
+  file: File | null;
+  previewUrl: string | null;
 }
 
 export interface Transform {

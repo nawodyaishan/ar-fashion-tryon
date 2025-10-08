@@ -75,7 +75,7 @@ export default function PhotoWizard() {
     toast.success('Body photo uploaded');
   };
 
-  // Handle garment photo upload
+  // Handle garment photo upload (with extraction)
   const handleGarmentUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -90,8 +90,18 @@ export default function PhotoWizard() {
       return;
     }
 
-    setGarmentFile(file);
-    toast.success('Garment photo uploaded');
+    // Show extraction toast
+    toast.loading('Extracting garment...', { id: 'garment-extraction' });
+
+    // setGarmentFile now handles extraction automatically
+    await setGarmentFile(file);
+
+    // Check if extraction was successful
+    if (status === 'error') {
+      toast.error(error || 'Garment extraction failed', { id: 'garment-extraction' });
+    } else if (status === 'valid') {
+      toast.success('Garment extracted successfully!', { id: 'garment-extraction' });
+    }
   };
 
   // Select from gallery
@@ -154,7 +164,8 @@ export default function PhotoWizard() {
 
   const canProceedFromBody = body.file !== undefined;
   const canProceedFromGarment = garment.file !== undefined || garment.id !== undefined;
-  const canGenerate = canProceedFromBody && canProceedFromGarment;
+  // For Gradio: Garment must be extracted (only works with uploaded files, not gallery)
+  const canGenerate = canProceedFromBody && garment.file && garment.extracted;
 
   const stepNumber = {
     BODY: 1,
@@ -343,6 +354,31 @@ export default function PhotoWizard() {
                   </Card>
                 ) : (
                   <div className="space-y-4 max-w-md mx-auto">
+                    {/* Extraction Status */}
+                    {status === 'uploading' && (
+                      <Alert>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <AlertDescription>Extracting garment background...</AlertDescription>
+                      </Alert>
+                    )}
+
+                    {garment.extracted && garment.extractionResult && (
+                      <Alert className="bg-green-500/10 border-green-500/20">
+                        <Sparkles className="h-4 w-4 text-green-600 dark:text-green-400" />
+                        <AlertDescription className="text-green-800 dark:text-green-200">
+                          Extracted: {garment.extractionResult.classification?.label.toUpperCase()} (
+                          {((garment.extractionResult.classification?.confidence || 0) * 100).toFixed(0)}% confidence)
+                        </AlertDescription>
+                      </Alert>
+                    )}
+
+                    {status === 'error' && error && (
+                      <Alert variant="destructive">
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertDescription>{error}</AlertDescription>
+                      </Alert>
+                    )}
+
                     <div className="relative aspect-square rounded-lg overflow-hidden border">
                       <Image
                         src={garment.previewUrl!}
@@ -525,25 +561,39 @@ export default function PhotoWizard() {
               ) : status === 'processing' ? (
                 <>
                   <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                  Generating... (10-30s typical)
+                  Processing with Gradio...
                 </>
               ) : (
                 <>
                   <Sparkles className="h-5 w-5 mr-2" />
-                  Try-On
+                  Generate Try-On
                 </>
               )}
             </Button>
 
+            {!canGenerate && garment.file && !garment.extracted && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  Garment extraction required. Please upload a valid T-shirt or Trousers image.
+                </AlertDescription>
+              </Alert>
+            )}
+
             {(status === 'uploading' || status === 'processing') && (
               <div
-                className="text-center text-sm text-muted-foreground"
+                className="text-center text-sm text-muted-foreground space-y-1"
                 role="status"
                 aria-live="polite"
               >
-                {status === 'uploading'
-                  ? 'Uploading images to server...'
-                  : 'High-fidelity mode may take longer during peak times'}
+                {status === 'uploading' ? (
+                  <p>Extracting garment background...</p>
+                ) : (
+                  <>
+                    <p className="font-medium">Processing on HuggingFace Space</p>
+                    <p className="text-xs">This may take 30-60 seconds. Please wait...</p>
+                  </>
+                )}
               </div>
             )}
           </div>

@@ -2,10 +2,10 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { requestCameraAccess, stopCameraStream, checkCameraSupport, type CameraError } from '@/lib/camera';
+import { requestCameraAccess, stopCameraStream, checkCameraSupport, getSecurityWarning, type CameraError } from '@/lib/camera';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Camera, AlertCircle, RefreshCcw } from 'lucide-react';
+import { Camera, AlertCircle, RefreshCcw, Shield } from 'lucide-react';
 
 interface VideoPreviewProps {
   onStreamReady?: (stream: MediaStream) => void;
@@ -18,6 +18,7 @@ export function VideoPreview({ onStreamReady, className = '' }: VideoPreviewProp
   const [error, setError] = useState<CameraError | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSupported, setIsSupported] = useState(true);
+  const [securityWarning, setSecurityWarning] = useState<string | null>(null);
 
   // Initialize camera
   const initializeCamera = async () => {
@@ -44,6 +45,14 @@ export function VideoPreview({ onStreamReady, className = '' }: VideoPreviewProp
 
   // Check support on mount
   useEffect(() => {
+    // Check for security warnings
+    const warning = getSecurityWarning();
+    if (warning) {
+      setSecurityWarning(warning);
+      setIsLoading(false);
+      return;
+    }
+
     if (!checkCameraSupport()) {
       setIsSupported(false);
       setIsLoading(false);
@@ -67,6 +76,27 @@ export function VideoPreview({ onStreamReady, className = '' }: VideoPreviewProp
     }
     initializeCamera();
   };
+
+  // Security warning (HTTPS required for network access)
+  if (securityWarning) {
+    return (
+      <div className={`flex items-center justify-center bg-black/20 backdrop-blur-sm rounded-lg ${className}`}>
+        <div className="text-center p-6 space-y-4 max-w-md">
+          <Alert variant="destructive">
+            <Shield className="h-4 w-4" />
+            <AlertDescription>{securityWarning}</AlertDescription>
+          </Alert>
+          <div className="text-xs text-muted-foreground space-y-2">
+            <p>To use camera features:</p>
+            <ul className="list-disc list-inside text-left space-y-1">
+              <li>Access via <code className="bg-black/20 px-1 rounded">http://localhost:3000</code></li>
+              <li>Or enable HTTPS for network access</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Browser not supported
   if (!isSupported) {
