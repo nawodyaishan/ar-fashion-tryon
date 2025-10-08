@@ -4,7 +4,7 @@ python-multipart
 
 pillow
 numpy
-rembg==2.0.61
+rembg
 onnxruntime==1.19.2
 opencv-python-headless==4.12.0.88
 
