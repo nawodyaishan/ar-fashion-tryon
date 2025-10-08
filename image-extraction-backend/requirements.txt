@@ -1,14 +1,10 @@
 fastapi
 uvicorn[standard]
 python-multipart
-
 pillow
 numpy
 rembg
-onnxruntime==1.19.2
-opencv-python-headless==4.12.0.88
-
-# TensorFlow CPU (Linux)
-tensorflow==2.19.1
-
+onnxruntime
+opencv-python-headless
+tensorflow
 gunicorn
