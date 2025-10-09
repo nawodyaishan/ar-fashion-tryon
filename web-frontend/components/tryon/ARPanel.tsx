@@ -33,7 +33,6 @@ export default function ARPanel() {
     setSnapToShoulders,
     poseConfidence,
     clearAll,
-    openGallery,
   } = useTryonStore();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -197,12 +196,7 @@ export default function ARPanel() {
 
       {/* Garment Picker */}
       <section className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h3 className="font-semibold">Garments</h3>
-          <Button size="sm" variant="ghost" onClick={openGallery}>
-            View All
-          </Button>
-        </div>
+        <h3 className="font-semibold">Garments</h3>
 
         <div className="grid grid-cols-3 gap-2">
           {garments.slice(0, 6).map((garment) => (

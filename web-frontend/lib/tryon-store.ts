@@ -34,7 +34,6 @@ interface TryonState {
   // Modals
   helpModalOpen: boolean;
   aboutModalOpen: boolean;
-  galleryModalOpen: boolean;
 
   // Actions
   setMode: (mode: 'ar' | 'photo') => void;
@@ -61,8 +60,6 @@ interface TryonState {
   closeHelp: () => void;
   openAbout: () => void;
   closeAbout: () => void;
-  openGallery: () => void;
-  closeGallery: () => void;
   clearAll: () => void;
   resetPhotoMode: () => void;
 }
@@ -129,7 +126,6 @@ export const useTryonStore = create<TryonState>()(
       resultPhoto: null,
       helpModalOpen: false,
       aboutModalOpen: false,
-      galleryModalOpen: false,
 
       // Actions
       setMode: (mode) => set({ activeMode: mode }),
@@ -239,9 +235,6 @@ export const useTryonStore = create<TryonState>()(
 
       openAbout: () => set({ aboutModalOpen: true }),
       closeAbout: () => set({ aboutModalOpen: false }),
-
-      openGallery: () => set({ galleryModalOpen: true }),
-      closeGallery: () => set({ galleryModalOpen: false }),
 
       clearAll: () =>
         set({

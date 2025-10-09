@@ -97,7 +97,7 @@ export interface Status {
 }
 
 // VTON API Types
-export type ClothType = 'upper' | 'lower' | 'full';
+export type ClothType = 'upper' | 'lower' | 'full' | 'overall';
 
 export interface VtonProcessResponse {
   // ML backend returns processed image data

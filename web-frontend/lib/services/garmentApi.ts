@@ -419,6 +419,199 @@ export function isCloudinaryConfigured(): boolean {
 }
 
 // ============================================================================
+// GARMENT TYPE DETECTION (Lightweight - No Extraction)
+// ============================================================================
+
+/**
+ * Detect garment type only (no background removal or cloud upload)
+ * Lightweight endpoint for quick classification
+ *
+ * @param file - Garment image file
+ * @param signal - Optional AbortSignal for cancellation
+ * @returns Classification result (label and confidence)
+ */
+export async function detectGarmentType(
+  file: File,
+  signal?: AbortSignal,
+): Promise<{
+  label: string;
+  confidence: number;
+  filename: string;
+  file_size_bytes: number;
+  content_type: string;
+}> {
+  console.log('🔍 Garment Type Detection Request:', {
+    fileName: file.name,
+    fileSize: `${(file.size / 1024).toFixed(2)} KB`,
+    fileType: file.type,
+  });
+
+  // Client-side validation
+  if (file.size > 10 * 1024 * 1024) {
+    throw new Error('File too large. Maximum size is 10MB');
+  }
+  if (!/^image\/(png|jpe?g|webp)$/i.test(file.type)) {
+    throw new Error('Invalid file type. Must be PNG, JPEG, or WEBP');
+  }
+
+  const formData = new FormData();
+  formData.append('garment', file);
+
+  const start = performance.now();
+
+  try {
+    const { data } = await http.post<{
+      label: string;
+      confidence: number;
+      filename: string;
+      file_size_bytes: number;
+      content_type: string;
+    }>(
+      `${GARMENT_API_BASE}/detect_garment_type`,
+      formData,
+      {
+        signal,
+        headers: { Accept: 'application/json' },
+      },
+    );
+
+    const took = performance.now() - start;
+
+    console.log('✅ Garment Type Detection Success:', {
+      label: data.label,
+      confidence: `${(data.confidence * 100).toFixed(1)}%`,
+      totalTime: `${Math.round(took)}ms`,
+    });
+
+    return data;
+  } catch (err: unknown) {
+    console.error('❌ Garment Type Detection Error:', err);
+
+    if (err && typeof err === 'object' && 'response' in err) {
+      const httpErr = err as { response?: { data?: { error?: string; detail?: string } } };
+      const detail = httpErr.response?.data?.error || httpErr.response?.data?.detail;
+      if (detail) throw new Error(detail);
+    }
+
+    if (err instanceof Error) throw err;
+    throw new Error('Unknown error occurred during garment type detection');
+  }
+}
+
+// ============================================================================
+// OUTFIT CONSTRUCTION (Merge Upper + Lower Garments)
+// ============================================================================
+
+/**
+ * Construct outfit by merging upper and lower garments
+ * API endpoint: POST /construct_outfit
+ *
+ * @param upperGarment - Upper garment file (shirt, top, jacket)
+ * @param lowerGarment - Lower garment file (pants, skirt, shorts)
+ * @param signal - Optional AbortSignal for cancellation
+ * @returns Constructed outfit with classification and URLs
+ */
+export async function constructOutfit(
+  upperGarment: File,
+  lowerGarment: File,
+  signal?: AbortSignal,
+): Promise<{
+  success: boolean;
+  upper_garment: {
+    label: string;
+    confidence: number;
+    url: string;
+    public_id: string;
+  };
+  lower_garment: {
+    label: string;
+    confidence: number;
+    url: string;
+    public_id: string;
+  };
+  outfit: {
+    url: string;
+    public_id: string;
+    format: string;
+  };
+}> {
+  console.log('🎨 Outfit Construction Request:', {
+    upperFile: upperGarment.name,
+    upperSize: `${(upperGarment.size / 1024).toFixed(2)} KB`,
+    lowerFile: lowerGarment.name,
+    lowerSize: `${(lowerGarment.size / 1024).toFixed(2)} KB`,
+  });
+
+  // Client-side validation
+  if (upperGarment.size > 16 * 1024 * 1024) {
+    throw new Error('Upper garment too large. Maximum size is 16MB');
+  }
+  if (lowerGarment.size > 16 * 1024 * 1024) {
+    throw new Error('Lower garment too large. Maximum size is 16MB');
+  }
+
+  const formData = new FormData();
+  formData.append('upper_garment', upperGarment);
+  formData.append('lower_garment', lowerGarment);
+
+  const start = performance.now();
+
+  try {
+    const { data } = await http.post<{
+      success: boolean;
+      upper_garment: {
+        label: string;
+        confidence: number;
+        url: string;
+        public_id: string;
+      };
+      lower_garment: {
+        label: string;
+        confidence: number;
+        url: string;
+        public_id: string;
+      };
+      outfit: {
+        url: string;
+        public_id: string;
+        format: string;
+      };
+    }>(
+      `${GARMENT_API_BASE}/construct_outfit`,
+      formData,
+      {
+        signal,
+        headers: { Accept: 'application/json' },
+      },
+    );
+
+    const took = performance.now() - start;
+
+    console.log('✅ Outfit Construction Success:', {
+      upperLabel: data.upper_garment.label,
+      upperConfidence: `${(data.upper_garment.confidence * 100).toFixed(1)}%`,
+      lowerLabel: data.lower_garment.label,
+      lowerConfidence: `${(data.lower_garment.confidence * 100).toFixed(1)}%`,
+      outfitUrl: data.outfit.url,
+      totalTime: `${Math.round(took)}ms`,
+    });
+
+    return data;
+  } catch (err: unknown) {
+    console.error('❌ Outfit Construction Error:', err);
+
+    if (err && typeof err === 'object' && 'response' in err) {
+      const httpErr = err as { response?: { data?: { error?: string; detail?: string } } };
+      const detail = httpErr.response?.data?.error || httpErr.response?.data?.detail;
+      if (detail) throw new Error(detail);
+    }
+
+    if (err instanceof Error) throw err;
+    throw new Error('Unknown error occurred during outfit construction');
+  }
+}
+
+// ============================================================================
 // SMART PIPELINE SELECTOR (Auto-chooses best approach)
 // ============================================================================
 

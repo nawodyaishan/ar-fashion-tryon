@@ -1,14 +1,13 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
-import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Slider } from '@/components/ui/slider';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Progress } from '@/components/ui/progress';
 import {
   Accordion,
   AccordionContent,
@@ -16,19 +15,23 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion';
 import { useVtonStore } from '@/lib/store/useVtonStore';
-import { useTryonStore } from '@/lib/tryon-store';
+import type { ClothType } from '@/lib/types';
 import {
   AlertCircle,
+  Camera,
   Check,
   ChevronLeft,
   ChevronRight,
   Download,
   Image as ImageIcon,
   Loader2,
-  RotateCcw,
+  RefreshCw,
   Sparkles,
   Upload,
   X,
+  Shirt,
+  User,
+  Layers,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import Image from 'next/image';
@@ -38,32 +41,187 @@ import { downloadBase64ImageSmart } from '@/lib/services/gradioApi';
 export default function PhotoWizard() {
   const bodyFileInputRef = useRef<HTMLInputElement>(null);
   const garmentFileInputRef = useRef<HTMLInputElement>(null);
+  const upperFileInputRef = useRef<HTMLInputElement>(null);
+  const lowerFileInputRef = useRef<HTMLInputElement>(null);
+  const bodyVideoRef = useRef<HTMLVideoElement>(null);
+  const bodyCanvasRef = useRef<HTMLCanvasElement>(null);
+  const garmentVideoRef = useRef<HTMLVideoElement>(null);
+  const garmentCanvasRef = useRef<HTMLCanvasElement>(null);
 
-  // VTON Store (backend integration)
+  // VTON Store
   const {
+    tryOnPath,
     step,
+    setPath,
     setStep,
     body,
     garment,
+    upperGarment,
+    lowerGarment,
+    outfit,
     options,
     setBody,
     setGarmentFile,
-    setGarmentId,
+    setUpperGarment,
+    setLowerGarment,
+    constructOutfitPreview,
     setOptions,
     status,
     error,
     resultUrl,
     tryOn,
-    regenerate,
     reset,
+    getAvailableClothTypes,
+    canProceedToGenerate,
   } = useVtonStore();
 
-  // Legacy tryon store for garment gallery
-  const { garments, openGallery } = useTryonStore();
+  const [progress, setProgress] = useState(0);
+  const [showBodyCamera, setShowBodyCamera] = useState(false);
+  const [showGarmentCamera, setShowGarmentCamera] = useState(false);
+  const [bodyCameraStream, setBodyCameraStream] = useState<MediaStream | null>(null);
+  const [garmentCameraStream, setGarmentCameraStream] = useState<MediaStream | null>(null);
 
-  const [splitPosition, setSplitPosition] = useState(50);
+  // Progress tracking
+  useEffect(() => {
+    if (status === 'classifying') {
+      setProgress(20);
+    } else if (status === 'constructing') {
+      setProgress(40);
+    } else if (status === 'uploading') {
+      setProgress(50);
+    } else if (status === 'processing') {
+      setProgress(60);
+      const interval = setInterval(() => {
+        setProgress((prev) => (prev < 90 ? prev + 2 : prev));
+      }, 1000);
+      return () => clearInterval(interval);
+    } else if (status === 'done') {
+      setProgress(100);
+    } else {
+      setProgress(0);
+    }
+  }, [status]);
 
-  // Handle body photo upload
+  // Body Camera functions
+  const startBodyCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user', width: 1280, height: 720 },
+      });
+      setBodyCameraStream(stream);
+      if (bodyVideoRef.current) {
+        bodyVideoRef.current.srcObject = stream;
+      }
+      setShowBodyCamera(true);
+      toast.success('Camera started');
+    } catch (err) {
+      console.error('Camera error:', err);
+      toast.error('Failed to access camera');
+    }
+  };
+
+  const captureBodyPhoto = async () => {
+    if (!bodyVideoRef.current || !bodyCanvasRef.current) return;
+
+    const video = bodyVideoRef.current;
+    const canvas = bodyCanvasRef.current;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    ctx.drawImage(video, 0, 0);
+
+    canvas.toBlob(async (blob) => {
+      if (!blob) return;
+      const file = new File([blob], `body-${Date.now()}.jpg`, { type: 'image/jpeg' });
+
+      setBody(file);
+      toast.success('Body photo captured');
+      stopBodyCamera();
+    }, 'image/jpeg', 0.95);
+  };
+
+  const stopBodyCamera = () => {
+    if (bodyCameraStream) {
+      bodyCameraStream.getTracks().forEach((track) => track.stop());
+      setBodyCameraStream(null);
+    }
+    setShowBodyCamera(false);
+  };
+
+  // Garment Camera functions
+  const startGarmentCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: 1280, height: 720 },
+      });
+      setGarmentCameraStream(stream);
+      if (garmentVideoRef.current) {
+        garmentVideoRef.current.srcObject = stream;
+      }
+      setShowGarmentCamera(true);
+      toast.success('Camera started');
+    } catch (err) {
+      console.error('Camera error:', err);
+      toast.error('Failed to access camera');
+    }
+  };
+
+  const captureGarmentPhoto = async () => {
+    if (!garmentVideoRef.current || !garmentCanvasRef.current) return;
+
+    const video = garmentVideoRef.current;
+    const canvas = garmentCanvasRef.current;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    ctx.drawImage(video, 0, 0);
+
+    canvas.toBlob(async (blob) => {
+      if (!blob) return;
+      const file = new File([blob], `garment-${Date.now()}.jpg`, { type: 'image/jpeg' });
+
+      const toastId = 'garment-capture';
+      toast.loading('Processing captured image...', { id: toastId });
+
+      const skipClassification = tryOnPath === 'REFERENCE';
+      const { ok, message } = await setGarmentFile(file, skipClassification);
+
+      if (ok) {
+        toast.success('Garment captured', { id: toastId });
+        stopGarmentCamera();
+      } else {
+        toast.error(message || 'Capture failed', { id: toastId });
+      }
+    }, 'image/jpeg', 0.95);
+  };
+
+  const stopGarmentCamera = () => {
+    if (garmentCameraStream) {
+      garmentCameraStream.getTracks().forEach((track) => track.stop());
+      setGarmentCameraStream(null);
+    }
+    setShowGarmentCamera(false);
+  };
+
+  // Cleanup camera streams on unmount
+  useEffect(() => {
+    return () => {
+      if (bodyCameraStream) {
+        bodyCameraStream.getTracks().forEach((track) => track.stop());
+      }
+      if (garmentCameraStream) {
+        garmentCameraStream.getTracks().forEach((track) => track.stop());
+      }
+    };
+  }, [bodyCameraStream, garmentCameraStream]);
+
+  // Upload handlers
   const handleBodyUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -82,7 +240,6 @@ export default function PhotoWizard() {
     toast.success('Body photo uploaded');
   };
 
-  // Handle garment photo upload (validation only - no extraction)
   const handleGarmentUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -92,139 +249,253 @@ export default function PhotoWizard() {
     const toastId = 'garment-upload';
     toast.loading('Uploading garment...', { id: toastId });
 
-    const { ok, message } = await setGarmentFile(file);
+    const skipClassification = tryOnPath === 'REFERENCE';
+    const { ok, message } = await setGarmentFile(file, skipClassification);
 
     if (ok) toast.success('Garment uploaded', { id: toastId });
     else toast.error(message || 'Garment upload failed', { id: toastId });
   };
 
-  // Select from gallery
-  const handleSelectFromGallery = (garmentSrc: string, garmentId: string) => {
-    setGarmentId(garmentId, garmentSrc);
-    toast.success('Garment selected');
+  const handleUpperUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) return toast.error('Please upload an image file');
+    if (file.size > 10 * 1024 * 1024) return toast.error('File size must be less than 10MB');
+
+    const toastId = 'upper-upload';
+    toast.loading('Uploading upper garment...', { id: toastId });
+
+    const { ok, message } = await setUpperGarment(file);
+
+    if (ok) toast.success('Upper garment uploaded', { id: toastId });
+    else toast.error(message || 'Upload failed', { id: toastId });
   };
 
-  // Generate try-on
+  const handleLowerUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) return toast.error('Please upload an image file');
+    if (file.size > 10 * 1024 * 1024) return toast.error('File size must be less than 10MB');
+
+    const toastId = 'lower-upload';
+    toast.loading('Uploading lower garment...', { id: toastId });
+
+    const { ok, message } = await setLowerGarment(file);
+
+    if (ok) toast.success('Lower garment uploaded', { id: toastId });
+    else toast.error(message || 'Upload failed', { id: toastId });
+  };
+
+  const handleConstructOutfit = async () => {
+    toast.loading('Constructing outfit...', { id: 'construct' });
+    await constructOutfitPreview();
+    if (error) {
+      toast.error(error, { id: 'construct' });
+    } else {
+      toast.success('Outfit constructed successfully', { id: 'construct' });
+    }
+  };
+
   const handleGenerate = async () => {
+    setProgress(0);
     await tryOn();
     if (error) {
       toast.error(error);
+      setProgress(0);
     }
   };
 
   const handleDownload = () => {
     if (!resultUrl) return;
-    downloadBase64ImageSmart(resultUrl, 'photo-tryon'); // picks .webp/.png/.jpg correctly
+    downloadBase64ImageSmart(resultUrl, 'photo-tryon');
   };
 
-  // Regenerate
-  const handleRegenerate = async () => {
-    await regenerate();
-    if (error) {
-      toast.error(error);
-    }
-  };
-
-  // New try-on
   const handleNewTryOn = () => {
+    stopBodyCamera();
+    stopGarmentCamera();
+    setProgress(0);
     reset();
     toast.info('Starting new try-on');
   };
 
-  // Navigate steps
-  const handleBack = () => {
-    const steps: Array<typeof step> = ['BODY', 'GARMENT', 'GENERATE'];
-    const currentIndex = steps.indexOf(step);
-    if (currentIndex > 0) {
-      setStep(steps[currentIndex - 1]);
-    }
-  };
-
-  const handleNext = () => {
-    const steps: Array<typeof step> = ['BODY', 'GARMENT', 'GENERATE'];
-    const currentIndex = steps.indexOf(step);
-    if (currentIndex < steps.length - 1) {
-      setStep(steps[currentIndex + 1]);
-    }
-  };
-
-  const canProceedFromBody = body.file !== undefined;
-  const canProceedFromGarment = garment.file !== undefined || garment.id !== undefined;
-  // Backend handles garment processing - just need both images
-  const canGenerate = canProceedFromBody && garment.file;
-
-  const stepNumber = {
-    BODY: 1,
-    GARMENT: 2,
-    GENERATE: 3,
-    RESULT: 4,
-  }[step];
-
   return (
     <div className="w-full h-full flex flex-col">
-      {/* Stepper */}
-      <div className="p-4 border-b">
-        <div className="flex items-center justify-between max-w-md mx-auto">
-          {[1, 2, 3].map((num) => (
-            <div key={num} className="flex items-center">
-              <div
-                className={`flex items-center justify-center w-8 h-8 rounded-full border-2 transition-all ${
-                  stepNumber >= num
-                    ? 'bg-primary border-primary text-primary-foreground'
-                    : 'border-muted-foreground/30 text-muted-foreground'
-                }`}
-              >
-                {(num === 1 && body.file) ||
-                (num === 2 && (garment.file || garment.id)) ||
-                (num === 3 && resultUrl) ? (
-                  <Check className="h-4 w-4" />
-                ) : (
-                  <span>{num}</span>
-                )}
-              </div>
-              {num < 3 && (
-                <div
-                  className={`w-16 sm:w-24 h-0.5 mx-2 ${
-                    stepNumber > num ? 'bg-primary' : 'bg-muted-foreground/30'
-                  }`}
-                />
-              )}
+      {/* Progress Indicator - Mobile First */}
+      {step !== 'PATH_SELECT' && step !== 'RESULT' && (
+        <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b p-3">
+          <div className="flex items-center justify-between text-xs sm:text-sm mb-2">
+            <span className="font-medium">
+              {tryOnPath === 'FULL' ? 'Full Outfit Mode' : tryOnPath === 'REFERENCE' ? 'Reference Mode' : 'Normal Mode'}
+            </span>
+            <Badge variant="outline" className="text-xs">
+              Step {step === 'BODY' ? '1' : step === 'GARMENT' || step === 'UPPER' ? '2' : step === 'LOWER' ? '3' : step === 'PREVIEW' ? '4' : '5'}
+            </Badge>
+          </div>
+          {(status === 'classifying' || status === 'constructing' || status === 'processing') && (
+            <div className="space-y-1">
+              <Progress value={progress} className="h-1.5" />
+              <p className="text-xs text-muted-foreground text-center">
+                {status === 'classifying' && 'Analyzing garment...'}
+                {status === 'constructing' && 'Building outfit...'}
+                {status === 'processing' && 'Generating try-on...'}
+              </p>
             </div>
-          ))}
+          )}
         </div>
-      </div>
+      )}
 
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6">
-        {/* Step 1: Body Photo */}
-        {step === 'BODY' && (
-          <div className="max-w-2xl mx-auto space-y-4 sm:space-y-6">
-            <div className="text-center space-y-2">
-              <h2 className="text-xl sm:text-2xl font-bold">Upload Body Photo</h2>
+      {/* Content Area */}
+      <div className="flex-1 overflow-y-auto">
+        {/* PATH SELECTION */}
+        {step === 'PATH_SELECT' && (
+          <div className="p-4 space-y-4 max-w-2xl mx-auto">
+            <div className="text-center space-y-2 mb-6">
+              <h2 className="text-2xl sm:text-3xl font-bold">Choose Try-On Mode</h2>
               <p className="text-sm text-muted-foreground">
-                Use a clear, front-facing upper-body photo
+                Select how you want to try on garments
               </p>
             </div>
 
-            {!body.file ? (
+            <div className="grid gap-3 sm:gap-4">
+              {/* NORMAL Path */}
               <Card
-                className="border-2 border-dashed cursor-pointer hover:border-primary/50 transition-all"
-                onClick={() => bodyFileInputRef.current?.click()}
+                className="p-4 sm:p-6 cursor-pointer hover:border-primary transition-all active:scale-[0.98]"
+                onClick={() => setPath('NORMAL')}
               >
-                <div className="p-6 sm:p-12 text-center space-y-4">
-                  <div className="flex justify-center">
-                    <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
-                      <Upload className="h-8 w-8 text-primary" />
-                    </div>
+                <div className="flex items-start gap-4">
+                  <div className="h-12 w-12 sm:h-14 sm:w-14 rounded-full bg-blue-500/10 flex items-center justify-center shrink-0">
+                    <Shirt className="h-6 w-6 sm:h-7 sm:w-7 text-blue-500" />
                   </div>
-                  <div className="space-y-2">
-                    <p className="font-medium">Click to upload or drag and drop</p>
-                    <p className="text-xs text-muted-foreground">
-                      JPG, PNG up to 10MB • Plain background recommended
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-base sm:text-lg mb-1">Single Garment</h3>
+                    <p className="text-sm text-muted-foreground mb-2">
+                      Try on one item (shirt, pants, or full dress)
                     </p>
+                    <Badge variant="secondary" className="text-xs">Recommended</Badge>
                   </div>
+                  <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0" />
                 </div>
               </Card>
+
+              {/* FULL Path */}
+              <Card
+                className="p-4 sm:p-6 cursor-pointer hover:border-primary transition-all active:scale-[0.98]"
+                onClick={() => setPath('FULL')}
+              >
+                <div className="flex items-start gap-4">
+                  <div className="h-12 w-12 sm:h-14 sm:w-14 rounded-full bg-purple-500/10 flex items-center justify-center shrink-0">
+                    <Layers className="h-6 w-6 sm:h-7 sm:w-7 text-purple-500" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-base sm:text-lg mb-1">Complete Outfit</h3>
+                    <p className="text-sm text-muted-foreground mb-2">
+                      Combine top and bottom to create full outfit
+                    </p>
+                    <Badge variant="outline" className="text-xs">Advanced</Badge>
+                  </div>
+                  <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0" />
+                </div>
+              </Card>
+
+              {/* REFERENCE Path */}
+              <Card
+                className="p-4 sm:p-6 cursor-pointer hover:border-primary transition-all active:scale-[0.98]"
+                onClick={() => setPath('REFERENCE')}
+              >
+                <div className="flex items-start gap-4">
+                  <div className="h-12 w-12 sm:h-14 sm:w-14 rounded-full bg-green-500/10 flex items-center justify-center shrink-0">
+                    <User className="h-6 w-6 sm:h-7 sm:w-7 text-green-500" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-base sm:text-lg mb-1">Full Reference</h3>
+                    <p className="text-sm text-muted-foreground mb-2">
+                      Use a full-body photo as style reference
+                    </p>
+                    <Badge variant="outline" className="text-xs">Experimental</Badge>
+                  </div>
+                  <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0" />
+                </div>
+              </Card>
+            </div>
+          </div>
+        )}
+
+        {/* STEP 1: BODY PHOTO */}
+        {step === 'BODY' && (
+          <div className="p-4 space-y-4 max-w-2xl mx-auto">
+            <div className="text-center space-y-2">
+              <h2 className="text-xl sm:text-2xl font-bold">Upload Body Photo</h2>
+              <p className="text-sm text-muted-foreground">
+                Front-facing photo with clear view of {tryOnPath === 'FULL' ? 'full body' : 'upper body'}
+              </p>
+            </div>
+
+            {!body.file && !showBodyCamera ? (
+              <div className="space-y-3">
+                <Card
+                  className="border-2 border-dashed cursor-pointer hover:border-primary/50 transition-all active:scale-[0.98]"
+                  onClick={() => bodyFileInputRef.current?.click()}
+                >
+                  <div className="p-8 sm:p-12 text-center space-y-4">
+                    <div className="flex justify-center">
+                      <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
+                        <Upload className="h-8 w-8 text-primary" />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <p className="font-medium">Tap to upload</p>
+                      <p className="text-xs text-muted-foreground">
+                        JPG, PNG up to 10MB
+                      </p>
+                    </div>
+                  </div>
+                </Card>
+
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-background px-2 text-muted-foreground">Or</span>
+                  </div>
+                </div>
+
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="w-full"
+                  onClick={startBodyCamera}
+                >
+                  <Camera className="h-5 w-5 mr-2" />
+                  Capture with Camera
+                </Button>
+              </div>
+            ) : showBodyCamera ? (
+              <div className="space-y-4">
+                <div className="relative aspect-video rounded-lg overflow-hidden border bg-black">
+                  <video
+                    ref={bodyVideoRef}
+                    autoPlay
+                    playsInline
+                    className="w-full h-full object-cover scale-x-[-1]"
+                  />
+                  <canvas ref={bodyCanvasRef} className="hidden" />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <Button
+                    variant="outline"
+                    onClick={stopBodyCamera}
+                  >
+                    <X className="h-4 w-4 mr-2" />
+                    Cancel
+                  </Button>
+                  <Button onClick={captureBodyPhoto}>
+                    <Camera className="h-4 w-4 mr-2" />
+                    Capture
+                  </Button>
+                </div>
+              </div>
             ) : (
               <div className="space-y-4">
                 <div className="relative aspect-[3/4] max-w-md mx-auto rounded-lg overflow-hidden border">
@@ -239,23 +510,20 @@ export default function PhotoWizard() {
                   </Button>
                 </div>
 
-                <div className="flex items-center justify-between max-w-md mx-auto">
-                  <div className="flex items-center gap-2">
-                    <Switch
-                      id="remove-bg"
-                      checked={options.removeBg || false}
-                      onCheckedChange={(checked) => setOptions({ removeBg: checked })}
-                    />
-                    <Label htmlFor="remove-bg" className="text-sm cursor-pointer">
-                      Remove background
-                    </Label>
-                  </div>
+                <div className="grid grid-cols-2 gap-3">
                   <Button
-                    size="sm"
                     variant="outline"
                     onClick={() => bodyFileInputRef.current?.click()}
                   >
-                    Replace
+                    <Upload className="h-4 w-4 mr-2" />
+                    Upload New
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={startBodyCamera}
+                  >
+                    <Camera className="h-4 w-4 mr-2" />
+                    Capture
                   </Button>
                 </div>
               </div>
@@ -271,142 +539,380 @@ export default function PhotoWizard() {
           </div>
         )}
 
-        {/* Step 2: Garment Photo */}
-        {step === 'GARMENT' && (
-          <div className="max-w-3xl mx-auto space-y-4 sm:space-y-6">
+        {/* STEP 2: GARMENT UPLOAD (NORMAL & REFERENCE) */}
+        {(step === 'GARMENT' && (tryOnPath === 'NORMAL' || tryOnPath === 'REFERENCE')) && (
+          <div className="p-4 space-y-4 max-w-2xl mx-auto">
             <div className="text-center space-y-2">
-              <h2 className="text-xl sm:text-2xl font-bold">Choose Garment</h2>
+              <h2 className="text-xl sm:text-2xl font-bold">
+                {tryOnPath === 'REFERENCE' ? 'Upload Reference Photo' : 'Upload Garment'}
+              </h2>
               <p className="text-sm text-muted-foreground">
-                Transparent PNGs align best; avoid heavy folds
+                {tryOnPath === 'REFERENCE'
+                  ? 'Full-body photo of person wearing the style you want'
+                  : 'Upload garment photo or capture with camera'}
               </p>
             </div>
 
-            <Tabs defaultValue="gallery" className="w-full">
-              <TabsList className="grid w-full grid-cols-2 max-w-md mx-auto">
-                <TabsTrigger value="gallery">Select from Gallery</TabsTrigger>
-                <TabsTrigger value="upload">Upload</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="gallery" className="mt-6">
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                  {garments.slice(0, 12).map((g) => (
-                    <button
-                      key={g.id}
-                      onClick={() => handleSelectFromGallery(g.src, g.id)}
-                      className={`relative aspect-square rounded-lg border-2 overflow-hidden transition-all hover:scale-105 ${
-                        garment.id === g.id
-                          ? 'border-primary ring-2 ring-primary/20'
-                          : 'border-border hover:border-primary/50'
-                      }`}
-                    >
-                      <Image src={g.src} alt={g.name} fill className="object-contain p-2" />
-                      {garment.id === g.id && (
-                        <div className="absolute inset-0 bg-primary/10 flex items-center justify-center">
-                          <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center">
-                            <Check className="h-5 w-5 text-primary-foreground" />
-                          </div>
-                        </div>
-                      )}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="mt-4 text-center">
-                  <Button variant="outline" onClick={openGallery}>
-                    View All Garments
-                  </Button>
-                </div>
-              </TabsContent>
-
-              <TabsContent value="upload" className="mt-6">
-                {!garment.file ? (
-                  <Card
-                    className="border-2 border-dashed cursor-pointer hover:border-primary/50 transition-all max-w-md mx-auto"
-                    onClick={() => garmentFileInputRef.current?.click()}
-                  >
-                    <div className="p-6 sm:p-12 text-center space-y-4">
-                      <div className="flex justify-center">
-                        <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
-                          <ImageIcon className="h-8 w-8 text-primary" />
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <p className="font-medium">Upload Garment Photo</p>
-                        <p className="text-xs text-muted-foreground">
-                          PNG with transparency preferred • Front view works best
-                        </p>
+            {!garment.file && !showGarmentCamera ? (
+              <div className="space-y-3">
+                <Card
+                  className="border-2 border-dashed cursor-pointer hover:border-primary/50 transition-all active:scale-[0.98]"
+                  onClick={() => garmentFileInputRef.current?.click()}
+                >
+                  <div className="p-8 sm:p-10 text-center space-y-4">
+                    <div className="flex justify-center">
+                      <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
+                        <Upload className="h-8 w-8 text-primary" />
                       </div>
                     </div>
-                  </Card>
-                ) : (
-                  <div className="space-y-4 max-w-md mx-auto">
-                    {status === 'error' && error && (
-                      <Alert variant="destructive">
-                        <AlertCircle className="h-4 w-4" />
-                        <AlertDescription>{error}</AlertDescription>
-                      </Alert>
-                    )}
+                    <div className="space-y-2">
+                      <p className="font-medium">Tap to upload</p>
+                      <p className="text-xs text-muted-foreground">
+                        PNG, JPEG up to 10MB
+                      </p>
+                    </div>
+                  </div>
+                </Card>
 
-                    <div className="relative aspect-square rounded-lg overflow-hidden border">
-                      <Image
-                        src={garment.previewUrl!}
-                        alt="Garment photo"
-                        fill
-                        className="object-contain p-4"
-                      />
-                      <Button
-                        size="icon"
-                        variant="destructive"
-                        className="absolute top-2 right-2"
-                        onClick={() => setGarmentFile(undefined)}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
+                {tryOnPath !== 'REFERENCE' && (
+                  <>
+                    <div className="relative">
+                      <div className="absolute inset-0 flex items-center">
+                        <span className="w-full border-t" />
+                      </div>
+                      <div className="relative flex justify-center text-xs uppercase">
+                        <span className="bg-background px-2 text-muted-foreground">Or</span>
+                      </div>
                     </div>
 
                     <Button
                       variant="outline"
-                      onClick={() => garmentFileInputRef.current?.click()}
+                      size="lg"
                       className="w-full"
+                      onClick={startGarmentCamera}
                     >
-                      Replace Garment
+                      <Camera className="h-5 w-5 mr-2" />
+                      Capture with Camera
                     </Button>
+                  </>
+                )}
+              </div>
+            ) : showGarmentCamera ? (
+              <div className="space-y-4">
+                <div className="relative aspect-video rounded-lg overflow-hidden border bg-black">
+                  <video
+                    ref={garmentVideoRef}
+                    autoPlay
+                    playsInline
+                    className="w-full h-full object-cover"
+                  />
+                  <canvas ref={garmentCanvasRef} className="hidden" />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <Button
+                    variant="outline"
+                    onClick={stopGarmentCamera}
+                  >
+                    <X className="h-4 w-4 mr-2" />
+                    Cancel
+                  </Button>
+                  <Button onClick={captureGarmentPhoto}>
+                    <Camera className="h-4 w-4 mr-2" />
+                    Capture
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="relative aspect-square max-w-md mx-auto rounded-lg overflow-hidden border bg-muted/20">
+                  <Image
+                    src={garment.previewUrl!}
+                    alt="Garment"
+                    fill
+                    className="object-contain p-4"
+                  />
+                  <Button
+                    size="icon"
+                    variant="destructive"
+                    className="absolute top-2 right-2"
+                    onClick={() => setGarmentFile(undefined)}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                {garment.classification && tryOnPath === 'NORMAL' && (
+                  <Card className="p-3 bg-muted/50">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">Detected Type</span>
+                        <Badge variant="secondary">
+                          {garment.classification.label}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <span>Confidence</span>
+                        <span className="font-medium">
+                          {(garment.classification.confidence * 100).toFixed(1)}%
+                        </span>
+                      </div>
+                    </div>
+                  </Card>
+                )}
+
+                {status === 'classifying' && (
+                  <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Analyzing...</span>
                   </div>
                 )}
 
-                <input
-                  ref={garmentFileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleGarmentUpload}
-                  className="hidden"
-                />
-              </TabsContent>
-            </Tabs>
+                <div className="grid grid-cols-2 gap-3">
+                  <Button
+                    variant="outline"
+                    onClick={() => garmentFileInputRef.current?.click()}
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    Upload New
+                  </Button>
+                  {tryOnPath !== 'REFERENCE' && (
+                    <Button
+                      variant="outline"
+                      onClick={startGarmentCamera}
+                    >
+                      <Camera className="h-4 w-4 mr-2" />
+                      Capture
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <input
+              ref={garmentFileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleGarmentUpload}
+              className="hidden"
+            />
           </div>
         )}
 
-        {/* Step 3: Generate */}
-        {step === 'GENERATE' && !resultUrl && (
-          <div className="max-w-2xl mx-auto space-y-4 sm:space-y-6">
+        {/* STEP 2: UPPER GARMENT (FULL MODE) */}
+        {step === 'UPPER' && tryOnPath === 'FULL' && (
+          <div className="p-4 space-y-4 max-w-2xl mx-auto">
             <div className="text-center space-y-2">
-              <h2 className="text-xl sm:text-2xl font-bold">Generate Try-On</h2>
+              <h2 className="text-xl sm:text-2xl font-bold">Upload Upper Garment</h2>
               <p className="text-sm text-muted-foreground">
-                Review your selections and generate the result
+                Shirt, t-shirt, top, or jacket
               </p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Body Photo Summary */}
-              <Card className="p-3 sm:p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Body Photo</span>
-                  {body.file && (
-                    <Badge variant="outline">
-                      <Check className="h-3 w-3" />
-                    </Badge>
-                  )}
+            {!upperGarment.file ? (
+              <Card
+                className="border-2 border-dashed cursor-pointer hover:border-primary/50 transition-all active:scale-[0.98]"
+                onClick={() => upperFileInputRef.current?.click()}
+              >
+                <div className="p-8 sm:p-10 text-center space-y-4">
+                  <div className="flex justify-center">
+                    <div className="h-16 w-16 rounded-full bg-blue-500/10 flex items-center justify-center">
+                      <Shirt className="h-8 w-8 text-blue-500" />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <p className="font-medium">Upload Upper Garment</p>
+                    <p className="text-xs text-muted-foreground">
+                      PNG, JPEG up to 10MB
+                    </p>
+                  </div>
                 </div>
+              </Card>
+            ) : (
+              <div className="space-y-4">
+                <div className="relative aspect-square max-w-md mx-auto rounded-lg overflow-hidden border bg-muted/20">
+                  <Image
+                    src={upperGarment.previewUrl!}
+                    alt="Upper garment"
+                    fill
+                    className="object-contain p-4"
+                  />
+                  <Button
+                    size="icon"
+                    variant="destructive"
+                    className="absolute top-2 right-2"
+                    onClick={() => setUpperGarment(undefined)}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                {upperGarment.classification && (
+                  <Card className="p-3 bg-blue-500/10">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Detected</span>
+                      <Badge variant="secondary">
+                        {upperGarment.classification.label}
+                      </Badge>
+                    </div>
+                  </Card>
+                )}
+
+                <Button
+                  variant="outline"
+                  onClick={() => upperFileInputRef.current?.click()}
+                  className="w-full"
+                >
+                  Replace Upper Garment
+                </Button>
+              </div>
+            )}
+
+            <input
+              ref={upperFileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleUpperUpload}
+              className="hidden"
+            />
+          </div>
+        )}
+
+        {/* STEP 3: LOWER GARMENT (FULL MODE) */}
+        {step === 'LOWER' && tryOnPath === 'FULL' && (
+          <div className="p-4 space-y-4 max-w-2xl mx-auto">
+            <div className="text-center space-y-2">
+              <h2 className="text-xl sm:text-2xl font-bold">Upload Lower Garment</h2>
+              <p className="text-sm text-muted-foreground">
+                Pants, jeans, skirt, or shorts
+              </p>
+            </div>
+
+            {!lowerGarment.file ? (
+              <Card
+                className="border-2 border-dashed cursor-pointer hover:border-primary/50 transition-all active:scale-[0.98]"
+                onClick={() => lowerFileInputRef.current?.click()}
+              >
+                <div className="p-8 sm:p-10 text-center space-y-4">
+                  <div className="flex justify-center">
+                    <div className="h-16 w-16 rounded-full bg-purple-500/10 flex items-center justify-center">
+                      <Layers className="h-8 w-8 text-purple-500" />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <p className="font-medium">Upload Lower Garment</p>
+                    <p className="text-xs text-muted-foreground">
+                      PNG, JPEG up to 10MB
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            ) : (
+              <div className="space-y-4">
+                <div className="relative aspect-square max-w-md mx-auto rounded-lg overflow-hidden border bg-muted/20">
+                  <Image
+                    src={lowerGarment.previewUrl!}
+                    alt="Lower garment"
+                    fill
+                    className="object-contain p-4"
+                  />
+                  <Button
+                    size="icon"
+                    variant="destructive"
+                    className="absolute top-2 right-2"
+                    onClick={() => setLowerGarment(undefined)}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                {lowerGarment.classification && (
+                  <Card className="p-3 bg-purple-500/10">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Detected</span>
+                      <Badge variant="secondary">
+                        {lowerGarment.classification.label}
+                      </Badge>
+                    </div>
+                  </Card>
+                )}
+
+                <Button
+                  variant="outline"
+                  onClick={() => lowerFileInputRef.current?.click()}
+                  className="w-full"
+                >
+                  Replace Lower Garment
+                </Button>
+              </div>
+            )}
+
+            <input
+              ref={lowerFileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleLowerUpload}
+              className="hidden"
+            />
+          </div>
+        )}
+
+        {/* STEP 4: OUTFIT PREVIEW (FULL MODE) */}
+        {step === 'PREVIEW' && tryOnPath === 'FULL' && (
+          <div className="p-4 space-y-4 max-w-2xl mx-auto">
+            <div className="text-center space-y-2">
+              <h2 className="text-xl sm:text-2xl font-bold">Outfit Preview</h2>
+              <p className="text-sm text-muted-foreground">
+                Your complete outfit is ready
+              </p>
+            </div>
+
+            {outfit.url && (
+              <div className="space-y-4">
+                <div className="relative aspect-[3/4] max-w-md mx-auto rounded-lg overflow-hidden border bg-muted/20">
+                  <Image
+                    src={outfit.url}
+                    alt="Constructed outfit"
+                    fill
+                    className="object-contain"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <Card className="p-3 space-y-1">
+                    <p className="text-xs text-muted-foreground">Upper</p>
+                    <p className="text-sm font-medium">{outfit.upperLabel}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {(outfit.upperConfidence! * 100).toFixed(0)}% match
+                    </p>
+                  </Card>
+                  <Card className="p-3 space-y-1">
+                    <p className="text-xs text-muted-foreground">Lower</p>
+                    <p className="text-sm font-medium">{outfit.lowerLabel}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {(outfit.lowerConfidence! * 100).toFixed(0)}% match
+                    </p>
+                  </Card>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* GENERATE STEP */}
+        {step === 'GENERATE' && !resultUrl && (
+          <div className="p-4 space-y-4 max-w-2xl mx-auto">
+            <div className="text-center space-y-2">
+              <h2 className="text-xl sm:text-2xl font-bold">Review & Generate</h2>
+              <p className="text-sm text-muted-foreground">
+                Check your selections before generating
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              {/* Body Preview */}
+              <Card className="p-3 space-y-2">
+                <p className="text-xs font-medium">Body Photo</p>
                 {body.previewUrl && (
                   <div className="relative aspect-[3/4] rounded-md overflow-hidden border">
                     <Image src={body.previewUrl} alt="Body" fill className="object-cover" />
@@ -414,162 +920,98 @@ export default function PhotoWizard() {
                 )}
               </Card>
 
-              {/* Garment Photo Summary */}
-              <Card className="p-3 sm:p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Garment</span>
-                  {(garment.file || garment.id) && (
-                    <Badge variant="outline">
-                      <Check className="h-3 w-3" />
-                    </Badge>
-                  )}
-                </div>
-                {garment.previewUrl && (
+              {/* Garment/Outfit Preview */}
+              <Card className="p-3 space-y-2">
+                <p className="text-xs font-medium">
+                  {tryOnPath === 'FULL' ? 'Outfit' : tryOnPath === 'REFERENCE' ? 'Reference' : 'Garment'}
+                </p>
+                {(tryOnPath === 'FULL' ? outfit.url : garment.previewUrl) && (
                   <div className="relative aspect-[3/4] rounded-md overflow-hidden border bg-muted/20">
                     <Image
-                      src={garment.previewUrl}
+                      src={(tryOnPath === 'FULL' ? outfit.url : garment.previewUrl)!}
                       alt="Garment"
                       fill
-                      className="object-contain p-4"
+                      className="object-contain p-2"
                     />
                   </div>
                 )}
               </Card>
             </div>
 
-            {/* Garment Type Selector */}
-            <Card className="p-4 space-y-4">
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Garment Type</Label>
-                <p className="text-xs text-muted-foreground">
-                  Select the type of garment you&apos;re trying on
-                </p>
-              </div>
-              <RadioGroup
-                value={options.clothType || 'upper'}
-                onValueChange={(value) => setOptions({ clothType: value as 'upper' | 'lower' | 'full' })}
-                className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4"
-              >
-                <div>
-                  <RadioGroupItem
-                    value="upper"
-                    id="upper"
-                    className="peer sr-only"
-                  />
-                  <Label
-                    htmlFor="upper"
-                    className="flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"
-                  >
-                    <svg className="mb-2 h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
-                    <span className="text-xs font-medium">Upper Body</span>
-                    <span className="text-xs text-muted-foreground">Shirts, Tops</span>
-                  </Label>
-                </div>
-                <div>
-                  <RadioGroupItem
-                    value="lower"
-                    id="lower"
-                    className="peer sr-only"
-                  />
-                  <Label
-                    htmlFor="lower"
-                    className="flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"
-                  >
-                    <svg className="mb-2 h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
-                    </svg>
-                    <span className="text-xs font-medium">Lower Body</span>
-                    <span className="text-xs text-muted-foreground">Pants, Skirts</span>
-                  </Label>
-                </div>
-                <div>
-                  <RadioGroupItem
-                    value="full"
-                    id="full"
-                    className="peer sr-only"
-                  />
-                  <Label
-                    htmlFor="full"
-                    className="flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"
-                  >
-                    <svg className="mb-2 h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                    </svg>
-                    <span className="text-xs font-medium">Full Body</span>
-                    <span className="text-xs text-muted-foreground">Dresses, Suits</span>
-                  </Label>
-                </div>
-              </RadioGroup>
-            </Card>
-
-            {/* Advanced Settings */}
+            {/* Cloth Type Selector - Accordion */}
             <Accordion type="single" collapsible className="w-full">
-              <AccordionItem value="advanced">
+              <AccordionItem value="options">
                 <AccordionTrigger className="text-sm">
-                  Advanced Settings (Optional)
+                  <div className="flex items-center justify-between w-full pr-2">
+                    <span>Garment Type & Options</span>
+                    <Badge variant="outline" className="text-xs">
+                      {options.clothType || 'upper'}
+                    </Badge>
+                  </div>
                 </AccordionTrigger>
                 <AccordionContent className="space-y-4 pt-4">
-                  {/* Inference Steps */}
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-sm">Inference Steps</Label>
-                      <span className="text-xs text-muted-foreground">
-                        {options.numInferenceSteps ?? 50}
-                      </span>
-                    </div>
-                    <Slider
-                      value={[options.numInferenceSteps ?? 50]}
-                      onValueChange={([value]) => setOptions({ numInferenceSteps: value })}
-                      min={20}
-                      max={100}
-                      step={5}
-                      className="w-full"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Higher values = better quality, slower processing (default: 50)
-                    </p>
+                  {/* Cloth Type */}
+                  <div className="space-y-3">
+                    <Label className="text-sm font-medium">Garment Type</Label>
+                    <RadioGroup
+                      value={options.clothType || 'upper'}
+                      onValueChange={(value) => setOptions({ clothType: value as ClothType })}
+                      className="grid grid-cols-1 gap-2"
+                    >
+                      {getAvailableClothTypes().map((type) => (
+                        <div key={type}>
+                          <RadioGroupItem value={type} id={type} className="peer sr-only" />
+                          <Label
+                            htmlFor={type}
+                            className="flex items-center justify-between rounded-md border-2 border-muted bg-popover p-3 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"
+                          >
+                            <span className="text-sm font-medium capitalize">{type}</span>
+                            {garment.classification?.detectedType === type && (
+                              <Badge variant="default" className="text-xs">Detected</Badge>
+                            )}
+                          </Label>
+                        </div>
+                      ))}
+                    </RadioGroup>
                   </div>
 
-                  {/* Guidance Scale */}
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-sm">Guidance Scale</Label>
-                      <span className="text-xs text-muted-foreground">
-                        {(options.guidanceScale ?? 2.5).toFixed(1)}
-                      </span>
-                    </div>
-                    <Slider
-                      value={[options.guidanceScale ?? 2.5]}
-                      onValueChange={([value]) => setOptions({ guidanceScale: value })}
-                      min={1.0}
-                      max={10.0}
-                      step={0.5}
-                      className="w-full"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Higher values = more faithful to garment (default: 2.5)
-                    </p>
-                  </div>
+                  {/* Advanced Settings */}
+                  <div className="space-y-3 pt-2 border-t">
+                    <p className="text-xs text-muted-foreground">Advanced Settings</p>
 
-                  {/* Seed */}
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-sm">Seed</Label>
-                      <span className="text-xs text-muted-foreground">{options.seed ?? 42}</span>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs">Inference Steps</Label>
+                        <span className="text-xs text-muted-foreground">
+                          {options.numInferenceSteps ?? 50}
+                        </span>
+                      </div>
+                      <Slider
+                        value={[options.numInferenceSteps ?? 50]}
+                        onValueChange={([value]) => setOptions({ numInferenceSteps: value })}
+                        min={20}
+                        max={100}
+                        step={5}
+                        className="w-full"
+                      />
                     </div>
-                    <Slider
-                      value={[options.seed ?? 42]}
-                      onValueChange={([value]) => setOptions({ seed: value })}
-                      min={-1}
-                      max={999}
-                      step={1}
-                      className="w-full"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      -1 for random, fixed seed for reproducibility (default: 42)
-                    </p>
+
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs">Guidance Scale</Label>
+                        <span className="text-xs text-muted-foreground">
+                          {(options.guidanceScale ?? 2.5).toFixed(1)}
+                        </span>
+                      </div>
+                      <Slider
+                        value={[options.guidanceScale ?? 2.5]}
+                        onValueChange={([value]) => setOptions({ guidanceScale: value })}
+                        min={1.0}
+                        max={10.0}
+                        step={0.5}
+                        className="w-full"
+                      />
+                    </div>
                   </div>
                 </AccordionContent>
               </AccordionItem>
@@ -585,18 +1027,13 @@ export default function PhotoWizard() {
             <Button
               size="lg"
               onClick={handleGenerate}
-              disabled={!canGenerate || status === 'uploading' || status === 'processing'}
+              disabled={!canProceedToGenerate() || status === 'processing'}
               className="w-full"
             >
-              {status === 'uploading' ? (
+              {status === 'processing' ? (
                 <>
                   <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                  Uploading...
-                </>
-              ) : status === 'processing' ? (
-                <>
-                  <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                  Processing with Gradio...
+                  Processing...
                 </>
               ) : (
                 <>
@@ -606,114 +1043,179 @@ export default function PhotoWizard() {
               )}
             </Button>
 
-            {(status === 'uploading' || status === 'processing') && (
-              <div
-                className="text-center text-sm text-muted-foreground space-y-1"
-                role="status"
-                aria-live="polite"
-              >
-                {status === 'uploading' ? (
-                  <p>Extracting garment background...</p>
-                ) : (
-                  <>
-                    <p className="font-medium">Processing on HuggingFace Space</p>
-                    <p className="text-xs">This may take 30-60 seconds. Please wait...</p>
-                  </>
-                )}
-              </div>
+            {status === 'processing' && (
+              <Card className="p-4 space-y-3">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="font-medium">Generating try-on...</span>
+                    <span className="text-muted-foreground">{progress}%</span>
+                  </div>
+                  <Progress value={progress} className="h-2" />
+                </div>
+                <p className="text-xs text-muted-foreground text-center">
+                  This may take 30-60 seconds. Please wait...
+                </p>
+              </Card>
             )}
           </div>
         )}
 
-        {/* Result View */}
+        {/* RESULT VIEW */}
         {step === 'RESULT' && resultUrl && (
-          <div className="max-w-4xl mx-auto space-y-6">
+          <div className="p-4 space-y-4 max-w-3xl mx-auto">
             <div className="text-center space-y-2">
-              <h2 className="text-2xl font-bold">Your Try-On Result</h2>
+              <div className="flex items-center justify-center gap-2">
+                <Check className="h-6 w-6 text-green-500" />
+                <h2 className="text-2xl font-bold">Try-On Complete!</h2>
+              </div>
               <p className="text-sm text-muted-foreground">
-                Use the slider to compare before and after
+                Your virtual try-on is ready
               </p>
             </div>
 
-            {/* Before/After Slider */}
-            <div className="relative aspect-[3/4] max-w-2xl mx-auto rounded-lg overflow-hidden border">
-              {body.previewUrl && (
-                <Image src={body.previewUrl} alt="Before" fill className="object-cover" />
-              )}
-              <div
-                className="absolute inset-0"
-                style={{ clipPath: `inset(0 ${100 - splitPosition}% 0 0)` }}
-              >
-                <Image src={resultUrl} alt="After" fill className="object-cover" unoptimized />
-              </div>
-
-              {/* Slider control */}
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 w-64">
-                <Slider
-                  value={[splitPosition]}
-                  onValueChange={([value]) => setSplitPosition(value)}
-                  min={0}
-                  max={100}
-                  step={1}
-                  className="w-full"
+            {/* Result Image */}
+            <Card className="overflow-hidden">
+              <div className="relative aspect-[3/4] bg-muted/20">
+                <Image
+                  src={resultUrl}
+                  alt="Try-on result"
+                  fill
+                  className="object-contain"
+                  unoptimized
                 />
               </div>
+            </Card>
 
-              {/* Labels */}
-              <div className="absolute top-4 left-4">
-                <Badge>Before</Badge>
-              </div>
-              <div className="absolute top-4 right-4">
-                <Badge variant="secondary">After</Badge>
-              </div>
+            {/* Input Preview Cards */}
+            <div className="grid grid-cols-2 gap-3">
+              <Card className="p-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center">
+                    <ImageIcon className="h-3 w-3 text-primary" />
+                  </div>
+                  <span className="text-xs font-medium">Your Photo</span>
+                </div>
+                {body.previewUrl && (
+                  <div className="relative aspect-[3/4] rounded-md overflow-hidden border">
+                    <Image src={body.previewUrl} alt="Body" fill className="object-cover" />
+                  </div>
+                )}
+              </Card>
+
+              <Card className="p-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center">
+                    <Sparkles className="h-3 w-3 text-primary" />
+                  </div>
+                  <span className="text-xs font-medium">
+                    {tryOnPath === 'FULL' ? 'Outfit' : 'Garment'}
+                  </span>
+                </div>
+                {(tryOnPath === 'FULL' ? outfit.url : garment.previewUrl) && (
+                  <div className="relative aspect-[3/4] rounded-md overflow-hidden border bg-muted/20">
+                    <Image
+                      src={(tryOnPath === 'FULL' ? outfit.url : garment.previewUrl)!}
+                      alt="Garment"
+                      fill
+                      className="object-contain p-2"
+                    />
+                  </div>
+                )}
+              </Card>
             </div>
 
             {/* Actions */}
-            <div className="flex gap-3 justify-center">
-              <Button onClick={handleDownload}>
-                <Download className="h-4 w-4 mr-2" />
-                Download
+            <div className="flex flex-col gap-3">
+              <Button
+                size="lg"
+                onClick={handleDownload}
+                className="w-full"
+              >
+                <Download className="h-5 w-5 mr-2" />
+                Download Result
               </Button>
               <Button
+                size="lg"
                 variant="outline"
-                onClick={handleRegenerate}
-                disabled={status === 'processing'}
+                onClick={handleNewTryOn}
+                className="w-full"
               >
-                <RotateCcw className="h-4 w-4 mr-2" />
-                Regenerate
-              </Button>
-              <Button variant="outline" onClick={handleNewTryOn}>
-                New Try-On
+                <RefreshCw className="h-5 w-5 mr-2" />
+                Try Another Outfit
               </Button>
             </div>
+
+            {/* Success Message */}
+            <Card className="p-4 bg-green-500/10 border-green-500/20">
+              <div className="flex items-start gap-3">
+                <Check className="h-5 w-5 text-green-500 mt-0.5 shrink-0" />
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">Processing Complete</p>
+                  <p className="text-xs text-muted-foreground">
+                    Your try-on image is ready to download or share.
+                  </p>
+                </div>
+              </div>
+            </Card>
           </div>
         )}
       </div>
 
-      {/* Navigation */}
-      {step !== 'RESULT' && (
-        <div className="p-4 border-t flex items-center justify-between">
-          <Button variant="outline" onClick={handleBack} disabled={step === 'BODY'}>
-            <ChevronLeft className="h-4 w-4 mr-2" />
-            Back
-          </Button>
-
-          <div className="text-sm text-muted-foreground">Step {stepNumber} of 3</div>
-
-          {step !== 'GENERATE' ? (
+      {/* Navigation Footer - Mobile First */}
+      {step !== 'PATH_SELECT' && step !== 'RESULT' && (
+        <div className="sticky bottom-0 bg-background/95 backdrop-blur border-t p-3 sm:p-4">
+          <div className="flex items-center justify-between gap-3 max-w-2xl mx-auto">
             <Button
-              onClick={handleNext}
+              variant="outline"
+              onClick={() => {
+                if (step === 'BODY') {
+                  setStep('PATH_SELECT');
+                } else if (step === 'GARMENT' || step === 'UPPER') {
+                  setStep('BODY');
+                } else if (step === 'LOWER') {
+                  setStep('UPPER');
+                } else if (step === 'PREVIEW') {
+                  setStep('LOWER');
+                } else if (step === 'GENERATE') {
+                  if (tryOnPath === 'FULL') setStep('PREVIEW');
+                  else setStep('GARMENT');
+                }
+              }}
+              className="flex-1 sm:flex-initial"
+            >
+              <ChevronLeft className="h-4 w-4 mr-1" />
+              Back
+            </Button>
+
+            <Button
+              onClick={() => {
+                if (step === 'BODY' && body.file) {
+                  if (tryOnPath === 'FULL') setStep('UPPER');
+                  else setStep('GARMENT');
+                } else if (step === 'GARMENT' && garment.file) {
+                  setStep('GENERATE');
+                } else if (step === 'UPPER' && upperGarment.file) {
+                  setStep('LOWER');
+                } else if (step === 'LOWER' && lowerGarment.file) {
+                  handleConstructOutfit();
+                } else if (step === 'PREVIEW' && outfit.url) {
+                  setStep('GENERATE');
+                }
+              }}
               disabled={
-                (step === 'BODY' && !canProceedFromBody) ||
-                (step === 'GARMENT' && !canProceedFromGarment)
+                (step === 'BODY' && !body.file) ||
+                (step === 'GARMENT' && !garment.file) ||
+                (step === 'UPPER' && !upperGarment.file) ||
+                (step === 'LOWER' && !lowerGarment.file) ||
+                (step === 'PREVIEW' && !outfit.url) ||
+                step === 'GENERATE'
               }
+              className="flex-1 sm:flex-initial"
             >
               Continue
-              <ChevronRight className="h-4 w-4 ml-2" />
+              <ChevronRight className="h-4 w-4 ml-1" />
             </Button>
-          ) : (
-            <div className="w-24" /> // Spacer
-          )}
+          </div>
         </div>
       )}
     </div>
