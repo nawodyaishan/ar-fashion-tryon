@@ -8,3 +8,5 @@ onnxruntime
 opencv-python-headless
 tensorflow
 gunicorn
+cloudinary
+requests

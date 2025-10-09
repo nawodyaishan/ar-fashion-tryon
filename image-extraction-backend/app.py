@@ -1,8 +1,9 @@
+# app.py
 import os
 import io
 import json
 import secrets
-import time
+import tempfile
 from pathlib import Path
 from typing import Tuple, Optional
 
@@ -10,29 +11,39 @@ import numpy as np
 from fastapi import FastAPI, File, UploadFile, Request, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from PIL import Image
 from rembg import remove
 from starlette.concurrency import run_in_threadpool
+from starlette.middleware.proxy_headers import ProxyHeadersMiddleware
+
+import requests
+import cloudinary
+import cloudinary.uploader
 
 # -------------------- Paths & constants --------------------
 BASE_DIR = Path(__file__).resolve().parent
 MODELS_DIR = BASE_DIR / "models"
-STATIC_DIR = BASE_DIR / "static"
-UPLOADS_DIR = STATIC_DIR / "uploads"
-OUTPUTS_DIR = STATIC_DIR / "outputs"
-TEMPLATES_DIR = BASE_DIR / "templates"  # not used here but kept for parity
 
 ALLOWED_EXTS = {"png", "jpg", "jpeg"}
 MAX_CONTENT_MB = float(os.getenv("MAX_CONTENT_MB", "16"))
 MAX_CONTENT_BYTES = int(MAX_CONTENT_MB * 1024 * 1024)
 
-# CORS
 CORS_ALLOW_ORIGINS = os.getenv("CORS_ALLOW_ORIGINS", "*")
 
+# Cloudinary config
+cloudinary.config(
+    cloud_name=os.environ.get("CLOUDINARY_CLOUD_NAME"),
+    api_key=os.environ.get("CLOUDINARY_API_KEY"),
+    api_secret=os.environ.get("CLOUDINARY_API_SECRET"),
+    secure=True,
+)
+CLOUDINARY_FOLDER = os.getenv("CLOUDINARY_FOLDER", "garments")  # base folder
+FOLDER_ORIG = f"{CLOUDINARY_FOLDER}/originals"
+FOLDER_CUT = f"{CLOUDINARY_FOLDER}/cutouts"
+
 # -------------------- FastAPI app --------------------
-app = FastAPI(title="Garment Extraction API", version="1.0.0")
+app = FastAPI(title="Garment Extraction API", version="2.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -41,12 +52,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Serve /static (so URLs we return are fetchable)
-STATIC_DIR.mkdir(parents=True, exist_ok=True)
-UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
-OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
-app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+# make sure we respect X-Forwarded-* from Railway’s proxy (HTTPS scheme, etc.)
+app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
 
 # -------------------- Model loading --------------------
 _tf_err: Optional[Exception] = None
@@ -64,10 +71,11 @@ def _load_json(path: Path, default):
         return default
 
 def _load_model_and_config():
-    """Load TF model & configs; run in startup thread."""
     global model, class_labels, head_type, reject_threshold, img_size, _tf_err
     try:
         import tensorflow as tf
+        os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
+
         model_path = MODELS_DIR / "best_clothing_model.h5"
         labels_path = MODELS_DIR / "class_labels.json"
         cfg_path = MODELS_DIR / "model_config.json"
@@ -75,9 +83,6 @@ def _load_model_and_config():
 
         if not model_path.exists():
             raise FileNotFoundError(f"Missing model file: {model_path}")
-
-        # Quiet TF logs
-        os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
 
         model = tf.keras.models.load_model(str(model_path))
         class_labels[:] = _load_json(labels_path, [])
@@ -87,14 +92,12 @@ def _load_model_and_config():
         reject_threshold = float(_load_json(rej_path, {"threshold": 0.0}).get("threshold", 0.0))
 
         if not class_labels:
-            # Fallback: generic indices
             class_labels[:] = [f"class_{i}" for i in range(model.output_shape[-1])]
     except Exception as e:
         _tf_err = e
 
 @app.on_event("startup")
 async def startup_load():
-    # Load model in a thread so startup remains non-blocking in some servers
     await run_in_threadpool(_load_model_and_config)
 
 # -------------------- Helpers --------------------
@@ -123,26 +126,47 @@ def _run_classifier(img_path: Path) -> Tuple[str, float]:
         return "UNKNOWN", conf
     return label, conf
 
-def _save_cutout(img_path: Path) -> Path:
+def _cutout_from_path(img_path: Path) -> Image.Image:
     with Image.open(img_path).convert("RGBA") as im:
         cut = remove(im)  # rembg (downloads model on first call)
-    token = secrets.token_hex(4)
-    out_name = f"cutout_{token}.png"
-    out_path = OUTPUTS_DIR / out_name
-    cut.save(out_path, format="PNG")
-    return out_path
+    return cut
 
-def _static_abs_url(request: Request, static_path: Path) -> str:
-    # Convert absolute static path → URL under /static
-    rel = static_path.relative_to(STATIC_DIR).as_posix()
-    # Use request.url_for to make absolute URL
-    return request.url_for("static", path=rel)
+def _png_bytes(im: Image.Image) -> bytes:
+    buf = io.BytesIO()
+    im.save(buf, format="PNG")
+    return buf.getvalue()
+
+def _cloudinary_upload_bytes(data: bytes, public_id: str, folder: str, fmt: Optional[str] = None) -> dict:
+    kwargs = {
+        "folder": folder,
+        "public_id": public_id,
+        "resource_type": "image",
+        "overwrite": True,
+    }
+    if fmt:
+        kwargs["format"] = fmt
+    return cloudinary.uploader.upload(io.BytesIO(data), **kwargs)
+
+def _download_url_bytes(url: str, max_bytes: int) -> bytes:
+    r = requests.get(url, stream=True, timeout=20)
+    r.raise_for_status()
+    total = 0
+    chunks = []
+    for chunk in r.iter_content(1024 * 64):
+        if not chunk:
+            break
+        total += len(chunk)
+        if total > max_bytes:
+            raise ValueError("File too large")
+        chunks.append(chunk)
+    return b"".join(chunks)
 
 # -------------------- Schemas --------------------
 class HealthOut(BaseModel):
     status: str = "ok"
 
-# (We keep response shape for /classify_garment identical to Flask: raw dict)
+class UrlIn(BaseModel):
+    source_url: str
 
 # -------------------- Routes --------------------
 @app.get("/health", response_model=HealthOut)
@@ -150,8 +174,8 @@ async def health():
     return HealthOut()
 
 @app.post("/classify_garment")
-async def classify_garment(request: Request, garment: UploadFile = File(...)):
-    # Basic validation
+async def classify_garment(garment: UploadFile = File(...)):
+    # Validation
     filename = garment.filename or ""
     if not filename:
         raise HTTPException(status_code=400, detail="Empty filename")
@@ -161,58 +185,133 @@ async def classify_garment(request: Request, garment: UploadFile = File(...)):
             detail=f"File type not allowed. Allowed: {', '.join(sorted(ALLOWED_EXTS))}",
         )
 
-    # Read limited bytes to RAM (protects server)
+    # Read limited bytes
     body = await garment.read()
     if len(body) > MAX_CONTENT_BYTES:
         raise HTTPException(status_code=413, detail=f"File too large (>{int(MAX_CONTENT_MB)}MB)")
 
-    # Save original
-    ext = filename.rsplit(".", 1)[1].lower()
-    token = secrets.token_hex(4)
-    safe_name = f"garment_{token}.{ext}"
-    save_path = UPLOADS_DIR / safe_name
-    save_path.write_bytes(body)
-
-    # Verify image decodes
+    # Verify image
     try:
         Image.open(io.BytesIO(body)).verify()
     except Exception:
-        try:
-            save_path.unlink(missing_ok=True)
-        finally:
-            raise HTTPException(status_code=400, detail="Uploaded file is not a valid image")
+        raise HTTPException(status_code=400, detail="Uploaded file is not a valid image")
 
-    # Classify (optional if model missing)
+    # Persist original on Cloudinary
+    token = secrets.token_hex(8)
+    orig_public_id = f"garment_{token}"
     try:
-        label, conf = await run_in_threadpool(_run_classifier, save_path)
+        orig_up = await run_in_threadpool(
+            _cloudinary_upload_bytes, body, orig_public_id, FOLDER_ORIG, None
+        )
+        garment_url = orig_up["secure_url"]
     except Exception as e:
-        # If the model wasn’t loaded or TF missing, still allow background removal
+        raise HTTPException(status_code=500, detail=f"Cloudinary upload (original) failed: {e}")
+
+    # Write to temp for classification/cutout
+    with tempfile.NamedTemporaryFile(delete=False, suffix="." + filename.rsplit(".",1)[1].lower()) as tmp:
+        tmp.write(body)
+        tmp_path = Path(tmp.name)
+
+    # Classify (optional)
+    try:
+        label, conf = await run_in_threadpool(_run_classifier, tmp_path)
+    except Exception:
         label, conf = "UNKNOWN", 0.0
 
-    # Background removal
+    # Cutout -> upload PNG to Cloudinary
     try:
-        cutout_path = await run_in_threadpool(_save_cutout, save_path)
+        cut_im = await run_in_threadpool(_cutout_from_path, tmp_path)
+        cut_bytes = await run_in_threadpool(_png_bytes, cut_im)
+        cut_public_id = f"cutout_{token}"
+        cut_up = await run_in_threadpool(
+            _cloudinary_upload_bytes, cut_bytes, cut_public_id, FOLDER_CUT, "png"
+        )
+        cutout_url = cut_up["secure_url"]
     except Exception as e:
+        tmp_path.unlink(missing_ok=True)
         raise HTTPException(status_code=500, detail=f"Background removal failed: {e}")
 
-    # Build URLs (absolute)
-    garment_url = _static_abs_url(request, save_path)
-    cutout_url = _static_abs_url(request, cutout_path)
+    tmp_path.unlink(missing_ok=True)
 
-    # Keep exact Flask response shape
+    # Response (same keys, but Cloudinary URLs)
     return JSONResponse(
         {
             "label": label,
             "confidence": round(conf, 4),
-            "garment_url": str(garment_url),
-            "cutout_url": str(cutout_url),
-            "cutout_path": str(cutout_path.relative_to(BASE_DIR)).replace("\\", "/"),
+            "garment_url": garment_url,
+            "cutout_url": cutout_url,
+            "cutout_path": f"{FOLDER_CUT}/{cut_public_id}.png",  # informational
+            "garment_public_id": f"{FOLDER_ORIG}/{orig_public_id}",
+            "cutout_public_id": f"{FOLDER_CUT}/{cut_public_id}",
+        }
+    )
+
+@app.post("/classify_garment_by_url")
+async def classify_garment_by_url(payload: UrlIn):
+    url = payload.source_url.strip()
+    if not (url.startswith("http://") or url.startswith("https://")):
+        raise HTTPException(status_code=400, detail="source_url must be http(s)")
+
+    # Download with size cap
+    try:
+        body = await run_in_threadpool(_download_url_bytes, url, MAX_CONTENT_BYTES)
+        Image.open(io.BytesIO(body)).verify()
+    except ValueError:
+        raise HTTPException(status_code=413, detail=f"File too large (>{int(MAX_CONTENT_MB)}MB)")
+    except Exception:
+        raise HTTPException(status_code=400, detail="Unable to fetch/parse image from source_url")
+
+    # Upload original to Cloudinary (keeps a persistent copy)
+    token = secrets.token_hex(8)
+    orig_public_id = f"garment_{token}"
+    try:
+        orig_up = await run_in_threadpool(
+            _cloudinary_upload_bytes, body, orig_public_id, FOLDER_ORIG, None
+        )
+        garment_url = orig_up["secure_url"]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Cloudinary upload (original) failed: {e}")
+
+    # Temp file for classifier/cutout
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp:
+        tmp.write(body)
+        tmp_path = Path(tmp.name)
+
+    # Classify
+    try:
+        label, conf = await run_in_threadpool(_run_classifier, tmp_path)
+    except Exception:
+        label, conf = "UNKNOWN", 0.0
+
+    # Cutout -> Cloudinary
+    try:
+        cut_im = await run_in_threadpool(_cutout_from_path, tmp_path)
+        cut_bytes = await run_in_threadpool(_png_bytes, cut_im)
+        cut_public_id = f"cutout_{token}"
+        cut_up = await run_in_threadpool(
+            _cloudinary_upload_bytes, cut_bytes, cut_public_id, FOLDER_CUT, "png"
+        )
+        cutout_url = cut_up["secure_url"]
+    except Exception as e:
+        tmp_path.unlink(missing_ok=True)
+        raise HTTPException(status_code=500, detail=f"Background removal failed: {e}")
+
+    tmp_path.unlink(missing_ok=True)
+
+    return JSONResponse(
+        {
+            "label": label,
+            "confidence": round(conf, 4),
+            "garment_url": garment_url,
+            "cutout_url": cutout_url,
+            "cutout_path": f"{FOLDER_CUT}/{cut_public_id}.png",
+            "garment_public_id": f"{FOLDER_ORIG}/{orig_public_id}",
+            "cutout_public_id": f"{FOLDER_CUT}/{cut_public_id}",
         }
     )
 
 # --------------- Global exception handler ---------------
 @app.exception_handler(Exception)
 async def unhandled_exc_handler(request: Request, exc: Exception):
-    # Log to stdout for Railway logs
     print("Unhandled error:", repr(exc))
     return JSONResponse(status_code=500, content={"error": str(exc)})
