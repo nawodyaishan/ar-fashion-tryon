@@ -26,7 +26,7 @@ from middleware import RequestIDMiddleware
 from services.classifier import load_model_and_config, classify_image
 from services.cloudinary_service import upload_bytes, download_url_bytes
 from services.gradio_service import get_gradio_client, call_gradio_api
-from services.image_processing import remove_background, image_to_png_bytes, ensure_png_format
+from services.image_processing import remove_background, image_to_png_bytes, ensure_png_format, construct_outfit_image
 
 # -------------------- Logging Setup --------------------
 logging.basicConfig(
@@ -225,6 +225,317 @@ async def classify_garment_by_url(request: Request, payload: UrlIn):
         "cutout_path": f"{FOLDER_CUT}/{cutout_public_id}.png",
         "garment_public_id": f"{FOLDER_ORIG}/{orig_public_id}",
         "cutout_public_id": f"{FOLDER_CUT}/{cutout_public_id}",
+    })
+
+
+@app.post("/detect_garment_type")
+async def detect_garment_type(request: Request, garment: UploadFile = File(...)):
+    """
+    Detect garment type only (no background removal or cloud upload).
+
+    This endpoint validates the uploaded image extensively and returns
+    only the classification result. Useful for quick garment type detection.
+
+    Form-Data:
+        garment: Image file (PNG, JPG, JPEG)
+
+    Returns:
+        JSON with label and confidence
+    """
+    request_id = getattr(request.state, "request_id", "unknown")
+    logger.info(f"[{request_id}] detect_garment_type request started")
+
+    # 1. Check file field exists
+    if not garment:
+        raise HTTPException(status_code=400, detail="No file field 'garment' in form-data")
+
+    # 2. Check non-empty filename
+    filename = garment.filename or ""
+    if not filename:
+        raise HTTPException(status_code=400, detail="Empty filename")
+
+    # 3. Check file extension
+    if not _allowed_file(filename):
+        raise HTTPException(
+            status_code=400,
+            detail=f"File type not allowed. Allowed: {', '.join(sorted(ALLOWED_EXTS))}"
+        )
+
+    # 4. Check MIME type (basic safety check)
+    content_type = garment.content_type or ""
+    if not any(mt in content_type for mt in ("image/png", "image/jpeg", "image/jpg")):
+        logger.warning(f"[{request_id}] Suspicious MIME type: {content_type}")
+        # Still continue, PIL will validate below
+
+    # 5. Read file bytes and check size
+    body = await garment.read()
+    if len(body) > MAX_CONTENT_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"File too large (>{int(MAX_CONTENT_MB)}MB)"
+        )
+
+    # 6. Save to temporary file with secure tokenized name
+    token = secrets.token_hex(4)
+    ext = filename.rsplit(".", 1)[1].lower()
+    safe_filename = f"garment_{token}.{ext}"
+
+    with tempfile.NamedTemporaryFile(delete=False, suffix=f".{ext}") as tmp:
+        tmp.write(body)
+        tmp_path = Path(tmp.name)
+
+    logger.info(f"[{request_id}] Saved temp file: {tmp_path}")
+
+    try:
+        # 7. Validate with PIL (verify image is valid)
+        try:
+            with Image.open(tmp_path) as img:
+                img.verify()
+            logger.info(f"[{request_id}] Image validation passed")
+        except Exception as e:
+            logger.error(f"[{request_id}] Invalid image: {e}")
+            raise HTTPException(
+                status_code=400,
+                detail="Uploaded file is not a valid image"
+            )
+
+        # 8. Run classification
+        try:
+            label, conf = await run_in_threadpool(classify_image, tmp_path)
+            logger.info(f"[{request_id}] Classification result: {label} (confidence={conf:.2%})")
+        except Exception as e:
+            logger.error(f"[{request_id}] Classification failed: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Classification failed: {str(e)}"
+            )
+
+    finally:
+        # 9. Cleanup: Always delete temp file
+        tmp_path.unlink(missing_ok=True)
+        logger.info(f"[{request_id}] Cleaned up temp file")
+
+    # 10. Return classification result
+    logger.info(f"[{request_id}] detect_garment_type completed: {label} ({conf:.4f})")
+    return JSONResponse({
+        "label": label,
+        "confidence": round(conf, 4),
+        "filename": safe_filename,
+        "file_size_bytes": len(body),
+        "content_type": content_type
+    })
+
+
+@app.post("/construct_outfit")
+async def construct_outfit(
+    request: Request,
+    upper_garment: UploadFile = File(...),
+    lower_garment: UploadFile = File(...)
+):
+    """
+    Construct a full outfit image from upper and lower garments.
+
+    This endpoint:
+    1. Validates both garment uploads (extension, MIME, size, PIL)
+    2. Classifies each garment to verify it's a shirt (upper) and pants/trousers (lower)
+    3. Merges the two garments vertically (shirt on top, pants on bottom)
+    4. Uploads the constructed outfit to Cloudinary
+    5. Returns both individual garment URLs and the constructed outfit URL
+
+    Form-Data:
+        upper_garment: Image file of shirt/t-shirt/top (PNG, JPG, JPEG)
+        lower_garment: Image file of pants/trousers/skirt (PNG, JPG, JPEG)
+
+    Returns:
+        JSON with garment classifications, individual URLs, and constructed outfit URL
+    """
+    request_id = getattr(request.state, "request_id", "unknown")
+    logger.info(f"[{request_id}] construct_outfit request started")
+
+    # ========== UPPER GARMENT VALIDATION ==========
+    logger.info(f"[{request_id}] Validating upper garment...")
+
+    # Check file field
+    if not upper_garment:
+        raise HTTPException(status_code=400, detail="No 'upper_garment' file in form-data")
+
+    upper_filename = upper_garment.filename or ""
+    if not upper_filename:
+        raise HTTPException(status_code=400, detail="Upper garment has empty filename")
+
+    if not _allowed_file(upper_filename):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Upper garment file type not allowed. Allowed: {', '.join(sorted(ALLOWED_EXTS))}"
+        )
+
+    # Check MIME type
+    upper_content_type = upper_garment.content_type or ""
+    if not any(mt in upper_content_type for mt in ("image/png", "image/jpeg", "image/jpg")):
+        logger.warning(f"[{request_id}] Upper garment suspicious MIME: {upper_content_type}")
+
+    # Read and check size
+    upper_body = await upper_garment.read()
+    if len(upper_body) > MAX_CONTENT_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Upper garment too large (>{int(MAX_CONTENT_MB)}MB)"
+        )
+
+    # Validate with PIL
+    try:
+        Image.open(io.BytesIO(upper_body)).verify()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Upper garment is not a valid image")
+
+    # ========== LOWER GARMENT VALIDATION ==========
+    logger.info(f"[{request_id}] Validating lower garment...")
+
+    # Check file field
+    if not lower_garment:
+        raise HTTPException(status_code=400, detail="No 'lower_garment' file in form-data")
+
+    lower_filename = lower_garment.filename or ""
+    if not lower_filename:
+        raise HTTPException(status_code=400, detail="Lower garment has empty filename")
+
+    if not _allowed_file(lower_filename):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Lower garment file type not allowed. Allowed: {', '.join(sorted(ALLOWED_EXTS))}"
+        )
+
+    # Check MIME type
+    lower_content_type = lower_garment.content_type or ""
+    if not any(mt in lower_content_type for mt in ("image/png", "image/jpeg", "image/jpg")):
+        logger.warning(f"[{request_id}] Lower garment suspicious MIME: {lower_content_type}")
+
+    # Read and check size
+    lower_body = await lower_garment.read()
+    if len(lower_body) > MAX_CONTENT_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Lower garment too large (>{int(MAX_CONTENT_MB)}MB)"
+        )
+
+    # Validate with PIL
+    try:
+        Image.open(io.BytesIO(lower_body)).verify()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Lower garment is not a valid image")
+
+    # ========== CLASSIFICATION ==========
+    logger.info(f"[{request_id}] Classifying garments...")
+
+    token = secrets.token_hex(8)
+
+    # Save upper garment to temp file
+    upper_ext = upper_filename.rsplit(".", 1)[1].lower()
+    with tempfile.NamedTemporaryFile(delete=False, suffix=f".{upper_ext}") as tmp:
+        tmp.write(upper_body)
+        upper_tmp_path = Path(tmp.name)
+
+    # Save lower garment to temp file
+    lower_ext = lower_filename.rsplit(".", 1)[1].lower()
+    with tempfile.NamedTemporaryFile(delete=False, suffix=f".{lower_ext}") as tmp:
+        tmp.write(lower_body)
+        lower_tmp_path = Path(tmp.name)
+
+    try:
+        # Classify upper garment
+        try:
+            upper_label, upper_conf = await run_in_threadpool(classify_image, upper_tmp_path)
+            logger.info(f"[{request_id}] Upper garment classified: {upper_label} ({upper_conf:.2%})")
+        except Exception as e:
+            logger.error(f"[{request_id}] Upper garment classification failed: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Upper garment classification failed: {str(e)}"
+            )
+
+        # Classify lower garment
+        try:
+            lower_label, lower_conf = await run_in_threadpool(classify_image, lower_tmp_path)
+            logger.info(f"[{request_id}] Lower garment classified: {lower_label} ({lower_conf:.2%})")
+        except Exception as e:
+            logger.error(f"[{request_id}] Lower garment classification failed: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Lower garment classification failed: {str(e)}"
+            )
+
+        # Verify garment types
+        # Upper should be: tshirt, shirt, top, jacket, etc.
+        # Lower should be: trousers, pants, skirt, shorts, etc.
+        valid_upper_labels = ["tshirt", "shirt", "top", "jacket", "upper"]
+        valid_lower_labels = ["trousers", "pants", "pant", "skirt", "shorts", "lower"]
+
+        upper_label_lower = upper_label.lower()
+        lower_label_lower = lower_label.lower()
+
+        if not any(valid in upper_label_lower for valid in valid_upper_labels):
+            logger.warning(
+                f"[{request_id}] Upper garment classified as '{upper_label}', expected shirt/tshirt/top"
+            )
+            # Don't fail, just warn (user might have custom labels)
+
+        if not any(valid in lower_label_lower for valid in valid_lower_labels):
+            logger.warning(
+                f"[{request_id}] Lower garment classified as '{lower_label}', expected trousers/pants/skirt"
+            )
+            # Don't fail, just warn
+
+        # ========== UPLOAD INDIVIDUAL GARMENTS ==========
+        logger.info(f"[{request_id}] Uploading individual garments to Cloudinary...")
+
+        # Upload upper garment
+        upper_public_id = f"upper_{token}"
+        upper_upload = await run_in_threadpool(upload_bytes, upper_body, upper_public_id, FOLDER_ORIG, None)
+        upper_url = upper_upload["secure_url"]
+
+        # Upload lower garment
+        lower_public_id = f"lower_{token}"
+        lower_upload = await run_in_threadpool(upload_bytes, lower_body, lower_public_id, FOLDER_ORIG, None)
+        lower_url = lower_upload["secure_url"]
+
+        # ========== CONSTRUCT OUTFIT IMAGE ==========
+        logger.info(f"[{request_id}] Constructing full outfit image...")
+
+        outfit_bytes = await run_in_threadpool(construct_outfit_image, upper_body, lower_body)
+
+        # Upload constructed outfit
+        outfit_public_id = f"outfit_{token}"
+        outfit_upload = await run_in_threadpool(upload_bytes, outfit_bytes, outfit_public_id, FOLDER_ORIG, "png")
+        outfit_url = outfit_upload["secure_url"]
+
+        logger.info(f"[{request_id}] Outfit constructed and uploaded: {outfit_url}")
+
+    finally:
+        # Cleanup temp files
+        upper_tmp_path.unlink(missing_ok=True)
+        lower_tmp_path.unlink(missing_ok=True)
+
+    # ========== RETURN RESULT ==========
+    logger.info(f"[{request_id}] construct_outfit completed successfully")
+    return JSONResponse({
+        "success": True,
+        "upper_garment": {
+            "label": upper_label,
+            "confidence": round(upper_conf, 4),
+            "url": upper_url,
+            "public_id": f"{FOLDER_ORIG}/{upper_public_id}"
+        },
+        "lower_garment": {
+            "label": lower_label,
+            "confidence": round(lower_conf, 4),
+            "url": lower_url,
+            "public_id": f"{FOLDER_ORIG}/{lower_public_id}"
+        },
+        "outfit": {
+            "url": outfit_url,
+            "public_id": f"{FOLDER_ORIG}/{outfit_public_id}",
+            "format": "png"
+        }
     })
 
 

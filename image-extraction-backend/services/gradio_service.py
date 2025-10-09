@@ -12,6 +12,7 @@ from starlette.concurrency import run_in_threadpool
 
 from config import GRADIO_SPACE, HF_TOKEN, MAX_CONTENT_BYTES
 from services.cloudinary_service import download_url_bytes
+from services.image_processing import convert_to_rgb_png
 
 logger = logging.getLogger(__name__)
 
@@ -95,6 +96,9 @@ async def _download_gradio_result(result_data: Any, base_url: str) -> bytes:
 
     logger.info(f"Final extracted file path: {file_path}")
 
+    # Download or read the image bytes
+    image_bytes = None
+
     # Check if file_path is a local file that gradio_client already downloaded
     if file_path.startswith('/') and Path(file_path).exists():
         # Gradio client already downloaded the file locally
@@ -104,28 +108,38 @@ async def _download_gradio_result(result_data: Any, base_url: str) -> bytes:
                 with open(path, 'rb') as f:
                     return f.read()
 
-            return await run_in_threadpool(read_local_file, file_path)
+            image_bytes = await run_in_threadpool(read_local_file, file_path)
+            logger.info(f"Successfully read {len(image_bytes)} bytes from local file")
         except Exception as e:
             logger.warning(f"Failed to read local file {file_path}: {e}, will try URL download")
             # Fall through to URL download
 
-    # Construct download URL
-    if file_path.startswith('/'):
-        # Local file path → construct Gradio file URL
-        image_url = f"{base_url}/gradio_api/file={file_path}"
-        logger.info(f"Constructed URL from local path: {image_url}")
-    elif file_path.startswith('http'):
-        # Already a full URL
-        image_url = file_path
-        logger.info(f"Using full URL: {image_url}")
-    else:
-        # Relative path → construct full URL
-        image_url = f"{base_url}/{file_path}"
-        logger.info(f"Constructed URL from relative path: {image_url}")
+    # If local read failed or file doesn't exist, download from URL
+    if image_bytes is None:
+        # Construct download URL
+        if file_path.startswith('/'):
+            # Local file path → construct Gradio file URL
+            image_url = f"{base_url}/gradio_api/file={file_path}"
+            logger.info(f"Constructed URL from local path: {image_url}")
+        elif file_path.startswith('http'):
+            # Already a full URL
+            image_url = file_path
+            logger.info(f"Using full URL: {image_url}")
+        else:
+            # Relative path → construct full URL
+            image_url = f"{base_url}/{file_path}"
+            logger.info(f"Constructed URL from relative path: {image_url}")
 
-    # Download image from URL
-    logger.info(f"Downloading from URL: {image_url}")
-    return await run_in_threadpool(download_url_bytes, image_url, MAX_CONTENT_BYTES)
+        # Download image from URL
+        logger.info(f"Downloading from URL: {image_url}")
+        image_bytes = await run_in_threadpool(download_url_bytes, image_url, MAX_CONTENT_BYTES)
+        logger.info(f"Successfully downloaded {len(image_bytes)} bytes")
+
+    # Convert WebP/any format to RGB PNG for consistency and Cloudinary compatibility
+    logger.info("Converting result image to RGB PNG format")
+    png_bytes = await run_in_threadpool(convert_to_rgb_png, image_bytes)
+
+    return png_bytes
 
 
 async def call_gradio_api(

@@ -42,17 +42,16 @@ def image_to_png_bytes(im: Image.Image) -> bytes:
     return buf.getvalue()
 
 
-def ensure_png_format(image_bytes: bytes) -> bytes:
+def convert_to_rgb_png(image_bytes: bytes) -> bytes:
     """
-    Convert any image format to PNG with RGB mode (no alpha channel).
+    Convert any image format (WebP, JPEG, PNG, etc.) to RGB PNG.
 
-    This function ensures that images sent to Gradio are always in PNG format
-    with RGB mode, which eliminates "cannot write mode RGBA as JPEG" errors.
-    Gradio's ImageEditor internally converts to JPEG, which doesn't support
-    transparency, so we force RGB mode here.
+    This function handles all image formats including WebP (returned by Gradio),
+    converts to RGB mode (removes alpha channel), and saves as PNG.
+    This ensures compatibility with Cloudinary and eliminates transparency issues.
 
     Args:
-        image_bytes: Raw image bytes in any format (JPEG, PNG, WebP, etc.)
+        image_bytes: Raw image bytes in any format (WebP, JPEG, PNG, etc.)
 
     Returns:
         PNG-formatted image bytes in RGB mode
@@ -67,7 +66,7 @@ def ensure_png_format(image_bytes: bytes) -> bytes:
         # Log original format and mode for debugging
         original_format = img.format or 'UNKNOWN'
         original_mode = img.mode
-        logger.debug(f"Converting image: format={original_format}, mode={original_mode} → PNG (RGB)")
+        logger.info(f"Converting image: format={original_format}, mode={original_mode} → PNG (RGB)")
 
         # Convert to RGB mode (remove alpha channel if present)
         if img.mode in ('RGBA', 'LA', 'PA'):
@@ -100,10 +99,109 @@ def ensure_png_format(image_bytes: bytes) -> bytes:
         img.save(buf, format='PNG', optimize=True)
 
         png_bytes = buf.getvalue()
-        logger.debug(f"Conversion successful: {original_mode} → RGB, {len(image_bytes)} bytes → {len(png_bytes)} bytes")
+        logger.info(f"Conversion successful: {original_format}/{original_mode} → PNG/RGB, {len(image_bytes)} bytes → {len(png_bytes)} bytes")
 
         return png_bytes
 
     except Exception as e:
         logger.error(f"Failed to convert image to PNG: {e}")
         raise ValueError(f"Invalid image data: {e}") from e
+
+
+def ensure_png_format(image_bytes: bytes) -> bytes:
+    """
+    Convert any image format to PNG with RGB mode (no alpha channel).
+
+    This function ensures that images sent to Gradio are always in PNG format
+    with RGB mode, which eliminates "cannot write mode RGBA as JPEG" errors.
+    Gradio's ImageEditor internally converts to JPEG, which doesn't support
+    transparency, so we force RGB mode here.
+
+    Args:
+        image_bytes: Raw image bytes in any format (JPEG, PNG, WebP, etc.)
+
+    Returns:
+        PNG-formatted image bytes in RGB mode
+
+    Raises:
+        ValueError: If image_bytes cannot be opened as a valid image
+    """
+    # Use the shared conversion function
+    return convert_to_rgb_png(image_bytes)
+
+
+def construct_outfit_image(upper_bytes: bytes, lower_bytes: bytes) -> bytes:
+    """
+    Construct a full outfit image by vertically stacking upper and lower garments.
+
+    Places the upper garment (shirt/top) on top and lower garment (pants/skirt)
+    on the bottom, creating a complete outfit visualization.
+
+    Args:
+        upper_bytes: Image bytes of upper garment (shirt, t-shirt, jacket, etc.)
+        lower_bytes: Image bytes of lower garment (pants, skirt, shorts, etc.)
+
+    Returns:
+        PNG-formatted image bytes of the constructed full outfit
+
+    Raises:
+        ValueError: If images cannot be opened or processed
+    """
+    try:
+        # Open both images
+        upper_img = Image.open(io.BytesIO(upper_bytes))
+        lower_img = Image.open(io.BytesIO(lower_bytes))
+
+        logger.info(f"Upper garment: {upper_img.size}, mode={upper_img.mode}")
+        logger.info(f"Lower garment: {lower_img.size}, mode={lower_img.mode}")
+
+        # Convert to RGBA for consistent handling
+        upper_img = upper_img.convert('RGBA')
+        lower_img = lower_img.convert('RGBA')
+
+        # Calculate dimensions for the merged image
+        # Use the maximum width and sum of heights
+        max_width = max(upper_img.width, lower_img.width)
+        total_height = upper_img.height + lower_img.height
+
+        logger.info(f"Constructing outfit: {max_width}x{total_height}")
+
+        # Resize images to same width if needed (maintain aspect ratio)
+        if upper_img.width != max_width:
+            aspect_ratio = upper_img.height / upper_img.width
+            new_height = int(max_width * aspect_ratio)
+            upper_img = upper_img.resize((max_width, new_height), Image.LANCZOS)
+            logger.debug(f"Resized upper garment to: {upper_img.size}")
+
+        if lower_img.width != max_width:
+            aspect_ratio = lower_img.height / lower_img.width
+            new_height = int(max_width * aspect_ratio)
+            lower_img = lower_img.resize((max_width, new_height), Image.LANCZOS)
+            logger.debug(f"Resized lower garment to: {lower_img.size}")
+
+        # Recalculate total height after resizing
+        total_height = upper_img.height + lower_img.height
+        outfit_img = Image.new('RGB', (max_width, total_height), (255, 255, 255))
+
+        # Paste upper garment at top
+        # Center horizontally if needed
+        upper_x = (max_width - upper_img.width) // 2
+        outfit_img.paste(upper_img, (upper_x, 0), upper_img if upper_img.mode == 'RGBA' else None)
+
+        # Paste lower garment below upper
+        lower_x = (max_width - lower_img.width) // 2
+        lower_y = upper_img.height
+        outfit_img.paste(lower_img, (lower_x, lower_y), lower_img if lower_img.mode == 'RGBA' else None)
+
+        # Convert to PNG bytes
+        buf = io.BytesIO()
+        outfit_img.save(buf, format='PNG', optimize=True)
+
+        png_bytes = buf.getvalue()
+        logger.info(f"Outfit constructed successfully: {len(png_bytes)} bytes")
+
+        return png_bytes
+
+    except Exception as e:
+        logger.error(f"Failed to construct outfit image: {e}")
+        raise ValueError(f"Outfit construction failed: {e}") from e
