@@ -1,311 +1,146 @@
 'use client';
 
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import {
-  Sparkles,
-  Camera,
-  Cpu,
-  Globe,
-  Github,
-  Heart,
-  Users,
-  Zap,
-  Brain,
-  Shield,
-  Smartphone,
-  Code,
-  Lightbulb,
-  Rocket,
-  Target,
-  CheckCircle,
-  ArrowRight,
-  ExternalLink,
-} from 'lucide-react';
+import { aboutContent } from '@/lib/constants';
+import { ExternalLink, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
-
-const techStack = [
-  { name: 'Next.js 15', description: 'React framework with App Router', icon: Code },
-  { name: 'MediaPipe', description: 'Real-time pose detection', icon: Brain },
-  { name: 'Three.js', description: '3D graphics and rendering', icon: Cpu },
-  { name: 'TypeScript', description: 'Type-safe development', icon: Shield },
-  { name: 'Tailwind CSS', description: 'Modern styling framework', icon: Lightbulb },
-  { name: 'shadcn/ui', description: 'Beautiful UI components', icon: Sparkles },
-];
-
-const roadmapItems = [
-  { title: 'Basic AR Try-On', status: 'completed', progress: 100 },
-  { title: 'Image Upload System', status: 'completed', progress: 100 },
-  { title: 'Real-time Processing', status: 'in-progress', progress: 75 },
-  { title: 'Fashion Gallery', status: 'in-progress', progress: 45 },
-  { title: 'AI Recommendations', status: 'planned', progress: 0 },
-  { title: 'Social Sharing', status: 'planned', progress: 0 },
-];
-
-const features = [
-  {
-    icon: Camera,
-    title: 'Advanced AR Technology',
-    description: 'State-of-the-art augmented reality for realistic virtual try-on experiences.',
-  },
-  {
-    icon: Zap,
-    title: 'Real-time Processing',
-    description: 'Lightning-fast processing with optimized algorithms for instant results.',
-  },
-  {
-    icon: Shield,
-    title: 'Privacy-First Design',
-    description:
-      'All processing happens locally on your device. Your images never leave your browser.',
-  },
-  {
-    icon: Smartphone,
-    title: 'Cross-Platform',
-    description: 'Works seamlessly across desktop, mobile, and tablet devices.',
-  },
-];
-
-const stats = [
-  { label: 'Beta Users', value: '10K+', icon: Users },
-  { label: 'Try-On Sessions', value: '50K+', icon: Camera },
-  { label: 'Accuracy Rate', value: '98%', icon: Target },
-  { label: 'Processing Speed', value: '<2s', icon: Zap },
-];
 
 export default function AboutPage() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
-      <div className="container mx-auto px-4 py-8">
-        {/* Hero Section */}
-        <div className="text-center max-w-4xl mx-auto mb-16">
-          <div className="flex items-center justify-center gap-3 mb-6">
-            <div className="p-3 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600">
-              <Sparkles className="w-8 h-8 text-white" />
-            </div>
-            <div>
-              <h1 className="text-4xl md:text-5xl font-bold">
-                About{' '}
-                <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                  AR Fashion Try-On
-                </span>
-              </h1>
-            </div>
-          </div>
-
-          <p className="text-xl text-muted-foreground leading-relaxed max-w-3xl mx-auto mb-8">
-            Revolutionizing online fashion shopping with cutting-edge augmented reality technology.
-            Try on clothes virtually with unprecedented realism and accuracy.
+    <div className="min-h-screen">
+      <div className="container mx-auto px-4 py-12 md:py-16 max-w-4xl">
+        {/* Lead Section */}
+        <div className="text-center mb-16 space-y-4">
+          <h1 className="text-4xl md:text-5xl font-bold">
+            {aboutContent.lead.title}
+          </h1>
+          <p className="text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
+            {aboutContent.lead.intro}
           </p>
-
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link href="/try-on">
-              <Button size="lg" className="h-12 px-6">
-                <Camera className="w-5 h-5 mr-2" />
-                Try It Now
-                <ArrowRight className="w-4 h-4 ml-2" />
-              </Button>
-            </Link>
-            <Button variant="outline" size="lg" className="h-12 px-6" asChild>
-              <a href="https://github.com" target="_blank" rel="noopener noreferrer">
-                <Github className="w-5 h-5 mr-2" />
-                View Source
-                <ExternalLink className="w-4 h-4 ml-2" />
-              </a>
-            </Button>
-          </div>
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-16">
-          {stats.map((stat) => (
-            <Card key={stat.label} className="text-center">
-              <CardContent className="pt-6">
-                <div className="flex justify-center mb-2">
-                  <div className="p-2 rounded-xl bg-primary/10">
-                    <stat.icon className="w-6 h-6 text-primary" />
-                  </div>
-                </div>
-                <div className="text-2xl font-bold mb-1">{stat.value}</div>
-                <div className="text-sm text-muted-foreground">{stat.label}</div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
-        {/* Mission Statement */}
-        <Card className="mb-16 border-primary/20 bg-gradient-to-r from-primary/5 to-primary/10">
-          <CardContent className="pt-8">
-            <div className="max-w-3xl mx-auto text-center">
-              <div className="flex justify-center mb-4">
-                <Heart className="w-8 h-8 text-primary" />
-              </div>
-              <h2 className="text-2xl font-bold mb-4">Our Mission</h2>
-              <p className="text-lg text-muted-foreground leading-relaxed">
-                We believe the future of fashion retail is virtual. Our mission is to eliminate the
-                guesswork in online shopping by providing the most accurate and intuitive AR try-on
-                experience possible, making fashion accessible and enjoyable for everyone.
+        {/* Mission Section */}
+        <section className="mb-16">
+          <Card className="border-2 bg-gradient-to-br from-primary/5 to-primary/10">
+            <CardHeader>
+              <CardTitle className="text-2xl text-center">Our Mission</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-lg text-center text-muted-foreground leading-relaxed">
+                {aboutContent.mission}
               </p>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </section>
 
-        {/* Features Grid */}
-        <div className="mb-16">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold mb-4">Why Choose AR Fashion Try-On?</h2>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Built with the latest technology to deliver an unparalleled virtual shopping
-              experience
+        {/* Principles Section */}
+        <section className="mb-16">
+          <div className="text-center mb-8">
+            <h2 className="text-3xl font-bold mb-3">Our Principles</h2>
+            <p className="text-lg text-muted-foreground">
+              The values that guide our development
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-8">
-            {features.map((feature) => (
-              <Card
-                key={feature.title}
-                className="group hover:shadow-lg transition-all duration-300"
-              >
-                <CardContent className="pt-6">
-                  <div className="flex items-start gap-4">
-                    <div className="p-3 rounded-xl bg-primary/10 group-hover:bg-primary/20 transition-colors">
-                      <feature.icon className="w-6 h-6 text-primary" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-lg mb-2">{feature.title}</h3>
-                      <p className="text-muted-foreground">{feature.description}</p>
-                    </div>
+          <div className="grid md:grid-cols-3 gap-6">
+            {aboutContent.principles.map((principle) => (
+              <Card key={principle.title} className="border-2 text-center">
+                <CardHeader>
+                  <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-primary/10 text-primary mx-auto mb-3">
+                    <principle.icon className="h-6 w-6" />
                   </div>
-                </CardContent>
+                  <CardTitle className="text-lg">{principle.title}</CardTitle>
+                  <CardDescription className="text-base">{principle.description}</CardDescription>
+                </CardHeader>
               </Card>
             ))}
           </div>
-        </div>
+        </section>
 
-        {/* Tech Stack */}
-        <div className="mb-16">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold mb-4">Technology Stack</h2>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Powered by cutting-edge technologies and modern web standards
+        {/* Technology Section */}
+        <section className="mb-16">
+          <div className="text-center mb-8">
+            <h2 className="text-3xl font-bold mb-3">{aboutContent.technology.title}</h2>
+            <p className="text-lg text-muted-foreground">
+              {aboutContent.technology.intro}
             </p>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            {techStack.map((tech) => (
-              <Card key={tech.name} className="group hover:shadow-md transition-all duration-300">
-                <CardContent className="pt-4">
-                  <div className="flex items-center gap-3 mb-2">
-                    <tech.icon className="w-5 h-5 text-primary" />
-                    <h3 className="font-medium">{tech.name}</h3>
-                  </div>
-                  <p className="text-sm text-muted-foreground">{tech.description}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-
-        {/* Roadmap */}
-        <div className="mb-16">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold mb-4">Development Roadmap</h2>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Track our progress as we continue to innovate and improve the AR try-on experience
-            </p>
-          </div>
-
-          <Card>
+          <Card className="border-2">
             <CardContent className="pt-6">
-              <div className="space-y-6">
-                {roadmapItems.map((item) => (
-                  <div key={item.title} className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        {item.status === 'completed' ? (
-                          <CheckCircle className="w-5 h-5 text-green-500" />
-                        ) : item.status === 'in-progress' ? (
-                          <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                        ) : (
-                          <div className="w-5 h-5 border-2 border-muted-foreground/30 rounded-full" />
-                        )}
-                        <span className="font-medium">{item.title}</span>
-                      </div>
-                      <Badge
-                        variant={
-                          item.status === 'completed'
-                            ? 'default'
-                            : item.status === 'in-progress'
-                              ? 'secondary'
-                              : 'outline'
-                        }
-                        className={
-                          item.status === 'completed' ? 'bg-green-500 hover:bg-green-600' : ''
-                        }
-                      >
-                        {item.status === 'completed'
-                          ? 'Done'
-                          : item.status === 'in-progress'
-                            ? 'In Progress'
-                            : 'Planned'}
-                      </Badge>
+              <div className="space-y-4">
+                {aboutContent.technology.stack.map((tech) => (
+                  <div key={tech.name} className="flex items-start gap-3 p-3 rounded-lg hover:bg-accent/50 transition-colors">
+                    <div className="flex-shrink-0 w-2 h-2 mt-2 rounded-full bg-primary" />
+                    <div>
+                      <span className="font-semibold">{tech.name}</span>
+                      <span className="text-muted-foreground"> {tech.purpose}</span>
                     </div>
-                    <Progress value={item.progress} className="h-2" />
                   </div>
                 ))}
               </div>
             </CardContent>
           </Card>
-        </div>
+        </section>
 
-        {/* Call to Action */}
-        <Card className="text-center bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/50 dark:to-purple-950/50 border-primary/20">
-          <CardContent className="pt-8">
-            <div className="max-w-2xl mx-auto space-y-6">
-              <div className="flex justify-center">
-                <div className="p-4 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600">
-                  <Rocket className="w-8 h-8 text-white" />
-                </div>
-              </div>
-
-              <div>
-                <h2 className="text-2xl font-bold mb-2">Ready to Experience the Future?</h2>
-                <p className="text-muted-foreground">
-                  Join thousands of users who are already experiencing the magic of AR fashion
-                  try-on
-                </p>
-              </div>
-
-              <div className="flex flex-col sm:flex-row gap-4 items-center justify-center">
-                <Link href="/try-on">
-                  <Button size="lg" className="h-12 px-8">
-                    <Sparkles className="w-5 h-5 mr-2" />
-                    Start Your Journey
-                  </Button>
-                </Link>
-                <Link href="/gallery">
-                  <Button variant="outline" size="lg" className="h-12 px-8">
-                    Explore Gallery
-                  </Button>
-                </Link>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Footer Note */}
-        <div className="mt-12 text-center">
-          <Alert className="max-w-2xl mx-auto">
-            <Globe className="h-4 w-4" />
-            <AlertDescription>
-              This project is open source and built with ❤️ for the community. Contributions and
-              feedback are always welcome!
+        {/* Responsible Use Section */}
+        <section className="mb-16">
+          <Alert className="border-amber-500/50 bg-amber-500/10">
+            <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+            <AlertDescription className="text-base">
+              <strong>{aboutContent.responsibleUse.title}:</strong> {aboutContent.responsibleUse.note}
             </AlertDescription>
           </Alert>
-        </div>
+        </section>
+
+        {/* Credits & Links Section */}
+        <section>
+          <div className="text-center mb-8">
+            <h2 className="text-3xl font-bold mb-3">{aboutContent.credits.title}</h2>
+            <p className="text-muted-foreground">
+              {aboutContent.credits.note}
+            </p>
+          </div>
+
+          <Card className="border-2">
+            <CardContent className="pt-6">
+              <div className="grid sm:grid-cols-2 gap-3">
+                {aboutContent.credits.links.map((link) => (
+                  <Button
+                    key={link.label}
+                    variant="outline"
+                    asChild
+                    className="justify-between h-auto py-3"
+                  >
+                    <Link href={link.href} target={link.href.startsWith('http') ? '_blank' : undefined} rel={link.href.startsWith('http') ? 'noopener noreferrer' : undefined}>
+                      <span>{link.label}</span>
+                      {link.href.startsWith('http') && <ExternalLink className="h-4 w-4 ml-2" />}
+                    </Link>
+                  </Button>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </section>
+
+        {/* CTA Section */}
+        <section className="mt-16 text-center">
+          <Card className="border-2 bg-gradient-to-br from-violet-500/5 to-blue-500/5">
+            <CardContent className="pt-8 pb-8">
+              <h3 className="text-2xl font-bold mb-3">Ready to try it out?</h3>
+              <p className="text-muted-foreground mb-6">
+                Experience the hybrid try-on system yourself
+              </p>
+              <Button size="lg" asChild>
+                <Link href="/try-on">
+                  Start Try-On
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
+        </section>
       </div>
     </div>
   );

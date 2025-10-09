@@ -18,6 +18,7 @@
     "@mediapipe/pose": "^0.5.1675469404",
     "@mediapipe/tasks-vision": "0.10.22-rc.20250304",
     "@radix-ui/react-accordion": "^1.2.12",
+    "@radix-ui/react-alert-dialog": "^1.1.15",
     "@radix-ui/react-avatar": "^1.1.10",
     "@radix-ui/react-dialog": "^1.1.14",
     "@radix-ui/react-dropdown-menu": "^2.1.15",

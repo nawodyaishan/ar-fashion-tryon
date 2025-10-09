@@ -213,10 +213,13 @@ export default function ARPanel() {
                 src={garment.src}
                 alt={garment.name}
                 fill
-                className="object-contain p-1"
-                onError={() => {
+                sizes="(max-width: 640px) 25vw, (max-width: 1024px) 15vw, 10vw"
+                className="object-contain p-1 bg-muted/20"
+                unoptimized={garment.id.startsWith('custom-')}
+                onError={(e) => {
                   // Fallback for missing images
                   console.error(`Failed to load: ${garment.src}`);
+                  (e.target as HTMLImageElement).style.display = 'none';
                 }}
               />
               {selectedGarmentId === garment.id && (

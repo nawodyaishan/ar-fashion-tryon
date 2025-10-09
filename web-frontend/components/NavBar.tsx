@@ -15,12 +15,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Sparkles, Settings, Zap, HelpCircle, Info, Smartphone, MoreVertical, Moon, Sun } from 'lucide-react';
+import { Sparkles, Settings, HelpCircle, Info, Smartphone, MoreVertical, Moon, Sun } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { navigationItems } from '@/lib/constants';
 import { useTryonStore } from '@/lib/tryon-store';
 import { isMobile } from '@/lib/utils/device';
 import { useTheme } from 'next-themes';
+import { BackendStatusIndicator } from '@/components/BackendStatusIndicator';
 
 export default function NavBar() {
   const pathname = usePathname();
@@ -199,11 +200,10 @@ export default function NavBar() {
               </div>
             )}
 
-            {/* Performance Indicator */}
+            {/* Backend Status Indicator */}
             {!isTryOnPage && (
-              <div className="hidden lg:flex items-center space-x-2 px-3 py-2 rounded-lg bg-muted/50">
-                <Zap className="w-4 h-4 text-green-500" />
-                <span className="text-xs font-medium text-muted-foreground">Ready</span>
+              <div className="hidden lg:block">
+                <BackendStatusIndicator />
               </div>
             )}
 
