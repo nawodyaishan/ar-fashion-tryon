@@ -32,18 +32,18 @@ export interface ClassificationResult {
 }
 
 export interface ExtractionResult {
-  cutout_url: string;      // URL path to extracted image (e.g., "/static/outputs/cutout_xxx.png")
-  cutout_path: string;     // Relative path for download
-  original_url: string;    // URL to original uploaded image
+  cutout_url: string; // URL path to extracted image (e.g., "/static/outputs/cutout_xxx.png")
+  cutout_path: string; // Relative path for download
+  original_url: string; // URL to original uploaded image
 }
 
-export interface GarmentProcessResponse {
+export type GarmentProcessResponse = {
   success: boolean;
-  message: string;
-  classification: ClassificationResult | null;
-  extraction: ExtractionResult | null;
-  processing_time_ms: number | null;
-}
+  message?: string;
+  processing_time_ms?: number; // client-measured
+  classification?: { label: string; confidence: number };
+  extraction?: { cutout_url: string; garment_url: string; cutout_path: string };
+};
 
 export interface GarmentExtractionError {
   detail: string;
@@ -69,7 +69,7 @@ export interface Garment {
 
   // Extraction metadata (populated after extraction)
   extracted?: boolean;
-  extractedUrl?: string;    // URL to extracted/cutout image
+  extractedUrl?: string; // URL to extracted/cutout image
   classification?: ClassificationResult;
   processingTime?: number;
 }

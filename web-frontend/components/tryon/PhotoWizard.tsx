@@ -8,25 +8,31 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Slider } from '@/components/ui/slider';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
 import { useVtonStore } from '@/lib/store/useVtonStore';
 import { useTryonStore } from '@/lib/tryon-store';
 import {
-  Upload,
-  Image as ImageIcon,
+  AlertCircle,
   Check,
-  X,
-  Loader2,
-  ChevronRight,
   ChevronLeft,
+  ChevronRight,
   Download,
+  Image as ImageIcon,
+  Loader2,
   RotateCcw,
   Sparkles,
-  AlertCircle,
+  Upload,
+  X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import Image from 'next/image';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { downloadBase64ImageSmart } from '@/lib/services/gradioApi';
 
 export default function PhotoWizard() {
   const bodyFileInputRef = useRef<HTMLInputElement>(null);
@@ -79,29 +85,16 @@ export default function PhotoWizard() {
   const handleGarmentUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (!file.type.startsWith('image/')) return toast.error('Please upload an image file');
+    if (file.size > 10 * 1024 * 1024) return toast.error('File size must be less than 10MB');
 
-    if (!file.type.startsWith('image/')) {
-      toast.error('Please upload an image file');
-      return;
-    }
+    const toastId = 'garment-extraction';
+    toast.loading('Extracting garment...', { id: toastId });
 
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error('File size must be less than 10MB');
-      return;
-    }
+    const { ok, message } = await setGarmentFile(file);
 
-    // Show extraction toast
-    toast.loading('Extracting garment...', { id: 'garment-extraction' });
-
-    // setGarmentFile now handles extraction automatically
-    await setGarmentFile(file);
-
-    // Check if extraction was successful
-    if (status === 'error') {
-      toast.error(error || 'Garment extraction failed', { id: 'garment-extraction' });
-    } else if (status === 'valid') {
-      toast.success('Garment extracted successfully!', { id: 'garment-extraction' });
-    }
+    if (ok) toast.success('Garment extracted', { id: toastId });
+    else toast.error(message || 'Garment extraction failed', { id: toastId });
   };
 
   // Select from gallery
@@ -118,17 +111,9 @@ export default function PhotoWizard() {
     }
   };
 
-  // Download result
   const handleDownload = () => {
     if (!resultUrl) return;
-
-    const link = document.createElement('a');
-    link.href = resultUrl;
-    link.download = `photo-tryon-${Date.now()}.png`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    toast.success('Downloaded to your device');
+    downloadBase64ImageSmart(resultUrl, 'photo-tryon'); // picks .webp/.png/.jpg correctly
   };
 
   // Regenerate
@@ -366,8 +351,12 @@ export default function PhotoWizard() {
                       <Alert className="bg-green-500/10 border-green-500/20">
                         <Sparkles className="h-4 w-4 text-green-600 dark:text-green-400" />
                         <AlertDescription className="text-green-800 dark:text-green-200">
-                          Extracted: {garment.extractionResult.classification?.label.toUpperCase()} (
-                          {((garment.extractionResult.classification?.confidence || 0) * 100).toFixed(0)}% confidence)
+                          Extracted: {garment.extractionResult.classification?.label.toUpperCase()}{' '}
+                          (
+                          {(
+                            (garment.extractionResult.classification?.confidence || 0) * 100
+                          ).toFixed(0)}
+                          % confidence)
                         </AlertDescription>
                       </Alert>
                     )}
@@ -472,7 +461,9 @@ export default function PhotoWizard() {
             {/* Advanced Settings */}
             <Accordion type="single" collapsible className="w-full">
               <AccordionItem value="advanced">
-                <AccordionTrigger className="text-sm">Advanced Settings (Optional)</AccordionTrigger>
+                <AccordionTrigger className="text-sm">
+                  Advanced Settings (Optional)
+                </AccordionTrigger>
                 <AccordionContent className="space-y-4 pt-4">
                   {/* Inference Steps */}
                   <div className="space-y-2">
@@ -520,9 +511,7 @@ export default function PhotoWizard() {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <Label className="text-sm">Seed</Label>
-                      <span className="text-xs text-muted-foreground">
-                        {options.seed ?? 42}
-                      </span>
+                      <span className="text-xs text-muted-foreground">{options.seed ?? 42}</span>
                     </div>
                     <Slider
                       value={[options.seed ?? 42]}
@@ -618,7 +607,7 @@ export default function PhotoWizard() {
                 className="absolute inset-0"
                 style={{ clipPath: `inset(0 ${100 - splitPosition}% 0 0)` }}
               >
-                <Image src={resultUrl} alt="After" fill className="object-cover" />
+                <Image src={resultUrl} alt="After" fill className="object-cover" unoptimized />
               </div>
 
               {/* Slider control */}
@@ -648,7 +637,11 @@ export default function PhotoWizard() {
                 <Download className="h-4 w-4 mr-2" />
                 Download
               </Button>
-              <Button variant="outline" onClick={handleRegenerate} disabled={status === 'processing'}>
+              <Button
+                variant="outline"
+                onClick={handleRegenerate}
+                disabled={status === 'processing'}
+              >
                 <RotateCcw className="h-4 w-4 mr-2" />
                 Regenerate
               </Button>
@@ -663,18 +656,12 @@ export default function PhotoWizard() {
       {/* Navigation */}
       {step !== 'RESULT' && (
         <div className="p-4 border-t flex items-center justify-between">
-          <Button
-            variant="outline"
-            onClick={handleBack}
-            disabled={step === 'BODY'}
-          >
+          <Button variant="outline" onClick={handleBack} disabled={step === 'BODY'}>
             <ChevronLeft className="h-4 w-4 mr-2" />
             Back
           </Button>
 
-          <div className="text-sm text-muted-foreground">
-            Step {stepNumber} of 3
-          </div>
+          <div className="text-sm text-muted-foreground">Step {stepNumber} of 3</div>
 
           {step !== 'GENERATE' ? (
             <Button

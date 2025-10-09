@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Camera, AlertCircle, RefreshCcw, Shield } from 'lucide-react';
 
 interface VideoPreviewProps {
-  onStreamReady?: (stream: MediaStream) => void;
+  onStreamReady?: (stream: MediaStream, video: HTMLVideoElement) => void;
   className?: string;
 }
 
@@ -33,9 +33,11 @@ export function VideoPreview({ onStreamReady, className = '' }: VideoPreviewProp
         videoRef.current.srcObject = mediaStream;
         // Wait for video to be ready
         await videoRef.current.play();
+
+        // Pass both stream and video element to callback
+        onStreamReady?.(mediaStream, videoRef.current);
       }
 
-      onStreamReady?.(mediaStream);
       setIsLoading(false);
     } catch (err) {
       setError(err as CameraError);

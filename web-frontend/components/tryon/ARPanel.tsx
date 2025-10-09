@@ -6,11 +6,13 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useTryonStore } from '@/lib/tryon-store';
 import { loadImageFromFile, getImageDimensions, getFileSizeKB } from '@/lib/canvas';
-import { extractAndPrepareGarment } from '@/lib/services/garmentApi';
+import { extractGarmentSmart } from '@/lib/services/garmentApi';
 import { TransformControls } from './TransformControls';
-import { Plus, Trash2, Sparkles } from 'lucide-react';
+import { MediaPipeTestPanel } from './MediaPipeTestPanel';
+import { Plus, Trash2, Sparkles, Activity } from 'lucide-react';
 import { toast } from 'sonner';
 import Image from 'next/image';
 
@@ -21,6 +23,12 @@ export default function ARPanel() {
     selectGarment,
     addGarment,
     removeGarment,
+    mediaPipeEnabled,
+    toggleMediaPipe,
+    landmarksVisible,
+    toggleLandmarks,
+    continuousTracking,
+    toggleContinuousTracking,
     snapToShoulders,
     setSnapToShoulders,
     poseConfidence,
@@ -32,6 +40,12 @@ export default function ARPanel() {
   const [uploading, setUploading] = useState(false);
 
   const selectedGarment = garments.find((g) => g.id === selectedGarmentId);
+
+  const getConfidenceLabel = () => {
+    if (poseConfidence === 'Good') return '🟢 Good';
+    if (poseConfidence === 'Okay') return '🟡 Okay';
+    return '🔴 Low';
+  };
 
   // Handle file upload with garment extraction
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -54,8 +68,8 @@ export default function ARPanel() {
       setUploading(true);
       toast.loading('Extracting garment...', { id: 'extraction' });
 
-      // Step 1: Extract garment through API
-      const { result, extractedFile } = await extractAndPrepareGarment(file);
+      // Step 1: Extract garment through API (auto-selects Cloudinary or direct upload)
+      const { result, extractedFile, method, cloudinaryUrl } = await extractGarmentSmart(file);
 
       // Check if extraction was successful
       if (!result.success || !extractedFile) {
@@ -78,15 +92,21 @@ export default function ARPanel() {
         category: 'misc' as const,
         extracted: true,
         extractedUrl: result.extraction?.cutout_url,
-        classification: result.classification || undefined,
+        cloudinaryUrl: cloudinaryUrl, // Store Cloudinary URL if available
+        classification: result.classification ? {
+          label: result.classification.label as 'tshirt' | 'trousers' | 'unknown',
+          confidence: result.classification.confidence
+        } : undefined,
         processingTime: result.processing_time_ms || undefined,
       };
 
       addGarment(newGarment);
       selectGarment(newGarment.id);
 
+      const methodEmoji = method === 'cloudinary' ? '🌩️' : '📤';
+      const methodLabel = method === 'cloudinary' ? 'via Cloudinary' : 'direct upload';
       toast.success(
-        `Garment extracted: ${result.classification?.label.toUpperCase()} (${(result.classification!.confidence * 100).toFixed(0)}% confidence)`,
+        `${methodEmoji} Garment extracted ${methodLabel}: ${result.classification?.label.toUpperCase()} (${(result.classification!.confidence * 100).toFixed(0)}% confidence)`,
         { id: 'extraction' },
       );
     } catch (err) {
@@ -103,6 +123,78 @@ export default function ARPanel() {
 
   return (
     <div className="w-full h-full p-4 space-y-6 overflow-y-auto">
+      {/* MediaPipe Controls - NEW SECTION */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Activity className="h-4 w-4" />
+            Pose Detection
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Enable MediaPipe */}
+          <div className="flex items-center justify-between">
+            <Label htmlFor="mediapipe-toggle" className="text-sm cursor-pointer">
+              Enable Auto-Detection
+            </Label>
+            <Switch
+              id="mediapipe-toggle"
+              checked={mediaPipeEnabled}
+              onCheckedChange={toggleMediaPipe}
+            />
+          </div>
+
+          {mediaPipeEnabled && (
+            <>
+              <Separator />
+
+              {/* Show Landmarks */}
+              <div className="flex items-center justify-between">
+                <Label htmlFor="landmarks-toggle" className="text-sm cursor-pointer">
+                  Show Pose Landmarks
+                </Label>
+                <Switch
+                  id="landmarks-toggle"
+                  checked={landmarksVisible}
+                  onCheckedChange={toggleLandmarks}
+                />
+              </div>
+
+              {/* Continuous Tracking */}
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="tracking-toggle" className="text-sm cursor-pointer">
+                    Continuous Tracking
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Garment follows your movements
+                  </p>
+                </div>
+                <Switch
+                  id="tracking-toggle"
+                  checked={continuousTracking}
+                  onCheckedChange={toggleContinuousTracking}
+                  disabled={!selectedGarmentId}
+                />
+              </div>
+
+              {/* Confidence Display */}
+              <div className="text-xs text-muted-foreground pt-2">
+                Detection Quality: {getConfidenceLabel()}
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Testing Panel - only show when MediaPipe enabled */}
+      {mediaPipeEnabled && (
+        <>
+          <MediaPipeTestPanel />
+          <Separator />
+        </>
+      )}
+
       {/* Garment Picker */}
       <section className="space-y-3">
         <div className="flex items-center justify-between">
