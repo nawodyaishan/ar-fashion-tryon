@@ -1,7 +1,6 @@
 // lib/store/useVtonStore.ts
 import { create } from 'zustand';
-import type { GarmentProcessResponse, VtonOptions } from '@/lib/types';
-import { extractGarmentSmart } from '@/lib/services/garmentApi';
+import type { VtonOptions } from '@/lib/types';
 import { virtualTryOn } from '@/lib/services/vtonApi';
 
 export type VtonStep = 'BODY' | 'GARMENT' | 'GENERATE' | 'RESULT';
@@ -9,9 +8,6 @@ export type VtonStep = 'BODY' | 'GARMENT' | 'GENERATE' | 'RESULT';
 interface ImageSelection {
   file?: File;
   previewUrl?: string;
-  extracted?: boolean;
-  extractionResult?: GarmentProcessResponse;
-  extractedFile?: File;
 }
 
 interface VtonState {
@@ -51,48 +47,43 @@ export const useVtonStore = create<VtonState>((set, get) => ({
   },
 
   // ✅ return {ok,message} so the UI can resolve its toast
+  // Note: No extraction for Photo Try-On - backend handles everything
   setGarmentFile: async (file) => {
     if (!file) {
       set({ garment: { ...get().garment, file: undefined, previewUrl: undefined, id: undefined } });
       return { ok: false, message: 'No garment file' };
     }
 
-    const previewUrl = URL.createObjectURL(file);
-    set({ garment: { ...get().garment, file, previewUrl, id: undefined }, status: 'uploading' });
-
-    try {
-      const { result, extractedFile, method } = await extractGarmentSmart(file);
-      console.log(`Using ${method} pipeline for garment extraction`);
-
-      if (!result.success || !extractedFile) {
-        const msg = result.message || 'Garment must be a T-shirt or Trousers';
-        set({
-          garment: { ...get().garment, extracted: false, extractionResult: result },
-          status: 'error',
-          error: msg,
-        });
-        return { ok: false, message: msg };
-      }
-
-      const extractedPreviewUrl = URL.createObjectURL(extractedFile);
-      set({
-        garment: {
-          ...get().garment,
-          file: extractedFile,
-          previewUrl: extractedPreviewUrl,
-          extracted: true,
-          extractionResult: result,
-          extractedFile,
-        },
-        status: 'valid',
-        error: undefined,
-      });
-      return { ok: true };
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Failed to extract garment';
-      set({ garment: { ...get().garment, extracted: false }, status: 'error', error: msg });
+    // Validate file type
+    const validTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+      const msg = 'Invalid file type. Please upload PNG, JPEG, or WEBP image.';
+      set({ status: 'error', error: msg });
       return { ok: false, message: msg };
     }
+
+    // Validate file size (max 10MB)
+    const maxSize = 10 * 1024 * 1024;
+    if (file.size > maxSize) {
+      const msg = 'File too large. Maximum size is 10MB.';
+      set({ status: 'error', error: msg });
+      return { ok: false, message: msg };
+    }
+
+    const previewUrl = URL.createObjectURL(file);
+    set({
+      garment: { ...get().garment, file, previewUrl, id: undefined },
+      status: 'valid',
+      error: undefined,
+    });
+
+    console.log('✅ Garment image loaded:', {
+      name: file.name,
+      size: `${(file.size / 1024).toFixed(2)} KB`,
+      type: file.type,
+    });
+
+    return { ok: true };
   },
 
   setGarmentId: (id, previewUrl) =>
@@ -120,26 +111,19 @@ export const useVtonStore = create<VtonState>((set, get) => ({
 
     if (!body.file) return set({ error: 'Body photo is required', status: 'error' });
     if (!garment.file) return set({ error: 'Please upload a garment image', status: 'error' });
-    if (!garment.extracted) {
-      return set({
-        error: 'Garment extraction failed. Please upload a valid T-shirt or Trousers image.',
-        status: 'error',
-      });
-    }
 
     set({ status: 'processing', error: undefined, resultUrl: undefined });
     const controller = new AbortController();
 
     try {
-      const finalGarmentFile = garment.extractedFile || garment.file;
+      console.log('🎨 Starting virtual try-on via FastAPI (raw garment)...');
 
-      console.log('🎨 Starting virtual try-on via FastAPI...');
-
-      // Call FastAPI /virtual_tryon endpoint
+      // Call FastAPI /virtual_tryon endpoint with raw garment
+      // Backend will handle garment processing internally
       const response = await virtualTryOn(
         {
           bodyFile: body.file,
-          garmentFile: finalGarmentFile!,
+          garmentFile: garment.file!, // Use raw garment file
           clothType: options.clothType || 'upper',
           options: {
             numInferenceSteps: options.numInferenceSteps ?? 50,
@@ -147,7 +131,7 @@ export const useVtonStore = create<VtonState>((set, get) => ({
             seed: options.seed ?? 42,
           },
         },
-        false, // process_garment = false (already extracted)
+        false, // process_garment = false (backend handles it)
         controller.signal,
       );
 

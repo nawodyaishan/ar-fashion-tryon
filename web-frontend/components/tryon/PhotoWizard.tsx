@@ -8,6 +8,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Slider } from '@/components/ui/slider';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import {
   Accordion,
   AccordionContent,
@@ -81,20 +82,20 @@ export default function PhotoWizard() {
     toast.success('Body photo uploaded');
   };
 
-  // Handle garment photo upload (with extraction)
+  // Handle garment photo upload (validation only - no extraction)
   const handleGarmentUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith('image/')) return toast.error('Please upload an image file');
     if (file.size > 10 * 1024 * 1024) return toast.error('File size must be less than 10MB');
 
-    const toastId = 'garment-extraction';
-    toast.loading('Extracting garment...', { id: toastId });
+    const toastId = 'garment-upload';
+    toast.loading('Uploading garment...', { id: toastId });
 
     const { ok, message } = await setGarmentFile(file);
 
-    if (ok) toast.success('Garment extracted', { id: toastId });
-    else toast.error(message || 'Garment extraction failed', { id: toastId });
+    if (ok) toast.success('Garment uploaded', { id: toastId });
+    else toast.error(message || 'Garment upload failed', { id: toastId });
   };
 
   // Select from gallery
@@ -149,8 +150,8 @@ export default function PhotoWizard() {
 
   const canProceedFromBody = body.file !== undefined;
   const canProceedFromGarment = garment.file !== undefined || garment.id !== undefined;
-  // For Gradio: Garment must be extracted (only works with uploaded files, not gallery)
-  const canGenerate = canProceedFromBody && garment.file && garment.extracted;
+  // Backend handles garment processing - just need both images
+  const canGenerate = canProceedFromBody && garment.file;
 
   const stepNumber = {
     BODY: 1,
@@ -339,28 +340,6 @@ export default function PhotoWizard() {
                   </Card>
                 ) : (
                   <div className="space-y-4 max-w-md mx-auto">
-                    {/* Extraction Status */}
-                    {status === 'uploading' && (
-                      <Alert>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        <AlertDescription>Extracting garment background...</AlertDescription>
-                      </Alert>
-                    )}
-
-                    {garment.extracted && garment.extractionResult && (
-                      <Alert className="bg-green-500/10 border-green-500/20">
-                        <Sparkles className="h-4 w-4 text-green-600 dark:text-green-400" />
-                        <AlertDescription className="text-green-800 dark:text-green-200">
-                          Extracted: {garment.extractionResult.classification?.label.toUpperCase()}{' '}
-                          (
-                          {(
-                            (garment.extractionResult.classification?.confidence || 0) * 100
-                          ).toFixed(0)}
-                          % confidence)
-                        </AlertDescription>
-                      </Alert>
-                    )}
-
                     {status === 'error' && error && (
                       <Alert variant="destructive">
                         <AlertCircle className="h-4 w-4" />
@@ -457,6 +436,73 @@ export default function PhotoWizard() {
                 )}
               </Card>
             </div>
+
+            {/* Garment Type Selector */}
+            <Card className="p-4 space-y-4">
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Garment Type</Label>
+                <p className="text-xs text-muted-foreground">
+                  Select the type of garment you&apos;re trying on
+                </p>
+              </div>
+              <RadioGroup
+                value={options.clothType || 'upper'}
+                onValueChange={(value) => setOptions({ clothType: value as 'upper' | 'lower' | 'full' })}
+                className="grid grid-cols-3 gap-4"
+              >
+                <div>
+                  <RadioGroupItem
+                    value="upper"
+                    id="upper"
+                    className="peer sr-only"
+                  />
+                  <Label
+                    htmlFor="upper"
+                    className="flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"
+                  >
+                    <svg className="mb-2 h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                    <span className="text-xs font-medium">Upper Body</span>
+                    <span className="text-xs text-muted-foreground">Shirts, Tops</span>
+                  </Label>
+                </div>
+                <div>
+                  <RadioGroupItem
+                    value="lower"
+                    id="lower"
+                    className="peer sr-only"
+                  />
+                  <Label
+                    htmlFor="lower"
+                    className="flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"
+                  >
+                    <svg className="mb-2 h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
+                    </svg>
+                    <span className="text-xs font-medium">Lower Body</span>
+                    <span className="text-xs text-muted-foreground">Pants, Skirts</span>
+                  </Label>
+                </div>
+                <div>
+                  <RadioGroupItem
+                    value="full"
+                    id="full"
+                    className="peer sr-only"
+                  />
+                  <Label
+                    htmlFor="full"
+                    className="flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"
+                  >
+                    <svg className="mb-2 h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                    </svg>
+                    <span className="text-xs font-medium">Full Body</span>
+                    <span className="text-xs text-muted-foreground">Dresses, Suits</span>
+                  </Label>
+                </div>
+              </RadioGroup>
+            </Card>
 
             {/* Advanced Settings */}
             <Accordion type="single" collapsible className="w-full">
@@ -559,15 +605,6 @@ export default function PhotoWizard() {
                 </>
               )}
             </Button>
-
-            {!canGenerate && garment.file && !garment.extracted && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  Garment extraction required. Please upload a valid T-shirt or Trousers image.
-                </AlertDescription>
-              </Alert>
-            )}
 
             {(status === 'uploading' || status === 'processing') && (
               <div

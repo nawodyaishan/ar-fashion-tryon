@@ -1,519 +1,679 @@
-# Garment Extraction API Integration
+# Garment Extraction Integration - Mode-Specific Implementation
 
-This document describes how the Garment Extraction API is integrated into the AR Fashion Try-On frontend.
+This document explains how garment extraction is implemented differently for **Photo Try-On** and **AR Mode**.
 
 ## Overview
 
-All garment images uploaded to the platform are automatically processed through the **Garment Extraction API** for:
+The system now has **two distinct workflows** for handling garment images:
 
-1. **Classification**: Determines if the garment is a T-shirt or Trousers
-2. **Background Removal**: Extracts the garment with transparent background using u2net model
-3. **Quality Validation**: Ensures only valid garment types are used
+### 1. Photo Try-On Mode (HD Processing)
+- ✅ **No garment extraction** - sends raw garment to backend
+- ✅ **Validation only** - file type and size checks
+- ✅ **Cloth type selector** - UI for selecting upper/lower/full body
+- ✅ **Backend handles extraction** - FastAPI processes garment internally
 
-This preprocessing improves the quality of both AR Live Preview and Photo Try-On (HD) results.
+### 2. AR Mode (Live Preview)
+- ✅ **Full garment extraction** - processes garment before display
+- ✅ **FastAPI extraction endpoint** - `/classify_garment` or `/classify_garment_by_url`
+- ✅ **Automatic placement** - extracted garment placed on AR preview
+- ✅ **Classification metadata** - includes label and confidence
 
----
+## Photo Try-On Mode
 
-## Architecture
+### User Flow
 
 ```
-User Uploads Image
-        ↓
-Garment Extraction API (localhost:5000)
-        ↓
-    ┌─────────────────────┐
-    │  Classification     │
-    │  (CNN Model)        │
-    └─────────────────────┘
-        ↓
-    ┌─────────────────────┐
-    │  Background Removal │
-    │  (u2net/rembg)      │
-    └─────────────────────┘
-        ↓
-    Success? ────┐
-        ↓        │
-       Yes      No
-        ↓        │
-   Store Image   │
-        ↓        │
-   AR Mode / Photo Mode
-        ↓
-  VTON Backend (localhost:8000)
+1. Upload body photo (BODY step)
+   ↓
+2. Upload garment image (GARMENT step)
+   - Validates file type (PNG/JPEG/WEBP)
+   - Validates file size (max 10MB)
+   - Creates preview URL
+   ✅ NO extraction API call
+   ↓
+3. Select cloth type (GENERATE step)
+   - Radio buttons: Upper Body / Lower Body / Full Body
+   - Sets cloth_type: "upper" | "lower" | "full"
+   ↓
+4. Click "Generate Try-On"
+   - Sends raw garment file to FastAPI
+   - Backend handles extraction internally
+   ↓
+5. View result (RESULT step)
+   - Displays result from Cloudinary
 ```
 
----
+### Implementation
 
-## Integration Points
-
-### 1. AR Mode (Live Preview)
-
-**File**: `components/tryon/ARPanel.tsx`
-
-When users upload custom garments in AR mode:
+**File:** `lib/store/useVtonStore.ts`
 
 ```typescript
-// 1. User selects file
-const file = e.target.files?.[0];
+setGarmentFile: async (file) => {
+  if (!file) {
+    set({ garment: { ...get().garment, file: undefined, previewUrl: undefined, id: undefined } });
+    return { ok: false, message: 'No garment file' };
+  }
 
-// 2. Extract garment via API
-const { result, extractedFile } = await extractAndPrepareGarment(file);
+  // Validate file type
+  const validTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+  if (!validTypes.includes(file.type)) {
+    const msg = 'Invalid file type. Please upload PNG, JPEG, or WEBP image.';
+    set({ status: 'error', error: msg });
+    return { ok: false, message: msg };
+  }
 
-// 3. Check extraction success
-if (!result.success || !extractedFile) {
-  toast.error(result.message); // e.g., "Garment must be a T-shirt or Trousers"
-  return;
-}
+  // Validate file size (max 10MB)
+  const maxSize = 10 * 1024 * 1024;
+  if (file.size > maxSize) {
+    const msg = 'File too large. Maximum size is 10MB.';
+    set({ status: 'error', error: msg });
+    return { ok: false, message: msg };
+  }
 
-// 4. Store extracted garment with metadata
-const newGarment = {
-  id: `custom-${Date.now()}`,
-  name: file.name,
-  src: await loadImageFromFile(extractedFile),
-  extracted: true,
-  extractedUrl: result.extraction?.cutout_url,
-  classification: result.classification, // { label: 'tshirt', confidence: 0.95 }
-  processingTime: result.processing_time_ms,
+  const previewUrl = URL.createObjectURL(file);
+  set({
+    garment: { ...get().garment, file, previewUrl, id: undefined },
+    status: 'valid',
+    error: undefined,
+  });
+
+  return { ok: true };
+},
+```
+
+**File:** `components/tryon/PhotoWizard.tsx`
+
+```typescript
+// Upload handler - validation only
+const handleGarmentUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  if (!file.type.startsWith('image/')) return toast.error('Please upload an image file');
+  if (file.size > 10 * 1024 * 1024) return toast.error('File size must be less than 10MB');
+
+  const toastId = 'garment-upload';
+  toast.loading('Uploading garment...', { id: toastId });
+
+  const { ok, message } = await setGarmentFile(file);
+
+  if (ok) toast.success('Garment uploaded', { id: toastId });
+  else toast.error(message || 'Garment upload failed', { id: toastId });
 };
 
-// 5. Add to garments list
-addGarment(newGarment);
+// Cloth type selector UI
+<Card className="p-4 space-y-4">
+  <div className="space-y-2">
+    <Label className="text-sm font-medium">Garment Type</Label>
+    <p className="text-xs text-muted-foreground">
+      Select the type of garment you're trying on
+    </p>
+  </div>
+  <RadioGroup
+    value={options.clothType || 'upper'}
+    onValueChange={(value) => setOptions({ clothType: value as 'upper' | 'lower' | 'full' })}
+    className="grid grid-cols-3 gap-4"
+  >
+    <div>
+      <RadioGroupItem value="upper" id="upper" className="peer sr-only" />
+      <Label htmlFor="upper" className="flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer">
+        <svg className="mb-2 h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+        </svg>
+        <span className="text-xs font-medium">Upper Body</span>
+        <span className="text-xs text-muted-foreground">Shirts, Tops</span>
+      </Label>
+    </div>
+    <div>
+      <RadioGroupItem value="lower" id="lower" className="peer sr-only" />
+      <Label htmlFor="lower" className="flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer">
+        <svg className="mb-2 h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
+        </svg>
+        <span className="text-xs font-medium">Lower Body</span>
+        <span className="text-xs text-muted-foreground">Pants, Skirts</span>
+      </Label>
+    </div>
+    <div>
+      <RadioGroupItem value="full" id="full" className="peer sr-only" />
+      <Label htmlFor="full" className="flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer">
+        <svg className="mb-2 h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+        </svg>
+        <span className="text-xs font-medium">Full Body</span>
+        <span className="text-xs text-muted-foreground">Dresses, Suits</span>
+      </Label>
+    </div>
+  </RadioGroup>
+</Card>
 ```
 
-**Features**:
-- ✅ Real-time extraction feedback
-- ✅ Confidence score display
-- ✅ Automatic rejection of invalid garments
-- ✅ Loading state with "Extracting..." message
+### API Call
 
----
-
-### 2. Photo Try-On HD Mode
-
-**File**: `lib/store/useVtonStore.ts`
-
-When users upload garment in Photo Mode:
+**Endpoint:** `POST /virtual_tryon`
 
 ```typescript
-// Modified setGarmentFile action
-setGarmentFile: async (file) => {
+const response = await virtualTryOn(
+  {
+    bodyFile: body.file,
+    garmentFile: garment.file!, // Raw garment file (not extracted)
+    clothType: options.clothType || 'upper',
+    options: {
+      numInferenceSteps: options.numInferenceSteps ?? 50,
+      guidanceScale: options.guidanceScale ?? 2.5,
+      seed: options.seed ?? 42,
+    },
+  },
+  false, // process_garment = false (backend handles it internally)
+  controller.signal,
+);
+```
+
+## AR Mode (Live Preview)
+
+### User Flow
+
+```
+1. Click "Add Garment" button
+   ↓
+2. Upload garment image
+   - Validates file type (PNG/JPEG/WEBP)
+   - Validates file size (max 10MB)
+   ↓
+3. Garment extraction starts
+   - Toast: "Extracting garment..."
+   - Calls FastAPI extraction endpoint
+   - Backend processes: classify + background removal
+   ↓
+4. Extracted garment loaded
+   - Creates File object from extracted image
+   - Adds to garment store with metadata
+   - Toast: "🌩️ Garment extracted via Cloudinary: TSHIRT (95% confidence)"
+   ↓
+5. Garment auto-selected
+   - Garment placed on AR preview
+   - User can drag, resize, rotate
+   - MediaPipe pose detection optional
+```
+
+### Implementation
+
+**File:** `components/tryon/ARPanel.tsx`
+
+```typescript
+import { extractGarmentSmart } from '@/lib/services/garmentApi';
+
+const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const file = e.target.files?.[0];
   if (!file) return;
 
-  // Step 1: Show initial preview
-  const previewUrl = URL.createObjectURL(file);
-  set({ garment: { file, previewUrl }, status: 'uploading' });
-
-  // Step 2: Extract garment
-  const { result, extractedFile } = await extractAndPrepareGarment(file);
-
-  // Step 3: Check success
-  if (!result.success || !extractedFile) {
-    set({
-      status: 'error',
-      error: result.message || 'Invalid garment type',
-    });
+  // Validate file type
+  if (!file.type.startsWith('image/')) {
+    toast.error('Please upload an image file (JPEG, PNG, WEBP)');
     return;
   }
 
-  // Step 4: Update state with extracted garment
-  const extractedPreviewUrl = URL.createObjectURL(extractedFile);
-  set({
-    garment: {
-      file: extractedFile,        // Use extracted file
-      previewUrl: extractedPreviewUrl,
+  // Validate file size (max 10MB for extraction API)
+  if (file.size > 10 * 1024 * 1024) {
+    toast.error('File size must be less than 10MB');
+    return;
+  }
+
+  try {
+    setUploading(true);
+    toast.loading('Extracting garment...', { id: 'extraction' });
+
+    // Step 1: Extract garment through API (auto-selects Cloudinary or direct upload)
+    const { result, extractedFile, method, cloudinaryUrl } = await extractGarmentSmart(file);
+
+    // Check if extraction was successful
+    if (!result.success || !extractedFile) {
+      toast.error(result.message || 'Failed to extract garment', { id: 'extraction' });
+      return;
+    }
+
+    // Step 2: Load extracted image
+    const extractedSrc = await loadImageFromFile(extractedFile);
+    const dimensions = await getImageDimensions(extractedSrc);
+
+    // Step 3: Create new garment with extraction metadata
+    const newGarment = {
+      id: `custom-${Date.now()}`,
+      name: file.name.replace(/\.[^/.]+$/, ''),
+      src: extractedSrc,
+      width: dimensions.width,
+      height: dimensions.height,
+      sizeKb: getFileSizeKB(extractedFile),
+      category: 'misc' as const,
       extracted: true,
-      extractionResult: result,
-      extractedFile,
-    },
-    status: 'valid',
-  });
+      extractedUrl: result.extraction?.cutout_url,
+      cloudinaryUrl: cloudinaryUrl,
+      classification: result.classification ? {
+        label: result.classification.label as 'tshirt' | 'trousers' | 'unknown',
+        confidence: result.classification.confidence
+      } : undefined,
+      processingTime: result.processing_time_ms || undefined,
+    };
+
+    // Step 4: Add garment to store and select it
+    addGarment(newGarment);
+    selectGarment(newGarment.id); // ✅ Triggers GarmentOverlay to display
+
+    const methodEmoji = method === 'cloudinary' ? '🌩️' : '📤';
+    const methodLabel = method === 'cloudinary' ? 'via Cloudinary' : 'direct upload';
+    toast.success(
+      `${methodEmoji} Garment extracted ${methodLabel}: ${result.classification?.label.toUpperCase()} (${(result.classification!.confidence * 100).toFixed(0)}% confidence)`,
+      { id: 'extraction' },
+    );
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : 'Failed to upload garment';
+    toast.error(errorMessage, { id: 'extraction' });
+    console.error(err);
+  } finally {
+    setUploading(false);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  }
 };
+```
 
-// Modified tryOn action
-tryOn: async () => {
-  // Use extracted file for VTON processing
-  const finalGarmentFile = garment.extractedFile || garment.file;
+**File:** `components/tryon/GarmentOverlay.tsx`
 
-  const payload = {
-    bodyFile: body.file,
-    garmentFile: finalGarmentFile, // Extracted, background-removed garment
-    ...options,
+```typescript
+export function GarmentOverlay({
+  containerWidth,
+  containerHeight,
+}: GarmentOverlayProps) {
+  const { selectedGarmentId, garments, transform, setTransform } = useTryonStore();
+
+  // Find selected garment
+  const selectedGarment = garments.find((g) => g.id === selectedGarmentId);
+
+  // Don't render if no garment selected
+  if (!selectedGarment) return null;
+
+  return (
+    <Rnd
+      size={{
+        width: garmentDimensions.width,
+        height: garmentDimensions.height
+      }}
+      position={{
+        x: transform.x,
+        y: transform.y
+      }}
+      onDragStop={handleDragStop}
+      onResizeStop={handleResizeStop}
+      lockAspectRatio={transform.lockAspect}
+      bounds="parent"
+    >
+      <div
+        className="w-full h-full relative"
+        style={{
+          opacity: transform.opacity / 100,
+          transform: `rotate(${transform.rotation}deg)`,
+          transformOrigin: 'center'
+        }}
+      >
+        {/* Render extracted garment */}
+        <img
+          ref={imageRef}
+          src={selectedGarment.src} // ✅ Uses extracted garment src
+          alt={selectedGarment.name}
+          className="w-full h-full object-contain pointer-events-none select-none"
+          draggable={false}
+        />
+      </div>
+    </Rnd>
+  );
+}
+```
+
+## Extraction API Service
+
+**File:** `lib/services/garmentApi.ts`
+
+### Smart Pipeline Selector
+
+```typescript
+/**
+ * Smart garment extraction that automatically chooses the best pipeline:
+ * - If Cloudinary is configured → Uses Cloudinary pipeline (production recommended)
+ * - If not → Falls back to direct upload pipeline
+ */
+export async function extractGarmentSmart(
+  file: File,
+  signal?: AbortSignal,
+  forceMethod?: 'cloudinary' | 'direct',
+): Promise<{
+  result: GarmentProcessResponse;
+  extractedFile: File | null;
+  cloudinaryUrl?: string;
+  method: 'cloudinary' | 'direct';
+}> {
+  const useCloudinary =
+    forceMethod === 'cloudinary' ||
+    (forceMethod !== 'direct' && isCloudinaryConfigured());
+
+  if (useCloudinary) {
+    console.log('🌩️ Using Cloudinary pipeline (production mode)');
+    const cloudinaryResult = await extractViaCloudinaryPipeline(file, signal);
+    return { ...cloudinaryResult, method: 'cloudinary' };
+  } else {
+    console.log('📤 Using direct upload pipeline (fallback mode)');
+    const directResult = await extractAndPrepareGarment(file, signal);
+    return { ...directResult, method: 'direct' };
+  }
+}
+```
+
+### Cloudinary Pipeline (Production)
+
+```typescript
+/**
+ * Complete Cloudinary pipeline: Upload to Cloudinary → Process by URL
+ */
+export async function extractViaCloudinaryPipeline(
+  file: File,
+  signal?: AbortSignal,
+): Promise<{
+  result: GarmentProcessResponse;
+  extractedFile: File | null;
+  cloudinaryUrl?: string;
+}> {
+  // Step 1: Upload to Cloudinary
+  const uploadResult = await uploadToCloudinary(file, 'garments/originals', signal);
+
+  // Step 2: Process by URL via FastAPI /classify_garment_by_url
+  const result = await extractGarmentByUrl(uploadResult.secure_url, signal);
+
+  // Step 3: Download extracted image as File
+  let extractedFile: File | null = null;
+
+  if (result.success && result.extraction?.cutout_url) {
+    const labelSafe = (result.classification?.label || 'garment').replace(/[^\w.-]+/g, '_');
+    const fileName = `extracted_${labelSafe}.png`;
+    extractedFile = await extractedUrlToFile(result.extraction.cutout_url, fileName);
+  }
+
+  return {
+    result,
+    extractedFile,
+    cloudinaryUrl: uploadResult.secure_url,
   };
-
-  const imageBlob = await processImages(payload);
-  // ...
-};
+}
 ```
 
-**Workflow**:
-1. User uploads garment image → **Extraction API**
-2. API returns extracted PNG with transparent background
-3. Extracted image is used for VTON processing
-4. Better quality results due to clean background
-
----
-
-## API Service
-
-**File**: `lib/services/garmentApi.ts`
-
-Core functions:
-
-### `extractGarment(file: File): Promise<GarmentProcessResponse>`
-
-Uploads a file to the extraction API and returns classification + extraction results.
+### Direct Upload Pipeline (Fallback)
 
 ```typescript
-const result = await extractGarment(file);
+/**
+ * Full pipeline: Extract garment and convert to File for AR display
+ */
+export async function extractAndPrepareGarment(
+  originalFile: File,
+  signal?: AbortSignal,
+): Promise<{
+  result: GarmentProcessResponse;
+  extractedFile: File | null;
+}> {
+  // Step 1: Extract garment via FastAPI /classify_garment
+  const result = await extractGarment(originalFile, signal);
 
-if (result.success) {
-  // result.classification = { label: 'tshirt', confidence: 0.92 }
-  // result.extraction = { cutout_url: '/static/outputs/cutout_xxx.png', ... }
-  // result.processing_time_ms = 1234.56
+  // Step 2: If successful, download extracted image as File
+  let extractedFile: File | null = null;
+
+  if (result.success && result.extraction?.cutout_url) {
+    const labelSafe = (result.classification?.label || 'garment').replace(/[^\w.-]+/g, '_');
+    const fileName = `extracted_${labelSafe}.png`;
+    extractedFile = await extractedUrlToFile(result.extraction.cutout_url, fileName);
+  }
+
+  return { result, extractedFile };
 }
 ```
 
-### `extractAndPrepareGarment(file: File): Promise<{ result, extractedFile }>`
+## API Endpoints
 
-Full pipeline: Extract garment and download as File object for use with VTON.
+### Photo Try-On Mode
 
+**Endpoint:** `POST /virtual_tryon` (port 5000)
+
+**Request:**
 ```typescript
-const { result, extractedFile } = await extractAndPrepareGarment(originalFile);
-
-if (result.success && extractedFile) {
-  // extractedFile is a File object ready to upload to VTON backend
-  // It contains the garment with transparent background
+FormData {
+  person_image: File,
+  garment_image: File,        // Raw garment (not extracted)
+  cloth_type: 'upper' | 'lower' | 'full',
+  num_inference_steps: number,
+  guidance_scale: number,
+  seed: number,
+  process_garment: boolean    // false = backend handles extraction
 }
 ```
 
-### `checkGarmentApiHealth(): Promise<GarmentHealthCheck>`
-
-Checks if the Garment Extraction API is available.
-
+**Response:**
 ```typescript
-const health = await checkGarmentApiHealth();
-// { status: 'healthy', model_loaded: true, model_name: '...', version: '1.0.0' }
+{
+  success: boolean,
+  person_url: string,         // Cloudinary URL
+  garment_url: string,        // Cloudinary URL
+  cutout_url?: string,        // Cloudinary URL (if processed)
+  result_url: string,         // Cloudinary URL (try-on result)
+  result_public_id: string,
+  cloth_type: 'upper' | 'lower' | 'full',
+  parameters: {
+    num_inference_steps: number,
+    guidance_scale: number,
+    seed: number,
+    show_type: string
+  },
+  garment_classification?: {
+    label: string,
+    confidence: number
+  }
+}
 ```
 
----
+### AR Mode (Extraction)
 
-## Type Definitions
+**Endpoint:** `POST /classify_garment_by_url` (port 5000) - **Cloudinary pipeline**
 
-**File**: `lib/types.ts`
-
+**Request:**
 ```typescript
-// Garment classification result
-export interface ClassificationResult {
-  label: 'tshirt' | 'trousers' | 'unknown';
-  confidence: number; // 0.0 to 1.0
-}
-
-// Extraction result URLs
-export interface ExtractionResult {
-  cutout_url: string;      // URL to extracted image
-  cutout_path: string;     // Relative path
-  original_url: string;    // URL to original
-}
-
-// Full API response
-export interface GarmentProcessResponse {
-  success: boolean;
-  message: string;
-  classification: ClassificationResult | null;
-  extraction: ExtractionResult | null;
-  processing_time_ms: number | null;
-}
-
-// Extended Garment type with extraction metadata
-export interface Garment {
-  id: string;
-  name: string;
-  src: string;
-  width: number;
-  height: number;
-  sizeKb: number;
-  category?: 'tops' | 'jackets' | 'misc';
-
-  // Extraction metadata (populated after extraction)
-  extracted?: boolean;
-  extractedUrl?: string;
-  classification?: ClassificationResult;
-  processingTime?: number;
+{
+  source_url: string  // Cloudinary URL of uploaded garment
 }
 ```
 
----
+**Response:**
+```typescript
+{
+  label: string,
+  confidence: number,
+  garment_url: string,  // Original garment URL
+  cutout_url: string,   // Extracted garment URL (Cloudinary)
+  cutout_path: string   // Relative path
+}
+```
 
-## Configuration
+**Endpoint:** `POST /classify_garment` (port 5000) - **Direct upload fallback**
 
-### Environment Variables
+**Request:**
+```typescript
+FormData {
+  garment: File
+}
+```
 
-**File**: `.env.local`
+**Response:** Same as `/classify_garment_by_url`
+
+## Environment Configuration
+
+### Frontend (.env.local)
 
 ```bash
-# Garment Extraction API Base URL
+# Garment Extraction & Virtual Try-On API (FastAPI)
 NEXT_PUBLIC_GARMENT_API_BASE=http://localhost:5000
 
-# VTON ML Backend (for final processing)
-NEXT_PUBLIC_VTON_API_BASE=http://127.0.0.1:8000
+# Cloudinary (optional, for Cloudinary pipeline in AR mode)
+NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=your-cloud-name
+NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET=ar_fashion_unsigned
+
+# For production:
+# NEXT_PUBLIC_GARMENT_API_BASE=https://garment-api.railway.app
 ```
 
-### API Endpoints
+### Backend (FastAPI)
 
-The Garment Extraction API exposes:
+```bash
+# Cloudinary (required for both modes)
+CLOUDINARY_CLOUD_NAME=your-cloud-name
+CLOUDINARY_API_KEY=123456789012345
+CLOUDINARY_API_SECRET=your-api-secret
 
-- `POST /api/process` - Process and extract garment
-- `GET /api/health` - Health check
-- `GET /static/outputs/{filename}` - Download extracted images
+# Gradio (required for Photo Try-On)
+GRADIO_SPACE=nawodyaishan/ar-fashion-tryon
+HF_TOKEN=hf_your_token_here  # Optional, for private spaces
 
-**Base URL**: `http://localhost:5000` (configurable)
+# CORS
+CORS_ALLOW_ORIGINS=http://localhost:3000,https://yourapp.vercel.app
 
----
-
-## Error Handling
-
-### Invalid Garment Type
-
-If the uploaded image is not a T-shirt or Trousers:
-
-```javascript
-{
-  "success": false,
-  "message": "Garment must be a T-shirt or Trousers. Detected: unknown",
-  "classification": {
-    "label": "unknown",
-    "confidence": 0.45
-  },
-  "extraction": null
-}
+# Optional
+MAX_CONTENT_MB=16
+CLOUDINARY_FOLDER=garments
 ```
 
-**Frontend Response**:
-- Toast error message
-- Prevents garment from being added
-- User must upload valid garment
+## Benefits of Mode-Specific Implementation
 
-### File Too Large
+### Photo Try-On Mode
 
-Max file size: **10MB**
-
-```javascript
-{
-  "detail": "File too large. Maximum size is 10.0MB"
-}
-```
-
-### Invalid File Type
-
-Supported: JPEG, PNG, WEBP
-
-```javascript
-{
-  "detail": "Invalid file type. Must be an image (JPEG, PNG, WEBP)."
-}
-```
-
-### API Unavailable
-
-If the extraction API is down:
-
-```javascript
-throw new Error('Garment Extraction API is not available');
-```
-
-**Frontend Response**:
-- Toast error
-- Graceful fallback (could allow manual upload without extraction in future)
-
----
-
-## User Experience Flow
+✅ **Faster workflow** - no frontend extraction step
+✅ **Simpler code** - validation-only, no API calls
+✅ **Better UX** - user selects cloth type with visual UI
+✅ **Backend control** - server handles extraction with retry logic
 
 ### AR Mode
 
-1. User clicks **"Add Garment"** button
-2. Selects image file (JPEG/PNG/WEBP)
-3. Loading state: **"Extracting..."** with pulsing icon
-4. Extraction completes (1-3 seconds typical)
-5. Success toast: **"Garment extracted: TSHIRT (95% confidence)"**
-6. Garment appears in grid with transparent background
-7. User can drag/resize/rotate on AR preview
-
-### Photo Mode
-
-1. User uploads body photo (Step 1)
-2. User uploads garment photo (Step 2)
-3. **Automatic extraction starts** on garment upload
-4. Status changes: `idle` → `uploading` → `valid` or `error`
-5. If valid: Preview shows extracted garment
-6. User clicks **"Generate"** (Step 3)
-7. Extracted garment is sent to VTON backend
-8. Result displayed (Step 4)
-
----
-
-## Benefits of Integration
-
-### Quality Improvements
-
-✅ **Clean Backgrounds**: All garments have transparent backgrounds, improving VTON quality
-
-✅ **Type Validation**: Only T-shirts and Trousers are accepted, matching VTON capabilities
-
-✅ **Consistent Input**: Standardized garment format for ML backend
-
-### User Experience
-
-✅ **Automatic Processing**: No manual background removal needed
-
-✅ **Instant Feedback**: Users know immediately if garment is valid
-
-✅ **Confidence Scores**: Transparency about classification certainty
-
-### Developer Experience
-
-✅ **Type Safety**: Full TypeScript support with typed responses
-
-✅ **Error Handling**: Comprehensive error messages and states
-
-✅ **Logging**: Console logs for debugging (`🚀`, `✅`, `❌` emoji prefixes)
-
----
-
-## Console Logging
-
-The integration includes detailed console logging for debugging:
-
-```javascript
-// Extraction start
-🚀 Garment Extraction Request: { fileName, fileSize, fileType }
-
-// Extraction success
-✅ Garment Extraction Success: {
-  label: 'tshirt',
-  confidence: '92.34%',
-  processingTime: '1234.56ms',
-  extractedUrl: '/static/outputs/cutout_xxx.png'
-}
-
-// Extraction failure
-⚠️ Garment Extraction Failed: { message, label, confidence }
-
-// Error
-❌ Garment Extraction Error: Error object
-```
-
----
+✅ **Real-time feedback** - see extracted garment immediately
+✅ **Quality control** - classification metadata shown to user
+✅ **Flexible storage** - supports both Cloudinary and direct upload
+✅ **Production ready** - automatic pipeline selection
 
 ## Testing
 
-### Manual Testing Steps
+### Test Photo Try-On Mode
 
-1. **Start Garment Extraction API**:
-   ```bash
-   cd image-extraction-backend
-   python main.py
-   # API running on http://localhost:5000
-   ```
+1. Go to http://localhost:3000/try-on
+2. Switch to **"Photo Try-On (HD)"** tab
+3. Upload body photo
+4. Upload garment image (no extraction toast)
+5. Select cloth type (Upper/Lower/Full)
+6. Click "Generate Try-On"
+7. Verify result displays
 
-2. **Start Frontend**:
-   ```bash
-   cd web-frontend
-   pnpm dev
-   # Frontend on http://localhost:3000
-   ```
+**Expected console output:**
+```
+🚀 VTON API Request: {
+  endpoint: '/virtual_tryon',
+  person_image: 'person.jpg',
+  garment_image: 'tshirt.png',
+  cloth_type: 'upper',
+  process_garment: false
+}
+✅ VTON API Success: {
+  duration: '45.23s',
+  result_url: 'https://res.cloudinary.com/.../tryon_abc123.png'
+}
+```
 
-3. **Test AR Mode**:
-   - Go to `/try-on`
-   - Click "Add Garment"
-   - Upload a T-shirt image
-   - Verify extraction success message
-   - Check garment appears with transparent background
+### Test AR Mode
 
-4. **Test Photo Mode**:
-   - Go to `/try-on` → "Photo Try-On (HD)" tab
-   - Upload body photo
-   - Upload garment photo
-   - Verify "Extracting..." status
-   - Check extracted preview
-   - Generate result
+1. Go to http://localhost:3000/try-on
+2. Switch to **"Live AR Preview"** tab
+3. Allow camera access
+4. Click "Add Garment"
+5. Upload garment image
+6. Verify extraction toast: "🌩️ Garment extracted via Cloudinary: TSHIRT (95% confidence)"
+7. Verify garment appears on AR preview
+8. Drag, resize, rotate garment
 
-### Expected API Response Time
-
-- Classification: ~200-500ms
-- Background Removal: ~800-1500ms
-- **Total**: ~1-2 seconds per garment
-
----
-
-## Future Enhancements
-
-### Possible Improvements
-
-1. **Batch Processing**: Extract multiple garments at once
-2. **Caching**: Cache extracted garments to avoid re-processing
-3. **Advanced Validation**: Check garment quality, resolution, etc.
-4. **Progressive Upload**: Show extraction progress percentage
-5. **Fallback Mode**: Allow manual upload if API is unavailable
-6. **Gallery Integration**: Pre-extract all gallery garments on build
-
----
+**Expected console output:**
+```
+🚀 Garment Extraction Request: {
+  fileName: 'tshirt.png',
+  fileSize: '245.67 KB',
+  fileType: 'image/png'
+}
+☁️ Uploading to Cloudinary: {
+  fileName: 'tshirt.png',
+  fileSize: '245.67 KB',
+  folder: 'garments/originals'
+}
+✅ Cloudinary upload success: {
+  url: 'https://res.cloudinary.com/.../tshirt.png',
+  uploadTime: '234ms'
+}
+🔗 Processing garment by URL: https://res.cloudinary.com/.../tshirt.png
+✅ URL-based extraction success: {
+  label: 'tshirt',
+  confidence: 0.95,
+  cutoutUrl: 'https://res.cloudinary.com/.../cutout_abc123.png',
+  totalTime: '1234ms'
+}
+```
 
 ## Troubleshooting
 
-### Issue: "Garment Extraction API is not available"
+### Issue: "Garment extraction failed" (AR Mode)
 
-**Cause**: API server is not running
+**Check:**
+1. Is FastAPI backend running on port 5000?
+2. Are Cloudinary credentials configured?
+3. Is file size under 10MB?
+4. Is file type PNG/JPEG/WEBP?
 
-**Solution**:
+**Solution:**
 ```bash
-cd image-extraction-backend
-python main.py
+# Check backend health
+curl http://localhost:5000/health
+
+# Check Cloudinary config
+echo $CLOUDINARY_CLOUD_NAME
+echo $CLOUDINARY_API_KEY
+
+# Test extraction endpoint
+curl -X POST http://localhost:5000/classify_garment \
+  -F "garment=@tshirt.png"
 ```
 
-### Issue: "Garment must be a T-shirt or Trousers"
+### Issue: "Virtual try-on failed" (Photo Try-On Mode)
 
-**Cause**: Uploaded image contains other clothing or objects
+**Check:**
+1. Is cloth_type selected?
+2. Is backend running?
+3. Is Gradio Space online?
 
-**Solution**: Upload a clear image of a T-shirt or Trousers
+**Solution:**
+```bash
+# Test virtual try-on endpoint
+curl -X POST http://localhost:5000/virtual_tryon \
+  -F "person_image=@person.jpg" \
+  -F "garment_image=@tshirt.png" \
+  -F "cloth_type=upper" \
+  -F "num_inference_steps=50" \
+  -F "guidance_scale=2.5" \
+  -F "seed=42" \
+  -F "process_garment=false"
+```
 
-### Issue: Slow extraction (>5 seconds)
+## Summary
 
-**Cause**: Large image file or slow CPU
+✅ **Photo Try-On** - Raw garment upload with validation + cloth type selector
+✅ **AR Mode** - Full extraction with automatic pipeline selection
+✅ **Unified Backend** - FastAPI handles both workflows
+✅ **Production Ready** - Cloudinary storage, retry logic, error handling
+✅ **Type Safe** - TypeScript interfaces for all API responses
+✅ **User Feedback** - Toast notifications with classification metadata
 
-**Solution**:
-- Resize images before upload (< 2MB recommended)
-- Ensure u2net model is loaded in memory
-- Consider GPU acceleration for production
-
----
-
-## API Documentation
-
-For full API documentation, see:
-- `/image-extraction-backend/API_DOCUMENTATION.md`
-- Interactive docs: `http://localhost:5000/docs`
-
----
-
-## Related Files
-
-### Service Layer
-- `lib/services/garmentApi.ts` - API client
-- `lib/services/vtonApi.ts` - VTON backend client
-- `lib/services/http.ts` - Axios instance
-
-### State Management
-- `lib/store/useVtonStore.ts` - Photo mode state with extraction
-- `lib/tryon-store.ts` - AR mode state
-
-### Components
-- `components/tryon/ARPanel.tsx` - AR garment upload
-- `components/tryon/PhotoWizard.tsx` - Photo mode upload
-
-### Types
-- `lib/types.ts` - All TypeScript type definitions
-
-### Configuration
-- `.env.local.example` - Environment variable template
-- `.env.local` - Your local configuration (not committed)
+The system now provides optimal user experience for both modes! 🚀
