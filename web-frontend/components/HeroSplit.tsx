@@ -12,13 +12,13 @@ export function HeroSplit() {
 
   const slides = [
     {
-      image: '/hero/card_live_ar_preview_dark_gradient Medium.png',
+      image: '/hero/card_live_ar_preview_dark_gradient.png',
       alt: 'AR Preview Live',
       badge: 'Fast',
       badgeClass: 'bg-violet-500/20 border-violet-500/40 text-white',
     },
     {
-      image: '/hero/hero_live_ar_preview_dark_gradient Medium.png',
+      image: '/hero/hero_live_ar_preview_dark_gradient.png',
       alt: 'Photo Try-On HD',
       badge: 'HD',
       badgeClass: 'bg-purple-500/20 border-purple-500/40 text-white',
