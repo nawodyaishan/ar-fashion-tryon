@@ -12,13 +12,15 @@ export function HeroSplit() {
 
   const slides = [
     {
-      image: '/hero/card_live_ar_preview_dark_gradient.png',
+      image:
+        'https://res.cloudinary.com/ddjp9nox3/image/upload/v1760049771/hero_live_ar_preview_dark_gradient_ahvy8h.png',
       alt: 'AR Preview Live',
       badge: 'Fast',
       badgeClass: 'bg-violet-500/20 border-violet-500/40 text-white',
     },
     {
-      image: '/hero/hero_live_ar_preview_dark_gradient.png',
+      image:
+        'https://res.cloudinary.com/ddjp9nox3/image/upload/v1760049770/card_live_ar_preview_dark_gradient_txfpza.png',
       alt: 'Photo Try-On HD',
       badge: 'HD',
       badgeClass: 'bg-purple-500/20 border-purple-500/40 text-white',
