@@ -195,12 +195,12 @@ export default function PhotoWizard() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6">
         {/* Step 1: Body Photo */}
         {step === 'BODY' && (
-          <div className="max-w-2xl mx-auto space-y-6">
+          <div className="max-w-2xl mx-auto space-y-4 sm:space-y-6">
             <div className="text-center space-y-2">
-              <h2 className="text-2xl font-bold">Upload Body Photo</h2>
+              <h2 className="text-xl sm:text-2xl font-bold">Upload Body Photo</h2>
               <p className="text-sm text-muted-foreground">
                 Use a clear, front-facing upper-body photo
               </p>
@@ -211,7 +211,7 @@ export default function PhotoWizard() {
                 className="border-2 border-dashed cursor-pointer hover:border-primary/50 transition-all"
                 onClick={() => bodyFileInputRef.current?.click()}
               >
-                <div className="p-12 text-center space-y-4">
+                <div className="p-6 sm:p-12 text-center space-y-4">
                   <div className="flex justify-center">
                     <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
                       <Upload className="h-8 w-8 text-primary" />
@@ -273,9 +273,9 @@ export default function PhotoWizard() {
 
         {/* Step 2: Garment Photo */}
         {step === 'GARMENT' && (
-          <div className="max-w-3xl mx-auto space-y-6">
+          <div className="max-w-3xl mx-auto space-y-4 sm:space-y-6">
             <div className="text-center space-y-2">
-              <h2 className="text-2xl font-bold">Choose Garment</h2>
+              <h2 className="text-xl sm:text-2xl font-bold">Choose Garment</h2>
               <p className="text-sm text-muted-foreground">
                 Transparent PNGs align best; avoid heavy folds
               </p>
@@ -324,7 +324,7 @@ export default function PhotoWizard() {
                     className="border-2 border-dashed cursor-pointer hover:border-primary/50 transition-all max-w-md mx-auto"
                     onClick={() => garmentFileInputRef.current?.click()}
                   >
-                    <div className="p-12 text-center space-y-4">
+                    <div className="p-6 sm:p-12 text-center space-y-4">
                       <div className="flex justify-center">
                         <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
                           <ImageIcon className="h-8 w-8 text-primary" />
@@ -388,17 +388,17 @@ export default function PhotoWizard() {
 
         {/* Step 3: Generate */}
         {step === 'GENERATE' && !resultUrl && (
-          <div className="max-w-2xl mx-auto space-y-6">
+          <div className="max-w-2xl mx-auto space-y-4 sm:space-y-6">
             <div className="text-center space-y-2">
-              <h2 className="text-2xl font-bold">Generate Try-On</h2>
+              <h2 className="text-xl sm:text-2xl font-bold">Generate Try-On</h2>
               <p className="text-sm text-muted-foreground">
                 Review your selections and generate the result
               </p>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Body Photo Summary */}
-              <Card className="p-4 space-y-3">
+              <Card className="p-3 sm:p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">Body Photo</span>
                   {body.file && (
@@ -415,7 +415,7 @@ export default function PhotoWizard() {
               </Card>
 
               {/* Garment Photo Summary */}
-              <Card className="p-4 space-y-3">
+              <Card className="p-3 sm:p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">Garment</span>
                   {(garment.file || garment.id) && (
@@ -448,7 +448,7 @@ export default function PhotoWizard() {
               <RadioGroup
                 value={options.clothType || 'upper'}
                 onValueChange={(value) => setOptions({ clothType: value as 'upper' | 'lower' | 'full' })}
-                className="grid grid-cols-3 gap-4"
+                className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4"
               >
                 <div>
                   <RadioGroupItem
