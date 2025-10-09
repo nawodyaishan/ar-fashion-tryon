@@ -15,9 +15,13 @@ interface TryonState {
   baselineTransform: Transform;
 
   // AR Settings
+  mediaPipeEnabled: boolean;
   landmarksVisible: boolean;
   snapToShoulders: boolean;
   poseConfidence: PoseConfidence;
+  continuousTracking: boolean;
+  autoAlignInProgress: boolean;
+  lastAutoAlignTime: number;
 
   // Status
   status: Status;
@@ -42,9 +46,13 @@ interface TryonState {
   toggleLockAspect: () => void;
   autoAlign: () => void;
   resetToBaseline: () => void;
+  toggleMediaPipe: () => void;
+  toggleLandmarks: () => void;
   setLandmarksVisible: (visible: boolean) => void;
   setSnapToShoulders: (snap: boolean) => void;
-  setPoseConfidence: (confidence: PoseConfidence) => void;
+  setPoseConfidence: (confidence: PoseConfidence | number) => void;
+  toggleContinuousTracking: () => void;
+  autoAlignGarment: (x: number, y: number, scale: number, rotation: number) => void;
   setStatus: (status: Partial<Status>) => void;
   setBodyPhoto: (photo: string | null) => void;
   setGarmentPhoto: (photo: string | null) => void;
@@ -108,9 +116,13 @@ export const useTryonStore = create<TryonState>()(
       selectedGarmentId: null,
       transform: { ...defaultTransform },
       baselineTransform: { ...defaultTransform },
+      mediaPipeEnabled: false,
       landmarksVisible: false,
       snapToShoulders: true,
       poseConfidence: 'Okay',
+      continuousTracking: false,
+      autoAlignInProgress: false,
+      lastAutoAlignTime: 0,
       status: {},
       bodyPhoto: null,
       garmentPhoto: null,
@@ -169,11 +181,47 @@ export const useTryonStore = create<TryonState>()(
           status: { message: 'Reset to baseline' },
         })),
 
+      toggleMediaPipe: () =>
+        set((state) => ({
+          mediaPipeEnabled: !state.mediaPipeEnabled,
+        })),
+
+      toggleLandmarks: () =>
+        set((state) => ({
+          landmarksVisible: !state.landmarksVisible,
+        })),
+
       setLandmarksVisible: (visible) => set({ landmarksVisible: visible }),
 
       setSnapToShoulders: (snap) => set({ snapToShoulders: snap }),
 
-      setPoseConfidence: (confidence) => set({ poseConfidence: confidence }),
+      setPoseConfidence: (confidence) => {
+        // Accept either string or number (0-1)
+        if (typeof confidence === 'number') {
+          const label: PoseConfidence = confidence >= 0.7 ? 'Good' : confidence >= 0.5 ? 'Okay' : 'Low';
+          set({ poseConfidence: label });
+        } else {
+          set({ poseConfidence: confidence });
+        }
+      },
+
+      toggleContinuousTracking: () =>
+        set((state) => ({
+          continuousTracking: !state.continuousTracking,
+        })),
+
+      autoAlignGarment: (x, y, scale, rotation) =>
+        set((state) => ({
+          transform: {
+            ...state.transform,
+            x: Math.round(x),
+            y: Math.round(y),
+            scale: Math.max(0.3, Math.min(3.0, scale)), // Clamp scale
+            rotation: Math.round(rotation)
+          },
+          autoAlignInProgress: false,
+          lastAutoAlignTime: Date.now()
+        })),
 
       setStatus: (status) =>
         set((state) => ({

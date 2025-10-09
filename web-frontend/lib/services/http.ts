@@ -5,6 +5,7 @@ export const http = axios.create({
   timeout: 60_000, // long-running generation
   headers: {
     'X-Client': 'ar-tryon-web',
-    'User-Agent': 'ar-tryon-web-client',
+    // Note: User-Agent is a forbidden header in browsers and cannot be set
+    // The browser will automatically set it
   },
 });

@@ -1,14 +1,14 @@
+// lib/store/useVtonStore.ts
 import { create } from 'zustand';
-import type { VtonOptions, GarmentProcessResponse } from '@/lib/types';
+import type { GarmentProcessResponse, VtonOptions } from '@/lib/types';
+import { extractGarmentSmart } from '@/lib/services/garmentApi';
 import { processWithGradio } from '@/lib/services/gradioApi';
-import { extractAndPrepareGarment } from '@/lib/services/garmentApi';
 
 export type VtonStep = 'BODY' | 'GARMENT' | 'GENERATE' | 'RESULT';
 
 interface ImageSelection {
   file?: File;
-  previewUrl?: string; // object URL or data URL for UI
-  // Extraction metadata for garments
+  previewUrl?: string;
   extracted?: boolean;
   extractionResult?: GarmentProcessResponse;
   extractedFile?: File;
@@ -27,7 +27,7 @@ interface VtonState {
   // Actions
   setStep: (s: VtonStep) => void;
   setBody: (file: File | undefined) => void;
-  setGarmentFile: (file: File | undefined) => void;
+  setGarmentFile: (file: File | undefined) => Promise<{ ok: boolean; message?: string }>;
   setGarmentId: (id: string | undefined, previewUrl?: string) => void;
   setOptions: (opts: Partial<VtonOptions>) => void;
   reset: () => void;
@@ -40,9 +40,7 @@ export const useVtonStore = create<VtonState>((set, get) => ({
   step: 'BODY',
   body: {},
   garment: {},
-  options: {
-    clothType: 'upper', // default to upper body
-  },
+  options: { clothType: 'upper' },
   status: 'idle',
 
   setStep: (s) => set({ step: s }),
@@ -52,38 +50,30 @@ export const useVtonStore = create<VtonState>((set, get) => ({
     set({ body: { file, previewUrl } });
   },
 
+  // ✅ return {ok,message} so the UI can resolve its toast
   setGarmentFile: async (file) => {
     if (!file) {
       set({ garment: { ...get().garment, file: undefined, previewUrl: undefined, id: undefined } });
-      return;
+      return { ok: false, message: 'No garment file' };
     }
 
-    // Set initial preview
     const previewUrl = URL.createObjectURL(file);
-    set({
-      garment: { ...get().garment, file, previewUrl, id: undefined },
-      status: 'uploading',
-    });
+    set({ garment: { ...get().garment, file, previewUrl, id: undefined }, status: 'uploading' });
 
     try {
-      console.log('🔍 Extracting garment...');
-
-      // Extract garment
-      const { result, extractedFile } = await extractAndPrepareGarment(file);
+      const { result, extractedFile, method } = await extractGarmentSmart(file);
+      console.log(`Using ${method} pipeline for garment extraction`);
 
       if (!result.success || !extractedFile) {
-        console.warn('⚠️ Garment extraction failed:', result.message);
+        const msg = result.message || 'Garment must be a T-shirt or Trousers';
         set({
           garment: { ...get().garment, extracted: false, extractionResult: result },
           status: 'error',
-          error: result.message || 'Garment must be a T-shirt or Trousers',
+          error: msg,
         });
-        return;
+        return { ok: false, message: msg };
       }
 
-      console.log('✅ Garment extracted successfully');
-
-      // Update with extracted file
       const extractedPreviewUrl = URL.createObjectURL(extractedFile);
       set({
         garment: {
@@ -97,14 +87,11 @@ export const useVtonStore = create<VtonState>((set, get) => ({
         status: 'valid',
         error: undefined,
       });
+      return { ok: true };
     } catch (err) {
-      console.error('❌ Garment extraction error:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Failed to extract garment';
-      set({
-        garment: { ...get().garment, extracted: false },
-        status: 'error',
-        error: errorMessage,
-      });
+      const msg = err instanceof Error ? err.message : 'Failed to extract garment';
+      set({ garment: { ...get().garment, extracted: false }, status: 'error', error: msg });
+      return { ok: false, message: msg };
     }
   },
 
@@ -114,12 +101,9 @@ export const useVtonStore = create<VtonState>((set, get) => ({
   setOptions: (opts) => set({ options: { ...get().options, ...opts } }),
 
   reset: () => {
-    console.log('🔄 Resetting try-on state...');
     const old = get();
-    // Revoke blob URLs (but not data URLs from Gradio)
     if (old.body.previewUrl?.startsWith('blob:')) URL.revokeObjectURL(old.body.previewUrl);
     if (old.garment.previewUrl?.startsWith('blob:')) URL.revokeObjectURL(old.garment.previewUrl);
-    // Note: resultUrl from Gradio is a data URL, not a blob URL, so no need to revoke
     set({
       step: 'BODY',
       body: {},
@@ -129,85 +113,50 @@ export const useVtonStore = create<VtonState>((set, get) => ({
       resultUrl: undefined,
       error: undefined,
     });
-    console.log('✅ Reset complete');
   },
 
   tryOn: async () => {
     const { body, garment, options } = get();
 
-    console.log('🎬 Starting try-on process (Gradio)...');
-
-    if (!body.file) {
-      console.warn('❌ Validation failed: No body photo');
-      set({ error: 'Body photo is required', status: 'error' });
-      return;
-    }
-
-    if (!garment.file) {
-      console.warn('❌ Validation failed: No garment file');
-      set({ error: 'Please upload a garment image', status: 'error' });
-      return;
-    }
-
-    // Check if garment was extracted
+    if (!body.file) return set({ error: 'Body photo is required', status: 'error' });
+    if (!garment.file) return set({ error: 'Please upload a garment image', status: 'error' });
     if (!garment.extracted) {
-      console.warn('⚠️ Garment not extracted, extraction may have failed');
-      set({
+      return set({
         error: 'Garment extraction failed. Please upload a valid T-shirt or Trousers image.',
         status: 'error',
       });
-      return;
     }
 
-    console.log('✅ Validation passed:', {
-      bodyFile: body.file.name,
-      bodySize: `${(body.file.size / 1024).toFixed(2)} KB`,
-      garmentFile: garment.file.name,
-      garmentSize: `${(garment.file.size / 1024).toFixed(2)} KB`,
-      garmentExtracted: garment.extracted,
-      classification: garment.extractionResult?.classification?.label,
-      clothType: options.clothType || 'upper',
-    });
-
     set({ status: 'processing', error: undefined, resultUrl: undefined });
-
     const controller = new AbortController();
 
     try {
-      // Use extracted file (garment must be extracted)
       const finalGarmentFile = garment.extractedFile || garment.file;
+      const token = (process.env.NEXT_PUBLIC_HF_TOKEN ?? '') as `hf_${string}`;
 
-      console.log('📤 Sending to Gradio API (HuggingFace Space)...');
-
-      // Call Gradio API - returns base64 data URL
-      const resultBase64 = await processWithGradio(
+      const resultDataUrl = await processWithGradio(
         body.file,
         finalGarmentFile!,
         options.clothType || 'upper',
         options.numInferenceSteps ?? 50,
         options.guidanceScale ?? 2.5,
         options.seed ?? 42,
-        controller.signal,
+        { signal: controller.signal, token },
       );
 
-      console.log('📥 Received result from Gradio...');
-
-      // resultBase64 is already a data URL, can be used directly
-      const resultUrl = resultBase64;
-
-      console.log('✅ Try-on complete!');
-
-      set({ status: 'done', resultUrl, step: 'RESULT' });
+      set({ status: 'done', resultUrl: resultDataUrl, step: 'RESULT' });
     } catch (err: unknown) {
-      console.error('❌ Try-on failed:', err);
-      const error = err as { message?: string };
-      const errorMessage = error?.message || 'Processing failed. Please try again.';
-      set({ status: 'error', error: errorMessage });
+      const error = err as Error;
+      let msg = error?.message || 'Processing failed. Please try again.';
+      if (/exceeded.*gpu.*quota/i.test(msg)) {
+        msg =
+          'Daily GPU quota reached on the Space. Please retry after the reset or switch the Space to a paid GPU.';
+      }
+      set({ status: 'error', error: msg });
     }
   },
 
   regenerate: async () => {
-    console.log('🔄 Regenerating with same inputs...');
     await get().tryOn();
   },
 }));

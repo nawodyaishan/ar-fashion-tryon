@@ -1,243 +1,257 @@
-// lib/services/gradioApi.ts - Gradio HuggingFace Space API Client
+// lib/gradio-client.ts
+'use client';
 
 import type { ClothType } from '@/lib/types';
+import { Client, handle_file } from '@gradio/client';
 
-// Gradio API Configuration
-const GRADIO_API_URL =
-  process.env.NEXT_PUBLIC_GRADIO_API_URL ||
-  'https://nawodyaishan-ar-fashion-tryon.hf.space';
+/** Config */
+const GRADIO_SPACE = process.env.NEXT_PUBLIC_GRADIO_SPACE || 'nawodyaishan/ar-fashion-tryon';
+const HF_TOKEN = (process.env.NEXT_PUBLIC_HF_TOKEN ?? '') as `hf_${string}` | '';
+const API_TIMEOUT = parseInt(process.env.NEXT_PUBLIC_API_TIMEOUT || '120000', 10);
 
-const API_TIMEOUT = parseInt(process.env.API_TIMEOUT || '120000', 10); // 120 seconds
+/** ClothType map */
+type GradioClothType = 'upper' | 'lower' | 'overall';
+const toGradioClothType = (t: ClothType): GradioClothType =>
+  (t === 'full' ? 'overall' : t) as GradioClothType;
 
-/**
- * Gradio API Request Format
- */
-interface GradioRequest {
-  data: [
-    { background: string; layers: never[] }, // Person image (base64)
-    string, // Cloth image (base64)
-    ClothType, // Garment type
-    number, // num_inference_steps
-    number, // guidance_scale
-    number, // seed
-    string, // output_type: "result only"
-  ];
-}
-
-/**
- * Gradio API Response Format
- */
-interface GradioResponse {
-  data: [string]; // Array with single base64 image string
-  duration?: number;
-  average_duration?: number;
-}
-
-/**
- * Gradio API Error Response
- */
-interface GradioErrorResponse {
-  error?: string;
-  detail?: string;
-  message?: string;
-}
-
-/**
- * Convert File to base64 data URL
- */
-async function fileToBase64(file: File): Promise<string> {
+/** Helpers */
+function withTimeout<T>(p: Promise<T>, ms: number, signal?: AbortSignal): Promise<T> {
   return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = (error) => reject(error);
+    const id = setTimeout(() => reject(new Error('Request timeout. Please try again.')), ms);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const settle = (fn: (v: any) => void) => (v: any) => (clearTimeout(id), fn(v));
+    if (signal) {
+      if (signal.aborted) return (clearTimeout(id), reject(new Error('Request aborted.')));
+      const onAbort = () => (clearTimeout(id), reject(new Error('Request aborted.')));
+      signal.addEventListener('abort', onAbort, { once: true });
+    }
+    p.then(settle(resolve)).catch(settle(reject));
   });
 }
 
-/**
- * Process images using Gradio API on HuggingFace Space
- *
- * @param personFile - Person/body photo
- * @param clothFile - Garment photo (should be extracted/background removed)
- * @param clothType - Type of garment (upper/lower/overall)
- * @param numInferenceSteps - Number of inference steps (default: 50)
- * @param guidanceScale - Guidance scale (default: 2.5)
- * @param seed - Random seed for reproducibility (default: 42)
- * @param signal - AbortSignal for cancellation
- * @returns Base64 data URL of result image
- */
-export async function processWithGradio(
+function spaceBaseUrl(ref: string): string {
+  if (/^https?:\/\//i.test(ref)) return ref.replace(/\/+$/, '');
+  const [owner, name] = ref.split('/');
+  return `https://${owner}-${name}.hf.space`;
+}
+function resolveGradioFileUrl(pathOrUrl: string, spaceRef = GRADIO_SPACE): string {
+  if (/^https?:\/\//i.test(pathOrUrl)) return pathOrUrl;
+  const base = spaceBaseUrl(spaceRef);
+  const path = pathOrUrl.startsWith('/') ? pathOrUrl : `/${pathOrUrl}`;
+  if (path.startsWith('/file=') || path.startsWith('/gradio_api/file=')) return `${base}${path}`;
+  return `${base}/file=${encodeURIComponent(pathOrUrl)}`;
+}
+
+// Sniff common image types from first bytes
+async function sniffImageMime(blob: Blob): Promise<string | null> {
+  const slice = await blob.slice(0, 12).arrayBuffer();
+  const b = new Uint8Array(slice);
+  // PNG: 89 50 4E 47 0D 0A 1A 0A
+  if (
+    b.length >= 8 &&
+    b[0] === 0x89 &&
+    b[1] === 0x50 &&
+    b[2] === 0x4e &&
+    b[3] === 0x47 &&
+    b[4] === 0x0d &&
+    b[5] === 0x0a &&
+    b[6] === 0x1a &&
+    b[7] === 0x0a
+  )
+    return 'image/png';
+  // JPEG: FF D8 FF
+  if (b.length >= 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return 'image/jpeg';
+  // WebP: "RIFF"...."WEBP"
+  if (
+    b.length >= 12 &&
+    b[0] === 0x52 &&
+    b[1] === 0x49 &&
+    b[2] === 0x46 &&
+    b[3] === 0x46 && // RIFF
+    b[8] === 0x57 &&
+    b[9] === 0x45 &&
+    b[10] === 0x42 &&
+    b[11] === 0x50
+  )
+    return 'image/webp';
+  return null;
+}
+
+// Blob → DataURL (preserving/correcting MIME)
+async function blobToDataURLSafe(blob: Blob): Promise<string> {
+  const dataUrl: string = await new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onload = () => resolve(fr.result as string);
+    fr.onerror = () => reject(fr.error || new Error('Failed to read image blob'));
+    fr.readAsDataURL(blob);
+  });
+  // If reader returned "data:;base64,..." or empty type, patch it by sniffing
+  if (/^data:;base64,/.test(dataUrl) || /^data:(?!image\/)/.test(dataUrl)) {
+    const mime = (await sniffImageMime(blob)) || 'image/png';
+    return dataUrl.replace(/^data:;?/, `data:${mime};`);
+  }
+  return dataUrl;
+}
+
+/** Main call */
+export async function processWithGradioClient(
   personFile: File,
   clothFile: File,
   clothType: ClothType = 'upper',
   numInferenceSteps = 50,
   guidanceScale = 2.5,
   seed = 42,
-  signal?: AbortSignal,
+  opts?: { token?: `hf_${string}`; timeoutMs?: number; signal?: AbortSignal },
 ): Promise<string> {
-  console.log('🚀 Gradio API Request:', {
+  const token = opts?.token ?? HF_TOKEN;
+
+  console.log('🚀 Gradio Client Request:', {
+    space: GRADIO_SPACE,
+    hasToken: !!token,
     personFile: personFile.name,
-    personSize: `${(personFile.size / 1024).toFixed(2)} KB`,
+    personSizeKB: (personFile.size / 1024).toFixed(2),
     clothFile: clothFile.name,
-    clothSize: `${(clothFile.size / 1024).toFixed(2)} KB`,
+    clothSizeKB: (clothFile.size / 1024).toFixed(2),
     clothType,
     numInferenceSteps,
     guidanceScale,
     seed,
   });
 
+  console.log('🔐 Connecting to Gradio Space:', {
+    space: GRADIO_SPACE,
+    authenticated: !!token,
+  });
+
+  const client = await Client.connect(GRADIO_SPACE, token ? { hf_token: token } : undefined);
+
+  console.log('✅ Connected to Gradio Space successfully');
+
+  // Prepare person_image for ImageEditor component
+  // Format: { background: handle_file(...), layers: [], composite: null }
+  const payload = {
+    person_image: {
+      background: handle_file(personFile),
+      layers: [] as [],
+      composite: null, // Required for ImageEditor component
+    },
+    cloth_image: handle_file(clothFile),
+    cloth_type: toGradioClothType(clothType),
+    num_inference_steps: numInferenceSteps,
+    guidance_scale: guidanceScale,
+    seed,
+    show_type: 'result only' as const,
+  };
+
   const startTime = Date.now();
 
-  try {
-    // Step 1: Convert images to base64
-    console.log('🔄 Converting images to base64...');
-    const [personBase64, clothBase64] = await Promise.all([
-      fileToBase64(personFile),
-      fileToBase64(clothFile),
-    ]);
+  const result = (await withTimeout(
+    client.predict('/submit_function', payload),
+    opts?.timeoutMs ?? API_TIMEOUT,
+    opts?.signal,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  )) as any;
 
-    // Step 2: Prepare Gradio request
-    const requestData: GradioRequest = {
-      data: [
-        {
-          background: personBase64,
-          layers: [],
-        },
-        clothBase64,
-        clothType,
-        numInferenceSteps,
-        guidanceScale,
-        seed,
-        'result only', // output_type
-      ],
-    };
+  const out = result?.data?.[0];
+  const duration = Date.now() - startTime;
 
-    console.log('📤 Sending to Gradio API...');
-
-    // Step 3: Call Gradio API
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT);
-
-    // Use provided signal or timeout signal
-    const finalSignal = signal || controller.signal;
-
-    const response = await fetch(`${GRADIO_API_URL}/api/predict`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestData),
-      signal: finalSignal,
-    });
-
-    clearTimeout(timeoutId);
-
-    // Step 4: Handle HTTP errors
-    if (!response.ok) {
-      const errorData: GradioErrorResponse = await response.json().catch(() => ({}));
-      const errorMessage =
-        errorData.error || errorData.detail || errorData.message || 'Gradio API request failed';
-      throw new Error(`HTTP ${response.status}: ${errorMessage}`);
-    }
-
-    // Step 5: Parse response
-    const result: GradioResponse = await response.json();
-
-    if (!result.data || !result.data[0]) {
-      throw new Error('Invalid response from Gradio API: No image data');
-    }
-
-    const resultImage = result.data[0];
-    const duration = Date.now() - startTime;
-
-    console.log('✅ Gradio API Success:', {
+  // Case 1: Blob
+  if (out instanceof Blob) {
+    const dataUrl = await blobToDataURLSafe(out);
+    console.log('✅ Gradio Client Success:', {
       duration: `${(duration / 1000).toFixed(2)}s`,
-      avgDuration: result.average_duration
-        ? `${result.average_duration.toFixed(2)}s`
-        : 'N/A',
-      imageSize: `${(resultImage.length / 1024).toFixed(2)} KB`,
+      size: `${(out.size / 1024).toFixed(2)} KB`,
+      type: out.type || 'image',
+      format: 'Blob → DataURL',
     });
-
-    return resultImage; // Returns base64 data URL
-  } catch (error: unknown) {
-    const duration = Date.now() - startTime;
-    console.error('❌ Gradio API Error:', {
-      duration: `${(duration / 1000).toFixed(2)}s`,
-      error,
-    });
-
-    // Handle abort
-    if (error instanceof Error && error.name === 'AbortError') {
-      throw new Error('Request timeout. Please try again.');
-    }
-
-    // Handle network errors
-    if (error instanceof TypeError) {
-      throw new Error('Network error. Please check your connection.');
-    }
-
-    // Re-throw with context
-    if (error instanceof Error) {
-      throw error;
-    }
-
-    throw new Error('Unknown error occurred during processing');
+    return dataUrl;
   }
+
+  // Case 2: data URL string
+  if (typeof out === 'string' && out.startsWith('data:')) {
+    console.log('✅ Gradio Client Success:', {
+      duration: `${(duration / 1000).toFixed(2)}s`,
+      size: `${(out.length / 1024).toFixed(2)} KB`,
+      format: 'DataURL (direct)',
+    });
+    return out;
+  }
+
+  // Case 3: absolute URL string → fetch and convert
+  if (typeof out === 'string' && /^https?:\/\//i.test(out)) {
+    const resp = await fetch(
+      out,
+      token ? { headers: { Authorization: `Bearer ${token}` } } : undefined,
+    );
+    if (!resp.ok) throw new Error(`Failed to fetch output image (${resp.status})`);
+    const blob = await resp.blob();
+    const dataUrl = await blobToDataURLSafe(blob);
+    console.log('✅ Gradio Client Success:', {
+      duration: `${(duration / 1000).toFixed(2)}s`,
+      size: `${(blob.size / 1024).toFixed(2)} KB`,
+      type: blob.type || 'image',
+      format: 'URL → Blob → DataURL',
+    });
+    return dataUrl;
+  }
+
+  // Case 4: server path (/tmp/gradio/...) or { path }
+  const path = typeof out === 'string' ? out : out?.path;
+  if (path) {
+    const url = resolveGradioFileUrl(path);
+    console.log('📥 Fetching image from Space:', { path, url });
+    const resp = await fetch(
+      url,
+      token ? { headers: { Authorization: `Bearer ${token}` } } : undefined,
+    );
+    if (!resp.ok) throw new Error(`Failed to fetch output image from Space (${resp.status})`);
+    const blob = await resp.blob();
+    const dataUrl = await blobToDataURLSafe(blob);
+    console.log('✅ Gradio Client Success:', {
+      duration: `${(duration / 1000).toFixed(2)}s`,
+      size: `${(blob.size / 1024).toFixed(2)} KB`,
+      type: blob.type || 'image',
+      format: 'Path → URL → Blob → DataURL',
+    });
+    return dataUrl;
+  }
+
+  console.error('❌ Invalid Gradio response:', { result, out });
+  throw new Error('Invalid Gradio response: no image found in result.data[0]');
 }
 
-/**
- * Check if Gradio API is available
- */
-export async function checkGradioHealth(): Promise<boolean> {
+/** Health (optional) */
+export async function checkGradioHealthClient(): Promise<boolean> {
   try {
-    const response = await fetch(`${GRADIO_API_URL}/`, {
-      method: 'HEAD',
-      signal: AbortSignal.timeout(5000),
-    });
-
-    const isHealthy = response.ok;
-    console.log('🏥 Gradio API Health:', isHealthy ? '✅ Available' : '❌ Unavailable');
-
-    return isHealthy;
-  } catch (error) {
-    console.error('❌ Gradio API Health Check Failed:', error);
+    await Client.connect(GRADIO_SPACE, HF_TOKEN ? { hf_token: HF_TOKEN } : undefined);
+    return true;
+  } catch {
     return false;
   }
 }
 
-/**
- * Convert base64 data URL to Blob
- */
+/** Utils */
 export function base64ToBlob(base64: string): Blob {
-  // Remove data URL prefix if present
-  const base64Data = base64.includes(',') ? base64.split(',')[1] : base64;
-
-  // Decode base64
-  const binaryString = atob(base64Data);
-  const bytes = new Uint8Array(binaryString.length);
-
-  for (let i = 0; i < binaryString.length; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
-
-  // Determine MIME type from data URL
-  const mimeMatch = base64.match(/data:([^;]+);/);
-  const mimeType = mimeMatch ? mimeMatch[1] : 'image/png';
-
-  return new Blob([bytes], { type: mimeType });
+  const b64 = base64.includes(',') ? base64.split(',')[1] : base64;
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  const mime = base64.match(/data:([^;]+);/)?.[1] || 'image/png';
+  return new Blob([bytes], { type: mime });
 }
-
-/**
- * Download result image from base64
- */
-export function downloadBase64Image(base64: string, filename = 'tryon-result.png') {
-  const blob = base64ToBlob(base64);
-  const url = URL.createObjectURL(blob);
-
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  link.click();
-
-  URL.revokeObjectURL(url);
+export function downloadBase64ImageSmart(dataUrl: string, baseName = 'tryon-result') {
+  // Detect extension from mime
+  const mime = dataUrl.match(/^data:([^;]+);/i)?.[1] || 'image/png';
+  const ext = mime.includes('webp')
+    ? 'webp'
+    : mime.includes('jpeg') || mime.includes('jpg')
+      ? 'jpg'
+      : 'png';
+  const a = document.createElement('a');
+  a.href = dataUrl;
+  a.download = `${baseName}.${ext}`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
 }
+export const processWithGradio = processWithGradioClient;

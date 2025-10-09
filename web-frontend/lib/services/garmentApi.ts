@@ -1,18 +1,53 @@
 // lib/services/garmentApi.ts - Garment Extraction API Service
+// Supports both direct upload and Cloudinary-first pipeline
 
-import type { GarmentExtractionError, GarmentHealthCheck, GarmentProcessResponse, } from '@/lib/types';
+import type { GarmentHealthCheck, GarmentProcessResponse } from '@/lib/types';
 import { http } from './http';
 
 // API Base URL for Garment Extraction Service
-const GARMENT_API_BASE = process.env.NEXT_PUBLIC_GARMENT_API_BASE || 'http://localhost:6000';
+const DEFAULT_BASE = 'https://ar-fashion-tryon-production.up.railway.app';
+export const GARMENT_API_BASE = (process.env.NEXT_PUBLIC_GARMENT_API_BASE || DEFAULT_BASE).replace(
+  /\/+$/,
+  '',
+);
+
+// Cloudinary Configuration
+const CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+const UPLOAD_PRESET = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
+
+// Cloudinary upload response type
+export interface CloudinaryUploadResponse {
+  secure_url: string;
+  public_id: string;
+  bytes: number;
+  width: number;
+  height: number;
+  format: string;
+  resource_type: string;
+  created_at: string;
+}
+
+// Backend response (your Flask /classify_garment)
+type BackendResponse =
+  | {
+      label: string;
+      confidence: number;
+      garment_url: string; // NOTE: backend returns absolute URL
+      cutout_url: string; // NOTE: backend returns absolute URL
+      cutout_path: string; // relative path like "static/outputs/..."
+    }
+  | { error: string };
+
+// Robust URL resolver: accepts absolute or relative paths
+function resolveUrl(maybeRelative: string): string {
+  if (/^https?:\/\//i.test(maybeRelative)) return maybeRelative; // already absolute
+  if (maybeRelative.startsWith('/')) return `${GARMENT_API_BASE}${maybeRelative}`;
+  return `${GARMENT_API_BASE}/${maybeRelative}`;
+}
 
 /**
- * Process a garment image through the extraction API
- *
- * @param file - Image file to process (max 10MB, JPEG/PNG/WEBP)
- * @param signal - Optional AbortSignal for cancellation
- * @returns GarmentProcessResponse with classification and extracted image
- * @throws Error if request fails or file is invalid
+ * Process a garment image through your Flask extraction API
+ * (POST /classify_garment with form field "garment")
  */
 export async function extractGarment(
   file: File,
@@ -24,84 +59,84 @@ export async function extractGarment(
     fileType: file.type,
   });
 
-  // Client-side validation
+  // Client-side validation (match backend: PNG/JPEG only)
   if (file.size > 10 * 1024 * 1024) {
     throw new Error('File too large. Maximum size is 10MB');
   }
-
-  if (!file.type.startsWith('image/')) {
-    throw new Error('Invalid file type. Must be an image (JPEG, PNG, WEBP)');
+  if (!/^image\/(png|jpe?g)$/i.test(file.type)) {
+    throw new Error('Invalid file type. Must be PNG or JPEG');
   }
 
-  // Create FormData
   const formData = new FormData();
-  formData.append('file', file);
+  // IMPORTANT: backend expects the field name "garment"
+  formData.append('garment', file);
 
-  const startTime = Date.now();
+  const start = performance.now();
 
   try {
-    // POST to extraction API
-    const { data } = await http.post<GarmentProcessResponse>(
-      `${GARMENT_API_BASE}/api/process`,
+    const { data } = await http.post<BackendResponse>(
+      `${GARMENT_API_BASE}/classify_garment`,
       formData,
       {
         signal,
-        headers: {
-          Accept: 'application/json',
-        },
-        // Note: Don't set Content-Type - browser will set it with boundary for FormData
+        headers: { Accept: 'application/json' }, // don't set Content-Type with FormData
       },
     );
 
-    const duration = Date.now() - startTime;
+    const took = performance.now() - start;
 
-    if (data.success) {
-      console.log('✅ Garment Extraction Success:', {
-        label: data.classification?.label,
-        confidence: `${((data.classification?.confidence || 0) * 100).toFixed(2)}%`,
-        processingTime: `${data.processing_time_ms?.toFixed(2)}ms`,
-        totalTime: `${duration}ms`,
-        extractedUrl: data.extraction?.cutout_url,
-      });
-    } else {
-      console.warn('⚠️ Garment Extraction Failed:', {
-        message: data.message,
-        label: data.classification?.label,
-        confidence: data.classification?.confidence,
-      });
+    // Handle backend error shape
+    if ('error' in data) {
+      return {
+        success: false,
+        message: data.error,
+        processing_time_ms: took,
+      };
     }
 
-    return data;
-  } catch (error: unknown) {
-    console.error('❌ Garment Extraction Error:', error);
+    const result: GarmentProcessResponse = {
+      success: true,
+      processing_time_ms: took,
+      classification: {
+        label: data.label,
+        confidence: data.confidence ?? 0,
+      },
+      extraction: {
+        cutout_url: data.cutout_url,
+        garment_url: data.garment_url,
+        cutout_path: data.cutout_path,
+      },
+    };
 
-    // Handle HTTP errors
-    if (error && typeof error === 'object' && 'response' in error) {
-      const httpError = error as { response?: { data?: GarmentExtractionError } };
-      const detail = httpError.response?.data?.detail;
-      if (detail) {
-        throw new Error(detail);
-      }
+    console.log('✅ Garment Extraction Success:', {
+      ...result.classification,
+      extractedUrl: result.extraction?.cutout_url,
+      totalTime: `${Math.round(took)}ms`,
+    });
+
+    return result;
+  } catch (err: unknown) {
+    console.error('❌ Garment Extraction Error:', err);
+
+    // Axios-style HTTP error body passthrough
+    if (err && typeof err === 'object' && 'response' in err) {
+      const httpErr = err as { response?: { data?: { error?: string; detail?: string } } };
+      const detail = httpErr.response?.data?.error || httpErr.response?.data?.detail;
+      if (detail) throw new Error(detail);
     }
 
-    // Re-throw original error if not HTTP error
-    if (error instanceof Error) {
-      throw error;
-    }
-
+    if (err instanceof Error) throw err;
     throw new Error('Unknown error occurred during garment extraction');
   }
 }
 
 /**
  * Check health status of the Garment Extraction API
- *
- * @returns GarmentHealthCheck with API and model status
  */
 export async function checkGarmentApiHealth(): Promise<GarmentHealthCheck> {
   try {
-    const { data } = await http.get<GarmentHealthCheck>(`${GARMENT_API_BASE}/api/health`);
-
+    // FIX: your backend route is /health (not /api/health)
+    const { data } = await http.get<GarmentHealthCheck>(`${GARMENT_API_BASE}/health`);
     console.log('🏥 Garment API Health:', data);
     return data;
   } catch (error) {
@@ -112,33 +147,44 @@ export async function checkGarmentApiHealth(): Promise<GarmentHealthCheck> {
 
 /**
  * Download extracted garment image as Blob
+ * Uses native fetch to avoid CORS preflight issues with axios
  *
- * @param cutoutUrl - URL from extraction response (e.g., "/static/outputs/cutout_xxx.png")
- * @param signal - Optional AbortSignal for cancellation
- * @returns Blob of the extracted image
+ * @param cutoutUrl - URL from extraction response (can be absolute or relative)
  */
 export async function downloadExtractedImage(
   cutoutUrl: string,
   signal?: AbortSignal,
 ): Promise<Blob> {
-  const fullUrl = `${GARMENT_API_BASE}${cutoutUrl}`;
+  const fullUrl = resolveUrl(cutoutUrl);
 
   console.log('📥 Downloading extracted image:', fullUrl);
 
   try {
-    const { data } = await http.get<Blob>(fullUrl, {
+    // Use native fetch instead of axios to avoid CORS preflight
+    // GET requests without custom headers don't trigger preflight
+    const response = await fetch(fullUrl, {
+      method: 'GET',
       signal,
-      responseType: 'blob',
+      // Don't set any custom headers to avoid CORS preflight
     });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    const blob = await response.blob();
 
     console.log('✅ Downloaded extracted image:', {
-      size: `${(data.size / 1024).toFixed(2)} KB`,
-      type: data.type,
+      size: `${(blob.size / 1024).toFixed(2)} KB`,
+      type: blob.type,
     });
 
-    return data;
+    return blob;
   } catch (error) {
     console.error('❌ Download failed:', error);
+    if (error instanceof Error) {
+      throw error;
+    }
     throw new Error('Failed to download extracted image');
   }
 }
@@ -146,25 +192,17 @@ export async function downloadExtractedImage(
 /**
  * Convert extracted image URL to a File object
  * Useful for uploading extracted garment to VTON backend
- *
- * @param cutoutUrl - URL from extraction response
- * @param fileName - Optional custom filename
- * @returns File object
  */
 export async function extractedUrlToFile(
   cutoutUrl: string,
   fileName = 'extracted_garment.png',
 ): Promise<File> {
   const blob = await downloadExtractedImage(cutoutUrl);
-  return new File([blob], fileName, { type: blob.type });
+  return new File([blob], fileName, { type: blob.type || 'image/png' });
 }
 
 /**
- * Full pipeline: Extract garment and convert to File for VTON
- *
- * @param originalFile - Original garment image
- * @param signal - Optional AbortSignal
- * @returns Object with extraction result and extracted File
+ * Full pipeline: Extract garment and convert to File for VTON (Direct Upload)
  */
 export async function extractAndPrepareGarment(
   originalFile: File,
@@ -179,10 +217,251 @@ export async function extractAndPrepareGarment(
   // Step 2: If successful, download extracted image as File
   let extractedFile: File | null = null;
 
-  if (result.success && result.extraction) {
-    const fileName = `extracted_${result.classification?.label || 'garment'}.png`;
+  if (result.success && result.extraction?.cutout_url) {
+    const labelSafe = (result.classification?.label || 'garment').replace(/[^\w.-]+/g, '_');
+    const fileName = `extracted_${labelSafe}.png`;
     extractedFile = await extractedUrlToFile(result.extraction.cutout_url, fileName);
   }
 
   return { result, extractedFile };
+}
+
+// ============================================================================
+// CLOUDINARY-FIRST PIPELINE (Production Recommended)
+// ============================================================================
+
+/**
+ * Upload image directly to Cloudinary (unsigned preset)
+ * Bypasses backend for file upload, reducing server load and CORS issues
+ *
+ * @param file - Image file to upload
+ * @param folder - Cloudinary folder path (default: 'garments/originals')
+ * @returns Cloudinary upload response with secure_url
+ */
+export async function uploadToCloudinary(
+  file: File,
+  folder = 'garments/originals',
+  signal?: AbortSignal,
+): Promise<CloudinaryUploadResponse> {
+  if (!CLOUD_NAME || !UPLOAD_PRESET) {
+    throw new Error(
+      'Cloudinary not configured. Set NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME and NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET'
+    );
+  }
+
+  console.log('☁️ Uploading to Cloudinary:', {
+    fileName: file.name,
+    fileSize: `${(file.size / 1024).toFixed(2)} KB`,
+    folder,
+  });
+
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('upload_preset', UPLOAD_PRESET);
+  formData.append('folder', folder);
+
+  const start = performance.now();
+
+  const response = await fetch(
+    `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`,
+    {
+      method: 'POST',
+      body: formData,
+      signal,
+    }
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('❌ Cloudinary upload failed:', errorText);
+    throw new Error(`Cloudinary upload failed: ${response.status} ${errorText}`);
+  }
+
+  const data = await response.json() as CloudinaryUploadResponse;
+  const took = performance.now() - start;
+
+  console.log('✅ Cloudinary upload success:', {
+    url: data.secure_url,
+    publicId: data.public_id,
+    size: `${(data.bytes / 1024).toFixed(2)} KB`,
+    dimensions: `${data.width}x${data.height}`,
+    format: data.format,
+    uploadTime: `${took.toFixed(0)}ms`,
+  });
+
+  return data;
+}
+
+/**
+ * Process garment by URL (backend fetches from Cloudinary)
+ * Requires backend endpoint: POST /classify_garment_by_url
+ *
+ * @param sourceUrl - Cloudinary secure_url or any publicly accessible image URL
+ * @returns Garment processing result
+ */
+export async function extractGarmentByUrl(
+  sourceUrl: string,
+  signal?: AbortSignal,
+): Promise<GarmentProcessResponse> {
+  console.log('🔗 Processing garment by URL:', sourceUrl);
+
+  const start = performance.now();
+
+  try {
+    const { data } = await http.post(
+      `${GARMENT_API_BASE}/classify_garment_by_url`,
+      { source_url: sourceUrl },
+      {
+        signal,
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+      }
+    );
+
+    const took = performance.now() - start;
+
+    // Backend response shape (same as direct upload)
+    const response = data as {
+      label: string;
+      confidence: number;
+      garment_url: string;
+      cutout_url: string;
+      cutout_path: string;
+    };
+
+    const result: GarmentProcessResponse = {
+      success: true,
+      processing_time_ms: took,
+      classification: {
+        label: response.label,
+        confidence: response.confidence,
+      },
+      extraction: {
+        cutout_url: response.cutout_url,
+        garment_url: response.garment_url,
+        cutout_path: response.cutout_path,
+      },
+    };
+
+    console.log('✅ URL-based extraction success:', {
+      label: result.classification?.label,
+      confidence: result.classification?.confidence,
+      cutoutUrl: result.extraction?.cutout_url,
+      totalTime: `${took.toFixed(0)}ms`,
+    });
+
+    return result;
+  } catch (err: unknown) {
+    console.error('❌ URL-based extraction error:', err);
+
+    if (err && typeof err === 'object' && 'response' in err) {
+      const httpErr = err as { response?: { data?: { error?: string; detail?: string } } };
+      const detail = httpErr.response?.data?.error || httpErr.response?.data?.detail;
+      if (detail) throw new Error(detail);
+    }
+
+    if (err instanceof Error) throw err;
+    throw new Error('Unknown error occurred during URL-based extraction');
+  }
+}
+
+/**
+ * Complete Cloudinary pipeline: Upload to Cloudinary → Process by URL
+ *
+ * Benefits:
+ * - No large file uploads to backend (reduces server load)
+ * - No CORS issues (Cloudinary has proper CORS)
+ * - CDN benefits for serving images
+ * - Backend only processes by URL (fetches from Cloudinary)
+ *
+ * @param file - Original garment image file
+ * @returns Processing result with extracted garment
+ */
+export async function extractViaCloudinaryPipeline(
+  file: File,
+  signal?: AbortSignal,
+): Promise<{
+  result: GarmentProcessResponse;
+  extractedFile: File | null;
+  cloudinaryUrl?: string;
+}> {
+  console.log('🚀 Starting Cloudinary pipeline for:', file.name);
+
+  // Step 1: Upload to Cloudinary
+  const uploadResult = await uploadToCloudinary(file, 'garments/originals', signal);
+
+  // Step 2: Process by URL
+  const result = await extractGarmentByUrl(uploadResult.secure_url, signal);
+
+  // Step 3: Download extracted image as File
+  let extractedFile: File | null = null;
+
+  if (result.success && result.extraction?.cutout_url) {
+    const labelSafe = (result.classification?.label || 'garment').replace(/[^\w.-]+/g, '_');
+    const fileName = `extracted_${labelSafe}.png`;
+    extractedFile = await extractedUrlToFile(result.extraction.cutout_url, fileName);
+  }
+
+  return {
+    result,
+    extractedFile,
+    cloudinaryUrl: uploadResult.secure_url,
+  };
+}
+
+/**
+ * Check if Cloudinary is configured
+ */
+export function isCloudinaryConfigured(): boolean {
+  return !!(CLOUD_NAME && UPLOAD_PRESET);
+}
+
+// ============================================================================
+// SMART PIPELINE SELECTOR (Auto-chooses best approach)
+// ============================================================================
+
+/**
+ * Smart garment extraction that automatically chooses the best pipeline:
+ * - If Cloudinary is configured → Uses Cloudinary pipeline (production recommended)
+ * - If not → Falls back to direct upload pipeline
+ *
+ * This is the recommended function to use in your components.
+ *
+ * @param file - Garment image file to process
+ * @param signal - Optional AbortSignal for cancellation
+ * @param forceMethod - Optional: 'cloudinary' | 'direct' to force specific pipeline
+ * @returns Processing result with extracted garment file
+ */
+export async function extractGarmentSmart(
+  file: File,
+  signal?: AbortSignal,
+  forceMethod?: 'cloudinary' | 'direct',
+): Promise<{
+  result: GarmentProcessResponse;
+  extractedFile: File | null;
+  cloudinaryUrl?: string;
+  method: 'cloudinary' | 'direct';
+}> {
+  // Determine which method to use
+  const useCloudinary =
+    forceMethod === 'cloudinary' ||
+    (forceMethod !== 'direct' && isCloudinaryConfigured());
+
+  if (useCloudinary) {
+    console.log('🌩️ Using Cloudinary pipeline (production mode)');
+    const cloudinaryResult = await extractViaCloudinaryPipeline(file, signal);
+    return {
+      ...cloudinaryResult,
+      method: 'cloudinary',
+    };
+  } else {
+    console.log('📤 Using direct upload pipeline (fallback mode)');
+    const directResult = await extractAndPrepareGarment(file, signal);
+    return {
+      ...directResult,
+      method: 'direct',
+    };
+  }
 }
