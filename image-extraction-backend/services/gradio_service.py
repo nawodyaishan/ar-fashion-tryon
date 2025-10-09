@@ -41,17 +41,42 @@ async def get_gradio_client() -> Client:
     return gradio_client
 
 
-async def _download_gradio_result(result_data: Any) -> bytes:
-    """Download result image from Gradio API response."""
+async def _download_gradio_result(result_data: Any, base_url: str) -> bytes:
+    """
+    Download result image from Gradio API response.
+
+    Args:
+        result_data: Gradio result (dict or string with file path/url)
+        base_url: Gradio Space base URL
+
+    Returns:
+        Image bytes
+    """
     # Gradio returns dict with 'path' or 'url'
     if isinstance(result_data, dict):
-        image_url = result_data.get('url') or result_data.get('path')
+        file_path = result_data.get('url') or result_data.get('path')
     else:
         # Sometimes returns just the path/url string
-        image_url = str(result_data)
+        file_path = str(result_data)
 
-    if not image_url:
-        raise ValueError("No image URL in Gradio response")
+    if not file_path:
+        raise ValueError("No file path in Gradio response")
+
+    logger.debug(f"Gradio result file path: {file_path}")
+
+    # Check if it's a local file path (starts with / or /tmp/)
+    if file_path.startswith('/'):
+        # Construct Gradio file URL from local path
+        # Format: https://SPACE_URL/gradio_api/file=/tmp/gradio/.../file.ext
+        image_url = f"{base_url}/gradio_api/file={file_path}"
+        logger.info(f"Converted local path to Gradio URL: {image_url}")
+    elif file_path.startswith('http'):
+        # Already a full URL
+        image_url = file_path
+    else:
+        # Relative path - construct URL
+        image_url = f"{base_url}/{file_path}"
+        logger.info(f"Constructed URL from relative path: {image_url}")
 
     # Download image
     return await run_in_threadpool(download_url_bytes, image_url, MAX_CONTENT_BYTES)
@@ -110,8 +135,11 @@ async def call_gradio_api(
 
             logger.info("Gradio API call successful")
 
+            # Construct base URL for Gradio Space
+            base_url = f"https://{GRADIO_SPACE.replace('/', '-')}.hf.space"
+
             # Download result image
-            result_bytes = await _download_gradio_result(result)
+            result_bytes = await _download_gradio_result(result, base_url)
             return result_bytes
 
         except Exception as e:
