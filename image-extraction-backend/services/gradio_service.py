@@ -3,6 +3,7 @@ Gradio API client service for virtual try-on.
 """
 import asyncio
 import logging
+from pathlib import Path
 from typing import Optional, Any
 
 from fastapi import HTTPException
@@ -46,39 +47,84 @@ async def _download_gradio_result(result_data: Any, base_url: str) -> bytes:
     Download result image from Gradio API response.
 
     Args:
-        result_data: Gradio result (dict or string with file path/url)
+        result_data: Gradio result (dict, list, tuple, or string with file path/url)
         base_url: Gradio Space base URL
 
     Returns:
         Image bytes
     """
-    # Gradio returns dict with 'path' or 'url'
+    # Log full result structure for debugging
+    logger.info(f"Gradio result type: {type(result_data)}")
+    logger.debug(f"Gradio result data: {result_data}")
+
+    # Extract file path from result
+    file_path = None
+
+    # Handle different result types
     if isinstance(result_data, dict):
-        file_path = result_data.get('url') or result_data.get('path')
+        # Dict: look for 'url', 'path', or 'name' keys
+        file_path = result_data.get('url') or result_data.get('path') or result_data.get('name')
+        logger.debug(f"Extracted from dict: {file_path}")
+
+    elif isinstance(result_data, (list, tuple)):
+        # List/Tuple: Gradio might return [intermediate, final] - take the LAST one
+        if len(result_data) > 0:
+            last_item = result_data[-1]
+            logger.info(f"Result is list/tuple with {len(result_data)} items, using last item")
+
+            if isinstance(last_item, dict):
+                file_path = last_item.get('url') or last_item.get('path') or last_item.get('name')
+            else:
+                file_path = str(last_item)
+
+            logger.debug(f"Extracted from list/tuple: {file_path}")
+
+    elif isinstance(result_data, str):
+        # String: direct file path or URL
+        file_path = result_data
+        logger.debug(f"Result is string: {file_path}")
+
     else:
-        # Sometimes returns just the path/url string
+        # Unknown type - try to convert to string
         file_path = str(result_data)
+        logger.warning(f"Unknown result type {type(result_data)}, converted to string: {file_path}")
 
-    if not file_path:
-        raise ValueError("No file path in Gradio response")
+    # Validate file path
+    if not file_path or file_path == 'None':
+        raise ValueError(f"No valid file path in Gradio response. Result data: {result_data}")
 
-    logger.debug(f"Gradio result file path: {file_path}")
+    logger.info(f"Final extracted file path: {file_path}")
 
-    # Check if it's a local file path (starts with / or /tmp/)
+    # Check if file_path is a local file that gradio_client already downloaded
+    if file_path.startswith('/') and Path(file_path).exists():
+        # Gradio client already downloaded the file locally
+        logger.info(f"Reading locally downloaded file: {file_path}")
+        try:
+            def read_local_file(path: str) -> bytes:
+                with open(path, 'rb') as f:
+                    return f.read()
+
+            return await run_in_threadpool(read_local_file, file_path)
+        except Exception as e:
+            logger.warning(f"Failed to read local file {file_path}: {e}, will try URL download")
+            # Fall through to URL download
+
+    # Construct download URL
     if file_path.startswith('/'):
-        # Construct Gradio file URL from local path
-        # Format: https://SPACE_URL/gradio_api/file=/tmp/gradio/.../file.ext
+        # Local file path → construct Gradio file URL
         image_url = f"{base_url}/gradio_api/file={file_path}"
-        logger.info(f"Converted local path to Gradio URL: {image_url}")
+        logger.info(f"Constructed URL from local path: {image_url}")
     elif file_path.startswith('http'):
         # Already a full URL
         image_url = file_path
+        logger.info(f"Using full URL: {image_url}")
     else:
-        # Relative path - construct URL
+        # Relative path → construct full URL
         image_url = f"{base_url}/{file_path}"
         logger.info(f"Constructed URL from relative path: {image_url}")
 
-    # Download image
+    # Download image from URL
+    logger.info(f"Downloading from URL: {image_url}")
     return await run_in_threadpool(download_url_bytes, image_url, MAX_CONTENT_BYTES)
 
 
