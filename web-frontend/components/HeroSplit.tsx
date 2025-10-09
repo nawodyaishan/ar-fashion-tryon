@@ -36,7 +36,7 @@ export function HeroSplit() {
           {/* Soft vignette */}
           <div className="absolute inset-0 bg-gradient-to-br from-black/20 via-transparent to-black/30 z-10" />
           <Image
-            src="/hero/card_live_ar_preview_dark_gradient.png"
+            src="https://res.cloudinary.com/ddjp9nox3/image/upload/v1760049770/card_live_ar_preview_dark_gradient_txfpza.png"
             alt="AR Preview Live"
             fill
             sizes="(max-width: 768px) 100vw, 50vw"
@@ -57,7 +57,7 @@ export function HeroSplit() {
           {/* Soft vignette */}
           <div className="absolute inset-0 bg-gradient-to-bl from-black/20 via-transparent to-black/30 z-10" />
           <Image
-            src="/hero/hero_live_ar_preview_dark_gradient.png"
+            src="https://res.cloudinary.com/ddjp9nox3/image/upload/v1760049771/hero_live_ar_preview_dark_gradient_ahvy8h.png"
             alt="Photo Try-On HD"
             fill
             sizes="(max-width: 768px) 100vw, 50vw"
