@@ -12,13 +12,13 @@ export function HeroSplit() {
 
   const slides = [
     {
-      image: '/hero/card_live_ar_preview_dark_gradient.png',
+      image: '/hero/card_live_ar_preview_dark_gradient Medium.png',
       alt: 'AR Preview Live',
       badge: 'Fast',
       badgeClass: 'bg-violet-500/20 border-violet-500/40 text-white',
     },
     {
-      image: '/hero/hero_live_ar_preview_dark_gradient.png',
+      image: '/hero/hero_live_ar_preview_dark_gradient Medium.png',
       alt: 'Photo Try-On HD',
       badge: 'HD',
       badgeClass: 'bg-purple-500/20 border-purple-500/40 text-white',
@@ -83,7 +83,12 @@ export function HeroSplit() {
             <Button size="lg" asChild className="min-w-[180px]">
               <Link href="/try-on?mode=ar">Start AR Preview</Link>
             </Button>
-            <Button size="lg" variant="ghost" asChild className="min-w-[180px] text-white border-white/30 hover:bg-white/10">
+            <Button
+              size="lg"
+              variant="ghost"
+              asChild
+              className="min-w-[180px] text-white border-white/30 hover:bg-white/10"
+            >
               <Link href="/try-on?mode=photo">Open HD Mode</Link>
             </Button>
           </div>
@@ -102,7 +107,11 @@ export function HeroSplit() {
             <div
               key={index}
               className={`absolute inset-0 transition-transform duration-500 ease-out ${
-                index === currentSlide ? 'translate-x-0' : index < currentSlide ? '-translate-x-full' : 'translate-x-full'
+                index === currentSlide
+                  ? 'translate-x-0'
+                  : index < currentSlide
+                    ? '-translate-x-full'
+                    : 'translate-x-full'
               }`}
             >
               {/* Soft vignette */}
@@ -116,7 +125,10 @@ export function HeroSplit() {
                 priority={index === 0}
               />
               {/* Badge */}
-              <Badge variant="outline" className={`absolute top-6 right-6 z-20 ${slide.badgeClass} backdrop-blur-sm`}>
+              <Badge
+                variant="outline"
+                className={`absolute top-6 right-6 z-20 ${slide.badgeClass} backdrop-blur-sm`}
+              >
                 {slide.badge}
               </Badge>
             </div>
@@ -134,7 +146,12 @@ export function HeroSplit() {
               <Button size="lg" asChild className="w-full">
                 <Link href="/try-on?mode=ar">Start AR Preview</Link>
               </Button>
-              <Button size="lg" variant="ghost" asChild className="w-full text-white border-white/30 hover:bg-white/10">
+              <Button
+                size="lg"
+                variant="ghost"
+                asChild
+                className="w-full text-white border-white/30 hover:bg-white/10"
+              >
                 <Link href="/try-on?mode=photo">Open HD Mode</Link>
               </Button>
             </div>
