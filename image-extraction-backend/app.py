@@ -4,8 +4,9 @@ import io
 import json
 import secrets
 import tempfile
+import asyncio
 from pathlib import Path
-from typing import Tuple, Optional
+from typing import Tuple, Optional, Dict, Any
 
 import numpy as np
 from fastapi import FastAPI, File, UploadFile, Request, HTTPException
@@ -22,6 +23,7 @@ from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 import requests
 import cloudinary
 import cloudinary.uploader
+from gradio_client import Client, handle_file
 
 # -------------------- Paths & constants --------------------
 BASE_DIR = Path(__file__).resolve().parent
@@ -50,6 +52,12 @@ cloudinary.config(
 CLOUDINARY_FOLDER = os.getenv("CLOUDINARY_FOLDER", "garments")  # base folder
 FOLDER_ORIG = f"{CLOUDINARY_FOLDER}/originals"
 FOLDER_CUT = f"{CLOUDINARY_FOLDER}/cutouts"
+FOLDER_TRYON = f"{CLOUDINARY_FOLDER}/tryon_results"
+
+# Gradio config
+GRADIO_SPACE = "nawodyaishan/ar-fashion-tryon"
+HF_TOKEN = os.getenv("HF_TOKEN")  # Optional, for private spaces
+gradio_client: Optional[Client] = None
 
 # -------------------- FastAPI app --------------------
 app = FastAPI(title="Garment Extraction API", version="2.0.0")
@@ -108,7 +116,15 @@ def _load_model_and_config():
 
 @app.on_event("startup")
 async def startup_load():
+    """Load models and initialize Gradio client on startup."""
+    # Load TensorFlow model
     await run_in_threadpool(_load_model_and_config)
+
+    # Pre-connect to Gradio (optional, for faster first request)
+    try:
+        await get_gradio_client()
+    except Exception as e:
+        print(f"⚠️  Gradio pre-connection failed (will retry on first request): {e}")
 
 # -------------------- Helpers --------------------
 def _allowed_file(filename: str) -> bool:
@@ -171,12 +187,109 @@ def _download_url_bytes(url: str, max_bytes: int) -> bytes:
         chunks.append(chunk)
     return b"".join(chunks)
 
+# -------------------- Gradio Helper Functions --------------------
+async def get_gradio_client() -> Client:
+    """Get or create Gradio client (singleton pattern)."""
+    global gradio_client
+    if gradio_client is None:
+        try:
+            print(f"🔌 Connecting to Gradio Space: {GRADIO_SPACE}")
+            gradio_client = await asyncio.to_thread(
+                Client,
+                GRADIO_SPACE,
+                hf_token=HF_TOKEN
+            )
+            print("✅ Gradio client connected successfully")
+        except Exception as e:
+            print(f"❌ Gradio client connection failed: {e}")
+            raise HTTPException(
+                status_code=503,
+                detail=f"Unable to connect to AI service: {str(e)}"
+            )
+    return gradio_client
+
+async def _download_gradio_result(result_data: Any) -> bytes:
+    """Download result image from Gradio API response."""
+    # Gradio returns dict with 'path' or 'url'
+    if isinstance(result_data, dict):
+        image_url = result_data.get('url') or result_data.get('path')
+    else:
+        # Sometimes returns just the path/url string
+        image_url = str(result_data)
+
+    if not image_url:
+        raise ValueError("No image URL in Gradio response")
+
+    # Download image
+    return await run_in_threadpool(_download_url_bytes, image_url, MAX_CONTENT_BYTES)
+
+async def _call_gradio_api(
+    person_img_path: str,
+    cloth_img_path: str,
+    cloth_type: str,
+    num_inference_steps: int,
+    guidance_scale: float,
+    seed: int,
+    show_type: str,
+    max_retries: int = 3
+) -> bytes:
+    """
+    Call Gradio API with retry logic.
+    Returns the result image as bytes.
+    """
+    client = await get_gradio_client()
+
+    for attempt in range(max_retries):
+        try:
+            print(f"🚀 Attempt {attempt + 1}: Calling Gradio API")
+            print(f"   Parameters: type={cloth_type}, steps={num_inference_steps}, guidance={guidance_scale}, seed={seed}")
+
+            # Call Gradio API
+            result = await asyncio.to_thread(
+                client.predict,
+                person_image={"background": handle_file(person_img_path), "layers": [], "composite": None},
+                cloth_image=handle_file(cloth_img_path),
+                cloth_type=cloth_type,
+                num_inference_steps=num_inference_steps,
+                guidance_scale=guidance_scale,
+                seed=seed,
+                show_type=show_type,
+                api_name="/submit_function"
+            )
+
+            print(f"✅ Gradio API success")
+
+            # Download result image
+            result_bytes = await _download_gradio_result(result)
+            return result_bytes
+
+        except Exception as e:
+            print(f"❌ Attempt {attempt + 1} failed: {e}")
+
+            if attempt == max_retries - 1:
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Virtual try-on failed after {max_retries} attempts: {str(e)}"
+                )
+
+            # Exponential backoff
+            wait_time = 2 ** attempt
+            print(f"⏳ Retrying in {wait_time} seconds...")
+            await asyncio.sleep(wait_time)
+
 # -------------------- Schemas --------------------
 class HealthOut(BaseModel):
     status: str = "ok"
 
 class UrlIn(BaseModel):
     source_url: str
+
+class VirtualTryonRequest(BaseModel):
+    cloth_type: str = "upper"  # upper, lower, overall
+    num_inference_steps: int = 50
+    guidance_scale: float = 2.5
+    seed: int = 42
+    show_type: str = "result only"  # result only, input & result, input & mask & result
 
 # -------------------- Routes --------------------
 @app.get("/health", response_model=HealthOut)
@@ -306,6 +419,220 @@ async def classify_garment_by_url(payload: UrlIn):
             "cutout_public_id": f"{FOLDER_CUT}/{cut_public_id}",
         }
     )
+
+# -------------------- Virtual Try-On Endpoint --------------------
+@app.post("/virtual_tryon")
+async def virtual_tryon(
+    person_image: UploadFile = File(...),
+    garment_image: UploadFile = File(...),
+    cloth_type: str = "upper",
+    num_inference_steps: int = 50,
+    guidance_scale: float = 2.5,
+    seed: int = 42,
+    show_type: str = "result only",
+    process_garment: bool = True  # Whether to classify/cutout garment first
+):
+    """
+    Complete virtual try-on workflow:
+    1. Validate and upload images to Cloudinary
+    2. Optionally process garment (classify + background removal)
+    3. Call Gradio API for virtual try-on
+    4. Store result in Cloudinary
+    5. Return all URLs
+    """
+
+    # ========== STEP 1: Validate Person Image ==========
+    person_filename = person_image.filename or ""
+    if not person_filename or not _allowed_file(person_filename):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid person image. Allowed: {', '.join(sorted(ALLOWED_EXTS))}"
+        )
+
+    person_body = await person_image.read()
+    if len(person_body) > MAX_CONTENT_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Person image too large (>{int(MAX_CONTENT_MB)}MB)"
+        )
+
+    try:
+        Image.open(io.BytesIO(person_body)).verify()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Person image is not valid")
+
+    # ========== STEP 2: Validate Garment Image ==========
+    garment_filename = garment_image.filename or ""
+    if not garment_filename or not _allowed_file(garment_filename):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid garment image. Allowed: {', '.join(sorted(ALLOWED_EXTS))}"
+        )
+
+    garment_body = await garment_image.read()
+    if len(garment_body) > MAX_CONTENT_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Garment image too large (>{int(MAX_CONTENT_MB)}MB)"
+        )
+
+    try:
+        Image.open(io.BytesIO(garment_body)).verify()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Garment image is not valid")
+
+    # ========== STEP 3: Upload Person Image to Cloudinary ==========
+    token = secrets.token_hex(8)
+    person_public_id = f"person_{token}"
+
+    try:
+        person_upload = await run_in_threadpool(
+            _cloudinary_upload_bytes,
+            person_body,
+            person_public_id,
+            FOLDER_ORIG,
+            None
+        )
+        person_url = person_upload["secure_url"]
+        print(f"✅ Person image uploaded: {person_url}")
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to upload person image: {e}"
+        )
+
+    # ========== STEP 4: Process Garment (Optional) ==========
+    garment_url = None
+    cutout_url = None
+    garment_label = None
+    garment_confidence = None
+
+    if process_garment:
+        print("🔄 Processing garment (classify + background removal)...")
+
+        # Save garment to temp file
+        with tempfile.NamedTemporaryFile(delete=False, suffix="." + garment_filename.rsplit(".", 1)[1].lower()) as tmp:
+            tmp.write(garment_body)
+            tmp_garment_path = Path(tmp.name)
+
+        try:
+            # Upload original garment
+            garment_public_id = f"garment_{token}"
+            garment_upload = await run_in_threadpool(
+                _cloudinary_upload_bytes,
+                garment_body,
+                garment_public_id,
+                FOLDER_ORIG,
+                None
+            )
+            garment_url = garment_upload["secure_url"]
+
+            # Classify
+            try:
+                garment_label, garment_confidence = await run_in_threadpool(
+                    _run_classifier,
+                    tmp_garment_path
+                )
+                print(f"📊 Garment classified: {garment_label} ({garment_confidence:.2%})")
+            except Exception:
+                garment_label, garment_confidence = "UNKNOWN", 0.0
+
+            # Background removal
+            cut_im = await run_in_threadpool(_cutout_from_path, tmp_garment_path)
+            cut_bytes = await run_in_threadpool(_png_bytes, cut_im)
+
+            cutout_public_id = f"cutout_{token}"
+            cutout_upload = await run_in_threadpool(
+                _cloudinary_upload_bytes,
+                cut_bytes,
+                cutout_public_id,
+                FOLDER_CUT,
+                "png"
+            )
+            cutout_url = cutout_upload["secure_url"]
+            print(f"✅ Garment cutout created: {cutout_url}")
+
+            # Use cutout for try-on
+            garment_body = cut_bytes
+
+        finally:
+            tmp_garment_path.unlink(missing_ok=True)
+    else:
+        # Just upload original garment
+        garment_public_id = f"garment_{token}"
+        garment_upload = await run_in_threadpool(
+            _cloudinary_upload_bytes,
+            garment_body,
+            garment_public_id,
+            FOLDER_ORIG,
+            None
+        )
+        garment_url = garment_upload["secure_url"]
+
+    # ========== STEP 5: Save Images to Temp Files for Gradio ==========
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as person_tmp:
+        person_tmp.write(person_body)
+        person_tmp_path = person_tmp.name
+
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".png" if process_garment else ".jpg") as garment_tmp:
+        garment_tmp.write(garment_body)
+        garment_tmp_path = garment_tmp.name
+
+    try:
+        # ========== STEP 6: Call Gradio API ==========
+        print("🎨 Starting virtual try-on...")
+        result_bytes = await _call_gradio_api(
+            person_img_path=person_tmp_path,
+            cloth_img_path=garment_tmp_path,
+            cloth_type=cloth_type,
+            num_inference_steps=num_inference_steps,
+            guidance_scale=guidance_scale,
+            seed=seed,
+            show_type=show_type
+        )
+
+        # ========== STEP 7: Upload Result to Cloudinary ==========
+        result_public_id = f"tryon_{token}"
+        result_upload = await run_in_threadpool(
+            _cloudinary_upload_bytes,
+            result_bytes,
+            result_public_id,
+            FOLDER_TRYON,
+            "png"
+        )
+        result_url = result_upload["secure_url"]
+        print(f"✅ Try-on result uploaded: {result_url}")
+
+    finally:
+        # Cleanup temp files
+        Path(person_tmp_path).unlink(missing_ok=True)
+        Path(garment_tmp_path).unlink(missing_ok=True)
+
+    # ========== STEP 8: Return Response ==========
+    response = {
+        "success": True,
+        "person_url": person_url,
+        "garment_url": garment_url,
+        "cutout_url": cutout_url,
+        "result_url": result_url,
+        "result_public_id": f"{FOLDER_TRYON}/{result_public_id}",
+        "cloth_type": cloth_type,
+        "parameters": {
+            "num_inference_steps": num_inference_steps,
+            "guidance_scale": guidance_scale,
+            "seed": seed,
+            "show_type": show_type
+        }
+    }
+
+    # Add garment classification if available
+    if process_garment and garment_label:
+        response["garment_classification"] = {
+            "label": garment_label,
+            "confidence": round(garment_confidence, 4)
+        }
+
+    return JSONResponse(response)
 
 # --------------- Global exception handler ---------------
 @app.exception_handler(Exception)

@@ -10,3 +10,5 @@ tensorflow
 gunicorn
 cloudinary
 requests
+gradio-client
+python-dotenv

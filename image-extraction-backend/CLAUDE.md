@@ -4,24 +4,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-This directory contains **two implementations** of the garment extraction service:
+This is a **FastAPI-based garment extraction and virtual try-on microservice** that classifies clothing items, removes backgrounds, and performs AI-powered virtual try-on using machine learning. It uses **Cloudinary for image storage** and **Gradio API for virtual try-on**, making it suitable for cloud deployment.
 
-### 1. FastAPI Implementation (Recommended - Production Quality)
-Modern, well-structured FastAPI application with:
-- **Clean architecture**: Separation of concerns with services, models, and API layers
-- **Type safety**: Full Pydantic schemas and type hints
-- **Async operations**: Better performance with async/await
-- **Dependency injection**: Proper service lifecycle management
-- **Auto documentation**: Interactive API docs at `/docs`
-- **Better error handling**: Structured error responses
-- **Configuration management**: Environment-based settings
+**Core functionality:**
+- **Classification**: TensorFlow CNN model identifies garment type (T-shirt or Trousers)
+- **Background Removal**: Uses rembg (u2net model) to create transparent cutouts
+- **Virtual Try-On**: Integrates with Gradio Space (CatVTON) for realistic garment visualization
+- **Cloud Storage**: Uploads originals, cutouts, and try-on results to Cloudinary
+- **Dual Input Methods**: Accepts file uploads or image URLs
 
-### 2. Flask Implementation (Legacy - Prototype)
-Simple Flask application with web UI for prototyping. Includes virtual try-on functionality with MediaPipe pose detection.
-
----
-
-## Quick Start (FastAPI - Recommended)
+## Quick Start
 
 ### Installation
 
@@ -30,169 +22,177 @@ Simple Flask application with web UI for prototyping. Includes virtual try-on fu
 pip install -r requirements.txt
 ```
 
-### Running the FastAPI Service
+### Environment Setup
+
+**Required environment variables:**
+```bash
+# Cloudinary credentials (REQUIRED)
+export CLOUDINARY_CLOUD_NAME="your-cloud-name"
+export CLOUDINARY_API_KEY="your-api-key"
+export CLOUDINARY_API_SECRET="your-api-secret"
+
+# HuggingFace Token (OPTIONAL - only if Gradio space is private)
+export HF_TOKEN="hf_your_token_here"
+
+# Optional configuration
+export CLOUDINARY_FOLDER="garments"          # Base folder in Cloudinary
+export MAX_CONTENT_MB="16"                   # Max upload size (default: 16MB)
+export CORS_ALLOW_ORIGINS="*"                # CORS origins (default: *)
+```
+
+### Running the Service
 
 ```bash
 # Development mode with auto-reload
-python -m app.main
+uvicorn app:app --reload --host 0.0.0.0 --port 5000
 
-# Or using uvicorn directly
-uvicorn app.main:app --reload --host 0.0.0.0 --port 5000
+# Production mode (Railway/Heroku deployment)
+gunicorn -k uvicorn.workers.UvicornWorker -w 1 -b 0.0.0.0:$PORT app:app
 ```
 
-The API runs on **http://localhost:5000**
+The API runs on **http://localhost:5000** (or `$PORT` in production).
 
-### API Documentation
+### API Endpoints
 
-- **Interactive API docs**: http://localhost:5000/docs
-- **ReDoc**: http://localhost:5000/redoc
-- **Health check**: http://localhost:5000/api/health
+1. **`GET /health`** - Health check
+   ```bash
+   curl http://localhost:5000/health
+   # Returns: {"status": "ok"}
+   ```
 
-### Example Usage
+2. **`POST /classify_garment`** - Upload file for classification + extraction
+   ```bash
+   curl -X POST "http://localhost:5000/classify_garment" \
+     -F "garment=@/path/to/shirt.jpg"
+   ```
 
-```bash
-# Process a garment image
-curl -X POST "http://localhost:5000/api/process" \
-  -F "file=@/path/to/garment.jpg"
-```
+3. **`POST /classify_garment_by_url`** - Process image from URL
+   ```bash
+   curl -X POST "http://localhost:5000/classify_garment_by_url" \
+     -H "Content-Type: application/json" \
+     -d '{"source_url": "https://example.com/image.jpg"}'
+   ```
 
-Response:
+4. **`POST /virtual_tryon`** - Complete virtual try-on with Gradio API
+   ```bash
+   curl -X POST "http://localhost:5000/virtual_tryon" \
+     -F "person_image=@/path/to/person.jpg" \
+     -F "garment_image=@/path/to/garment.jpg" \
+     -F "cloth_type=upper" \
+     -F "num_inference_steps=50" \
+     -F "guidance_scale=2.5" \
+     -F "seed=42" \
+     -F "show_type=result only" \
+     -F "process_garment=true"
+   ```
+
+   Parameters:
+   - `person_image`: Person/model image file (required)
+   - `garment_image`: Garment/clothing image file (required)
+   - `cloth_type`: "upper", "lower", or "overall" (default: "upper")
+   - `num_inference_steps`: Number of diffusion steps (default: 50)
+   - `guidance_scale`: Guidance scale for diffusion (default: 2.5)
+   - `seed`: Random seed for reproducibility (default: 42)
+   - `show_type`: "result only", "input & result", or "input & mask & result" (default: "result only")
+   - `process_garment`: Whether to classify and remove background first (default: true)
+
+### Example Responses
+
+**Garment Classification Response** (`/classify_garment`):
 ```json
 {
-  "success": true,
-  "message": "Garment processed successfully",
-  "classification": {
-    "label": "tshirt",
-    "confidence": 0.92
-  },
-  "extraction": {
-    "cutout_url": "/static/outputs/cutout_tshirt_a1b2c3d4.png",
-    "cutout_path": "outputs/cutout_tshirt_a1b2c3d4.png",
-    "original_url": "/static/uploads/garment_a1b2c3d4.png"
-  },
-  "processing_time_ms": 1234.56
+  "label": "tshirt",
+  "confidence": 0.9234,
+  "garment_url": "https://res.cloudinary.com/.../garments/originals/garment_a1b2c3d4.jpg",
+  "cutout_url": "https://res.cloudinary.com/.../garments/cutouts/cutout_a1b2c3d4.png",
+  "cutout_path": "garments/cutouts/cutout_a1b2c3d4.png",
+  "garment_public_id": "garments/originals/garment_a1b2c3d4",
+  "cutout_public_id": "garments/cutouts/cutout_a1b2c3d4"
 }
 ```
 
----
-
-## Quick Start (Flask - Legacy)
-
-### Running the Flask Service
-
-```bash
-# Install dependencies manually
-pip install flask tensorflow mediapipe rembg pillow opencv-python numpy
-
-# Start the Flask server
-python app.py
+**Virtual Try-On Response** (`/virtual_tryon`):
+```json
+{
+  "success": true,
+  "person_url": "https://res.cloudinary.com/.../garments/originals/person_e5f6g7h8.jpg",
+  "garment_url": "https://res.cloudinary.com/.../garments/originals/garment_e5f6g7h8.jpg",
+  "cutout_url": "https://res.cloudinary.com/.../garments/cutouts/cutout_e5f6g7h8.png",
+  "result_url": "https://res.cloudinary.com/.../garments/tryon_results/tryon_e5f6g7h8.png",
+  "result_public_id": "garments/tryon_results/tryon_e5f6g7h8",
+  "cloth_type": "upper",
+  "parameters": {
+    "num_inference_steps": 50,
+    "guidance_scale": 2.5,
+    "seed": 42,
+    "show_type": "result only"
+  },
+  "garment_classification": {
+    "label": "tshirt",
+    "confidence": 0.9234
+  }
+}
 ```
-
-The service runs on http://localhost:5000 by default with a web UI.
-
----
-
-## Project Structure
-
-### FastAPI Application
-
-```
-image-extraction-backend/
-├── app/
-│   ├── __init__.py
-│   ├── main.py                      # FastAPI app entry point
-│   ├── config.py                    # Configuration management
-│   ├── models/
-│   │   ├── __init__.py
-│   │   ├── schemas.py               # Pydantic request/response models
-│   │   └── classifier.py            # TensorFlow CNN wrapper
-│   ├── services/
-│   │   ├── __init__.py
-│   │   ├── classification.py        # High-level garment service
-│   │   └── extraction.py            # Background removal service
-│   ├── api/
-│   │   ├── __init__.py
-│   │   └── endpoints.py             # API routes
-│   └── core/
-│       ├── __init__.py
-│       └── dependencies.py          # Dependency injection
-├── models/                          # ML model files (REQUIRED)
-│   ├── best_clothing_model.h5       # or clothing_model_final.h5 (TensorFlow CNN)
-│   ├── class_labels.json            # {"trousers": 0, "tshirt": 1, "other": 2}
-│   ├── model_config.json            # {"head_type": "softmax"}
-│   └── rejection_threshold.json     # {"tau": 0.688822329044342}
-├── static/
-│   ├── uploads/                     # Original uploaded images (auto-created)
-│   └── outputs/                     # Processed images (auto-created)
-├── templates/                       # Flask templates (legacy)
-│   └── index.html
-├── app.py                           # Flask app (legacy)
-├── requirements.txt                 # Python dependencies
-└── CLAUDE.md                        # This file
-```
-
-**CRITICAL**: The models must exist before running. The service will fail on startup if `best_clothing_model.h5` or `clothing_model_final.h5` is not found in the `models/` directory.
-
----
 
 ## Architecture
 
-### FastAPI Architecture (Current Implementation)
+### Single-File FastAPI Application
 
-**Request Flow** - Single Endpoint:
-
-`POST /api/process` - Complete garment processing pipeline:
-1. **Upload validation**: Check file type, size (max 10MB), and content
-2. **Image loading**: Convert bytes to PIL Image (RGB)
-3. **Save original**: Store to `static/uploads/` with UUID
-4. **Classification**: TensorFlow CNN predicts garment type
-5. **Validation**: Reject if not T-shirt or Trousers
-6. **Extraction**: Remove background using rembg (u2net)
-7. **Save cutout**: Store to `static/outputs/`
-8. **Response**: Return classification + extraction results with processing time
-
-**Service Layer Architecture**:
+This implementation uses a **monolithic single-file architecture** (`app.py`) for simplicity and ease of deployment. The entire service is ~320 lines with clear section demarcation:
 
 ```
-FastAPI App (app/main.py)
-    ↓
-API Endpoints (app/api/endpoints.py)
-    ↓
-GarmentService (app/services/classification.py)
-    ├─→ GarmentClassifier (app/models/classifier.py)
-    │   └─→ TensorFlow CNN Model (best_clothing_model.h5)
-    └─→ GarmentExtractor (app/services/extraction.py)
-        └─→ rembg (u2net model)
+app.py (318 lines)
+├── Lines 1-43:   Imports, constants, Cloudinary config
+├── Lines 45-57:  FastAPI app + CORS middleware
+├── Lines 59-102: Model loading (TensorFlow CNN)
+├── Lines 104-162: Helper functions (preprocessing, classification, cutout, upload)
+├── Lines 164-170: Pydantic schemas
+└── Lines 172-317: API routes (/health, /classify_garment, /classify_garment_by_url)
 ```
 
-**Key Design Patterns**:
-- **Dependency Injection**: Services are singleton instances injected via FastAPI dependencies (`get_garment_service`)
-- **Configuration Management**: Centralized settings with environment variable support (prefix: `GARMENT_`)
-- **Type Safety**: Full Pydantic v2 schemas for requests/responses with validation
-- **Async Operations**: All service methods are async for better concurrency
-- **Error Handling**: Structured error responses with HTTP status codes (400, 413, 500)
-- **Lifespan Management**: Application startup/shutdown hooks for resource management
+**Key design decision**: Unlike the previously planned multi-module FastAPI structure (app/models, app/services, app/api), this implementation prioritizes:
+- **Simplicity**: Single file, easy to understand and deploy
+- **Cloud-native**: No local file storage, uses Cloudinary exclusively
+- **Stateless**: Processes in temp files, cleans up immediately
+- **Lightweight**: Minimal dependencies, fast cold starts
 
-**API Endpoints**:
+### Request Flow
 
-1. `GET /api/` - API information and endpoint listing
-2. `GET /api/health` - Health check with model status
-3. `POST /api/process` - Main garment processing endpoint
-4. `GET /docs` - Interactive OpenAPI documentation (Swagger UI)
-5. `GET /redoc` - Alternative API documentation (ReDoc)
+Both endpoints follow the same pipeline:
 
----
+```
+1. Input Validation
+   ├─→ File upload: Check extension, size, image validity
+   └─→ URL upload: Download with size cap, verify image
 
-### Model Loading and Configuration
+2. Cloudinary Upload (Original)
+   └─→ Upload to: {CLOUDINARY_FOLDER}/originals/garment_{token}
 
-**Model Discovery**:
-The system attempts to load models in priority order from `models/` directory:
-1. `best_clothing_model.h5` (primary)
-2. `clothing_model_final.h5` (fallback)
+3. TensorFlow Classification (Optional - fails gracefully)
+   ├─→ Preprocess: Resize to 224x224, normalize to [0,1]
+   ├─→ Predict: Model inference with softmax output
+   └─→ Apply threshold: Return "UNKNOWN" if confidence < tau
 
-**Configuration Files** (all in `models/` directory):
+4. Background Removal
+   ├─→ rembg (u2net model): Remove background → RGBA PNG
+   └─→ Cloudinary Upload: {CLOUDINARY_FOLDER}/cutouts/cutout_{token}.png
 
-1. **`class_labels.json`** (REQUIRED):
+5. Cleanup & Response
+   ├─→ Delete temp file
+   └─→ Return JSON with URLs and metadata
+```
+
+### Model Configuration
+
+**Model Files** (in `models/` directory):
+
+1. **`best_clothing_model.h5`** (REQUIRED)
+   - TensorFlow/Keras CNN model
+   - Input: 224x224x3 RGB images
+   - Output: 3-class softmax [trousers, tshirt, other]
+   - Loaded at startup with `compile=False` for cross-version compatibility
+
+2. **`class_labels.json`** (OPTIONAL - defaults provided)
    ```json
    {
      "trousers": 0,
@@ -200,472 +200,272 @@ The system attempts to load models in priority order from `models/` directory:
      "other": 2
    }
    ```
-   Maps class names to integer indices for model output interpretation.
+   Maps class names to model output indices.
 
-2. **`model_config.json`** (REQUIRED):
+3. **`model_config.json`** (OPTIONAL)
    ```json
    {
-     "head_type": "softmax"
+     "head_type": "softmax",
+     "img_size": 224
    }
    ```
-   Specifies model output head type:
-   - `"softmax"`: Multi-class classification with softmax activation (standard)
-   - `"sigmoid_ovr"`: One-vs-rest binary classifiers with sigmoid activations
+   - `head_type`: "softmax" (standard) or custom head configuration
+   - `img_size`: Image preprocessing size (default: 224)
 
-3. **`rejection_threshold.json`** (OPTIONAL):
+4. **`rejection_threshold.json`** (OPTIONAL - default: 0.0)
    ```json
    {
-     "tau": 0.688822329044342
+     "threshold": 0.688822329044342
    }
    ```
-   Confidence threshold for classification. Default: 0.75
+   Minimum confidence for accepting predictions. Lower values = more permissive.
 
-**Model Initialization Flow** (`app/models/classifier.py:24-34`):
-1. Load TensorFlow model from .h5 file
-2. Load class labels and create bidirectional index mapping
-3. Load head type configuration (softmax vs sigmoid_ovr)
-4. Load rejection threshold tau value
-5. Log all configuration for debugging
+**Model Loading Behavior** (`app.py:73-97`):
+- Loads model asynchronously on startup (`@app.on_event("startup")`)
+- Sets `TF_CPP_MIN_LOG_LEVEL=2` to reduce TensorFlow logging
+- If model fails to load, stores error in `_tf_err` and raises at runtime
+- Falls back to sensible defaults if JSON configs missing
 
-**Environment Configuration** (`app/config.py`):
+**Graceful Degradation**: If model loading fails, classification returns `("UNKNOWN", 0.0)` and continues with background removal (`app.py:216-219`).
 
-All settings can be overridden with environment variables using `GARMENT_` prefix:
+### Cloudinary Integration
 
-```bash
-# Server settings
-GARMENT_HOST=0.0.0.0
-GARMENT_PORT=5000
-GARMENT_DEBUG=true
-
-# File upload limits
-GARMENT_MAX_FILE_SIZE=10485760  # 10MB in bytes
-
-# Model settings
-GARMENT_DEFAULT_TAU=0.75
-
-# CORS settings
-GARMENT_CORS_ORIGINS='["http://localhost:3000","http://localhost:3001"]'
-
-# Logging
-GARMENT_LOG_LEVEL=INFO
-```
-
----
-
-### Dependency Injection System
-
-**Service Lifecycle** (`app/core/dependencies.py`):
-
-FastAPI uses dependency injection to manage service instances:
-
+**Configuration** (`app.py:35-43`):
 ```python
-@lru_cache()
-def get_garment_service() -> GarmentService:
-    """Get singleton GarmentService instance"""
-    settings = get_settings()
-    return GarmentService(settings)
+cloudinary.config(
+    cloud_name=os.environ.get("CLOUDINARY_CLOUD_NAME"),
+    api_key=os.environ.get("CLOUDINARY_API_KEY"),
+    api_secret=os.environ.get("CLOUDINARY_API_SECRET"),
+    secure=True,
+)
 ```
 
-**Benefits**:
-- **Singleton pattern**: Model loaded once, reused across requests
-- **Lazy initialization**: Services created on first use
-- **Easy testing**: Dependencies can be overridden in tests
-- **Type safety**: Full type hints for IDE support
+**Folder Structure**:
+- Originals: `{CLOUDINARY_FOLDER}/originals/garment_{token}` or `person_{token}`
+- Cutouts: `{CLOUDINARY_FOLDER}/cutouts/cutout_{token}.png`
+- Try-On Results: `{CLOUDINARY_FOLDER}/tryon_results/tryon_{token}.png`
+- Default `CLOUDINARY_FOLDER`: "garments" (override with env var)
 
-**Service Dependencies**:
-```
-get_settings() [cached]
-    ↓
-get_garment_service() [cached]
-    ├─→ GarmentClassifier (loads TensorFlow model)
-    └─→ GarmentExtractor (initializes rembg)
-```
-
-**Endpoint Injection** (`app/api/endpoints.py:53-56`):
+**Upload Helper** (`app.py:139-148`):
 ```python
-async def process_garment(
-    file: UploadFile = File(...),
-    settings: Settings = Depends(get_settings),
-    garment_service: GarmentService = Depends(get_garment_service)
-):
-    # Services injected automatically by FastAPI
+def _cloudinary_upload_bytes(data: bytes, public_id: str, folder: str, fmt: Optional[str] = None)
 ```
+- Uploads raw bytes to Cloudinary
+- Returns full response dict with `secure_url`
+- Overwrites existing files with same `public_id`
+- Thread pool execution to avoid blocking async endpoints
 
-### CORS Configuration
+**URL Download** (`app.py:150-162`):
+- Streams download in 64KB chunks
+- Enforces size limit (`MAX_CONTENT_BYTES`)
+- 20-second timeout for external URLs
+- Validates image format after download
 
-**Default CORS Settings** (`app/config.py:46`):
-- Allows all origins: `["*"]`
-- Allows credentials: `True`
-- Allows all methods: `["*"]`
-- Allows all headers: `["*"]`
+### Gradio Integration (Virtual Try-On)
 
-**Production CORS Setup**:
-```bash
-# Restrict to specific origins
-export GARMENT_CORS_ORIGINS='["http://localhost:3000","https://yourapp.com"]'
-```
-
-**CORS Middleware** (`app/main.py:75-83`):
-- Added via FastAPI middleware
-- Handles preflight requests automatically
-- Applies to all routes
-
----
-
-### Flask Architecture (Legacy Implementation)
-
-**Request Flow** - Two-Step Process:
-
-1. **Step 1: Garment Classification** (`POST /classify_garment`)
-   - Upload garment image
-   - CNN model classifies as "tshirt" or "trousers" (rejects "other" or low confidence)
-   - Background removal using rembg
-   - Returns classification label, confidence, and cutout image URL
-
-2. **Step 2: Virtual Try-On** (`POST /try_on`)
-   - Upload body image + provide cutout_path from Step 1
-   - MediaPipe Pose detects 33 keypoints on body
-   - Garment overlay positioned using pose landmarks (shoulders/hips/ankles)
-   - Returns composite image URL
-
-### Model Architecture
-
-**Classification Model** (`app/models/classifier.py`):
-
-**Input Specification**:
-- **Input shape**: 224x224x3 RGB images
-- **Resampling**: LANCZOS filter for high-quality resizing
-- **Preprocessing**: Pixel values normalized to [0, 1] range (divide by 255.0)
-- **Batch dimension**: Added automatically (shape becomes 1x224x224x3)
-
-**Model Output Heads** (configured via `model_config.json`):
-
-1. **Softmax Head (Standard)**:
-   - Output: 3-dimensional softmax probabilities [P(trousers), P(tshirt), P(other)]
-   - Decision logic (`app/models/classifier.py:122-132`):
-     ```python
-     idx = argmax(probabilities)
-     confidence = probabilities[idx]
-     if confidence < tau:
-         return UNKNOWN
-     return class_labels[idx]
-     ```
-   - Rejection threshold: Predictions with confidence < tau (default 0.688 or 0.75)
-   - Example: `[0.05, 0.92, 0.03]` → "tshirt" with 92% confidence
-
-2. **Sigmoid OVR Head (One-vs-Rest)**:
-   - Output: 2-dimensional sigmoid probabilities [P(trousers), P(tshirt)]
-   - Decision logic (`app/models/classifier.py:134-156`):
-     ```python
-     p0, p1 = probabilities
-     if (p0 >= tau) and (p1 < tau):
-         return trousers
-     if (p1 >= tau) and (p0 < tau):
-         return tshirt
-     return UNKNOWN  # ambiguous or both below threshold
-     ```
-   - Rejection cases:
-     - Both below tau: Low confidence for both classes
-     - Both above tau: Ambiguous classification
-   - Example: `[0.15, 0.88]` → "tshirt" with 88% confidence
-
-**Rejection Threshold (tau) Mechanism**:
-- Purpose: Filter out low-confidence predictions and "other" category garments
-- Default value: 0.75 (can be overridden in `rejection_threshold.json`)
-- Applied per-class in sigmoid_ovr mode for better rejection of ambiguous cases
-- Returns `GarmentType.UNKNOWN` for rejected predictions
-
-**Class Mapping**:
+**Gradio Space Configuration** (`app.py:48-51`):
 ```python
-class_labels = {
-    "trousers": 0,  # Lower body garments
-    "tshirt": 1,    # Upper body garments
-    "other": 2      # Rejected category (dresses, jackets, etc.)
-}
+GRADIO_SPACE = "nawodyaishan/ar-fashion-tryon"
+HF_TOKEN = os.getenv("HF_TOKEN")  # Optional, for private spaces
+gradio_client: Optional[Client] = None  # Singleton instance
 ```
 
-**Validation Rules** (`app/models/classifier.py:182-184`):
-- Only `tshirt` and `trousers` are accepted as valid garments
-- `unknown` and `other` classifications trigger rejection responses
-- Client receives 200 OK with `success: false` for rejected garments
+**Client Management** (`app.py:173-191`):
+- Uses singleton pattern for Gradio client connection
+- Connects on first use or during startup
+- HF_TOKEN required only if Gradio Space is private
+- Graceful fallback: if pre-connection fails at startup, retries on first request
 
-**Pose Detection**:
-- MediaPipe Pose (model_complexity=1, static_image_mode=True)
-- Key landmarks used:
-  - Shoulders (LEFT_SHOULDER, RIGHT_SHOULDER)
-  - Hips (LEFT_HIP, RIGHT_HIP)
-  - Ankles (LEFT_ANKLE, RIGHT_ANKLE)
+**Virtual Try-On Workflow** (`app.py:419-630`):
+1. **Input Validation**: Validates both person and garment images
+2. **Cloudinary Upload**: Uploads person image to originals folder
+3. **Optional Garment Processing**:
+   - If `process_garment=true`: classify + background removal
+   - If `process_garment=false`: use original garment image
+4. **Gradio API Call**: Calls CatVTON model with retry logic (3 attempts)
+5. **Result Upload**: Downloads result from Gradio and uploads to Cloudinary
+6. **Cleanup**: Removes temporary files
+7. **Response**: Returns all URLs (person, garment, cutout, result)
 
-### Garment Placement Logic
+**Retry Logic** (`app.py:208-260`):
+- Maximum 3 attempts with exponential backoff (1s, 2s, 4s)
+- Handles transient Gradio API failures
+- Raises HTTPException 500 after all retries exhausted
 
-**T-shirt placement** (`app.py:165-179`):
-- Width: Scaled to 2.0× shoulder width
-- Height: Centered at chest (35% down from shoulders toward hips)
-- Scale factor: `target_width / garment_width`
+**Gradio API Parameters**:
+- `person_image`: Layered image format `{"background": handle_file(...), "layers": [], "composite": None}`
+- `cloth_image`: Simple file reference via `handle_file(path)`
+- `cloth_type`: "upper", "lower", or "overall"
+- `num_inference_steps`: Diffusion model steps (higher = better quality, slower)
+- `guidance_scale`: How closely to follow the prompt (default: 2.5)
+- `seed`: Random seed for reproducibility
+- `show_type`: Output format - "result only", "input & result", or "input & mask & result"
 
-**Trousers placement** (`app.py:181-195`):
-- Height: Scaled to match hip→ankle distance
-- Width: Scaled to 1.6× hip width
-- Centered vertically at thighs (midpoint between hips and ankles)
+### CORS & Middleware
 
-## Key Implementation Details
+**CORS Configuration** (`app.py:48-54`):
+- Default: Allow all origins (`*`)
+- Production: Set `CORS_ALLOW_ORIGINS` to comma-separated list
+  ```bash
+  export CORS_ALLOW_ORIGINS="http://localhost:3000,https://app.example.com"
+  ```
 
-### Image Processing Pipeline (FastAPI)
-
-**Background Removal** (`app/services/extraction.py`):
-- Uses `rembg` library with default **u2net** model
-- Automatic model download on first run (cached locally)
-- Converts input to RGBA format before processing
-- Returns PNG with transparent background (alpha channel)
-- Async wrapper for non-blocking execution
-
-**Processing Flow** (`app/services/classification.py:93-160`):
-```python
-1. Load image from bytes → PIL Image (RGB)
-2. Save original → static/uploads/garment_{uuid}.png
-3. Classify → TensorFlow model inference
-4. Validate → Check if tshirt or trousers
-5. Extract → rembg background removal (RGBA)
-6. Save cutout → static/outputs/cutout_{label}_{uuid}.png
-7. Return → URLs, classification, confidence, processing time
-```
-
-**Image Format Handling**:
-- Input: Accepts JPEG, PNG, WEBP
-- Processing: Converts all to RGB for classification
-- Background Removal: Converts to RGBA for rembg
-- Output: Saves as PNG to preserve transparency
-
-**UUID Generation**: 8-character hex UUID for unique filenames (prevents collisions)
-
-### Image Processing Pipeline (Flask - Legacy)
-
-1. **Background Removal**: Uses `rembg` library with default u2net model
-2. **Alpha Compositing**: Custom `overlay_rgba_on_rgb()` function handles:
-   - Scaling garment to match body proportions
-   - Centering at calculated pose landmarks
-   - Alpha blending with proper bounds checking
+**Proxy Headers Middleware** (`app.py:56`):
+- Trusts `X-Forwarded-*` headers from Railway/Heroku
+- Ensures correct HTTPS scheme in redirects
+- Required for proper URL generation behind proxies
 
 ### Error Handling
 
-**FastAPI Error Responses** (`app/api/endpoints.py`):
+**HTTP Status Codes**:
+- **200 OK**: Success (includes classification results)
+- **400 Bad Request**: Invalid file type, empty filename, invalid URL, corrupt image
+- **413 Payload Too Large**: File exceeds `MAX_CONTENT_MB`
+- **500 Internal Server Error**: Cloudinary upload failure, background removal failure, unhandled exceptions
 
-HTTP status codes:
-- **200 OK**: Request processed, check `success` field in JSON
-  - `success: true` - Garment accepted (tshirt or trousers)
-  - `success: false` - Garment rejected (unknown or other)
-- **400 Bad Request**: Invalid input (file type, empty file, corrupted image)
-- **413 Payload Too Large**: File exceeds 10MB limit
-- **500 Internal Server Error**: Unexpected processing error
+**Global Exception Handler** (`app.py:314-317`):
+- Catches all unhandled exceptions
+- Logs to console with `repr(exc)`
+- Returns 500 with error message
 
-Common error responses:
+**Common Error Messages**:
 ```json
-// Invalid garment type
-{
-  "success": false,
-  "message": "Garment must be a T-shirt or Trousers. Detected: unknown",
-  "classification": {
-    "label": "unknown",
-    "confidence": 0.45
-  },
-  "extraction": null,
-  "processing_time_ms": 523.12
-}
+// File type not allowed
+{"detail": "File type not allowed. Allowed: jpg, jpeg, png"}
 
 // File too large
-{
-  "detail": "File too large. Maximum size is 10.0MB"
-}
+{"detail": "File too large (>16MB)"}
 
-// Invalid file type
-{
-  "detail": "Invalid file type. Must be an image (JPEG, PNG, WEBP)."
-}
+// Invalid image
+{"detail": "Uploaded file is not a valid image"}
+
+// Cloudinary failure
+{"detail": "Cloudinary upload (original) failed: <error>"}
+
+// Background removal failure
+{"detail": "Background removal failed: <error>"}
 ```
-
-**Error Logging**:
-- All errors logged with full stack traces
-- Request-level logging for debugging
-- Model inference errors captured and returned to client
-
-**Flask Error Responses (Legacy)**:
-- Returns 400 errors with descriptive JSON messages
-- Common failures:
-  - "Could not detect body pose" → Use clearer full-body images
-  - "Garment must be a T-shirt or Trousers" → Model rejected classification
-  - "Cutout image not found" → Step 2 called before Step 1 completes
-
-### File Management
-
-- All uploads saved to `static/uploads/` with UUID-based filenames
-- All outputs saved to `static/outputs/` with descriptive prefixes
-- Paths normalized to POSIX format (forward slashes) for cross-platform compatibility
-- Images served via Flask's `send_from_directory` at `/static/<path>`
 
 ## Development Notes
 
-### Dependencies (FastAPI)
+### Dependencies
 
-**Package Management**: Full `requirements.txt` provided with pinned versions:
-
-```txt
-# FastAPI and server
-fastapi==0.109.0
-uvicorn[standard]==0.27.0
-python-multipart==0.0.6
-
-# Pydantic for settings
-pydantic==2.5.3
-pydantic-settings==2.1.0
-
-# ML and Computer Vision
-tensorflow==2.15.0
-numpy==1.24.3
-pillow==10.2.0
-opencv-python==4.9.0.80
-
-# Background Removal
-rembg==2.0.55
-
-# Logging and utilities
-python-json-logger==2.0.7
+From `requirements.txt`:
+```
+fastapi                   # Web framework
+uvicorn[standard]         # ASGI server
+python-multipart          # File upload support
+pillow                    # Image processing
+numpy                     # Array operations
+rembg                     # Background removal (u2net)
+onnxruntime               # rembg dependency
+opencv-python-headless    # Image operations (headless for Docker)
+tensorflow                # CNN model inference
+gunicorn                  # Production WSGI server
+cloudinary                # Cloud image storage
+requests                  # HTTP client for URL downloads
+gradio-client>=0.10.0     # Gradio API client for virtual try-on
+python-dotenv             # Environment variable management
 ```
 
-**Installation**:
+**Python Version**: 3.9+ (TensorFlow requirement)
+
+**GPU Support**: TensorFlow auto-detects CUDA; falls back to CPU if unavailable.
+
+### Deployment
+
+**Procfile** (for Railway/Heroku):
+```
+web: gunicorn -k uvicorn.workers.UvicornWorker -w 1 -b 0.0.0.0:$PORT app:app
+```
+
+**Key deployment considerations**:
+- Use `-w 1` (single worker) to avoid loading model multiple times
+- Model file (~50-200MB) must be committed to repo or mounted volume
+- First request may be slow due to rembg downloading u2net model (~200MB)
+- Set appropriate `MAX_CONTENT_MB` based on platform limits (Railway: 100MB, Heroku: 30MB)
+
+### Debugging
+
+**Enable verbose logging**:
 ```bash
-pip install -r requirements.txt
+# Remove TensorFlow logging suppression
+# Comment out line 77 in app.py:
+# os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
 ```
 
-**Python Version**: Python 3.9+ recommended (TensorFlow 2.15 requirement)
+**Test model loading**:
+```python
+# In Python REPL
+from tensorflow.keras.models import load_model
+model = load_model('models/best_clothing_model.h5', compile=False)
+print(model.summary())
+```
 
-**GPU Support**: TensorFlow will auto-detect CUDA if available, otherwise runs on CPU
+**Check Cloudinary connection**:
+```python
+import cloudinary
+import cloudinary.api
+cloudinary.config(
+    cloud_name="your-cloud-name",
+    api_key="your-api-key",
+    api_secret="your-api-secret"
+)
+print(cloudinary.api.ping())  # Should return {'status': 'ok'}
+```
 
-### Configuration Files
-
-- `class_labels.json`: Maps class names to integer indices (REQUIRED)
-- `model_config.json`: Specifies model head type (softmax vs sigmoid_ovr) (REQUIRED)
-- `rejection_threshold.json`: Confidence threshold (tau) for classification (OPTIONAL, defaults to 0.75)
+**Common issues**:
+1. **Model not loading**: Check TensorFlow version compatibility, try `compile=False`
+2. **Cloudinary 401**: Verify credentials, check API key permissions
+3. **Slow first request**: rembg downloads u2net model on first use (~30-60 seconds)
+4. **CORS errors**: Update `CORS_ALLOW_ORIGINS` environment variable
+5. **413 errors**: Increase `MAX_CONTENT_MB` or reduce client upload size
+6. **Gradio connection failed**: Check if `nawodyaishan/ar-fashion-tryon` Space is running on HuggingFace
+7. **Gradio 503 errors**: Space may be sleeping/cold starting (takes 30-60 seconds to wake up)
+8. **Virtual try-on timeout**: Increase retry attempts or check Gradio Space logs
+9. **HF_TOKEN errors**: Only needed if Space is private; verify token has read access
 
 ### Limitations
 
-**FastAPI Implementation**:
-- Only supports 2 garment types (T-shirt, Trousers)
-- No real-time camera support (static images only)
-- No user authentication or session management
-- No tests or CI/CD setup currently
-- Single model loaded at startup (no hot-swapping)
-- Processing is synchronous per request (async endpoint but blocking model inference)
+**Current implementation**:
+- Only supports 3 garment classes (trousers, tshirt, other)
+- No batch processing (one image per request)
+- No user authentication or API keys
+- No caching or rate limiting
+- Classification is optional (fails gracefully)
+- Temp files used for processing (I/O overhead)
 
-**Flask Implementation (Legacy)**:
-- Two-step process (separate classification and try-on endpoints)
-- No 3D rendering (simple 2D overlay)
-- Single-threaded development server (not production-ready)
-- No comprehensive error handling
-
-### Debugging Tips
-
-**FastAPI Debugging**:
-
-1. **Enable Debug Mode**:
-   ```bash
-   GARMENT_DEBUG=true python -m app.main
-   # Or
-   uvicorn app.main:app --reload --log-level debug
-   ```
-
-2. **Check Logs**:
-   - Application startup logs show model loading status
-   - Each request logs classification results and timing
-   - Errors include full stack traces in console
-
-3. **Verify Model Setup**:
-   ```bash
-   # Check model files exist
-   ls -la models/
-   # Should show: best_clothing_model.h5, class_labels.json, model_config.json
-   ```
-
-4. **Test Health Endpoint**:
-   ```bash
-   curl http://localhost:5000/api/health
-   # Should return: {"status": "healthy", "model_loaded": true, ...}
-   ```
-
-5. **Use Interactive API Docs**:
-   - Navigate to http://localhost:5000/docs
-   - Test endpoints directly in browser
-   - View request/response schemas
-
-6. **Check Static Files**:
-   ```bash
-   ls -la static/uploads/   # Original uploaded images
-   ls -la static/outputs/   # Processed garment cutouts
-   ```
-
-7. **Common Issues**:
-   - **Model not loading**: Check TensorFlow version compatibility (2.15.0)
-   - **Low confidence**: Adjust `GARMENT_DEFAULT_TAU` or `rejection_threshold.json`
-   - **CORS errors**: Update `GARMENT_CORS_ORIGINS` environment variable
-   - **Slow processing**: First request downloads u2net model (~200MB)
-
-8. **Performance Monitoring**:
-   - Response includes `processing_time_ms` for each request
-   - Typical times: 1-3 seconds (classification + background removal)
-
-**Flask Debugging (Legacy)**:
-- Set `debug=True` in `app.run()` for auto-reload (already enabled)
-- Check console logs for MediaPipe pose detection failures
-- Verify model files exist and are valid TensorFlow SavedModel format
-- Ensure uploaded images contain clear, unobstructed bodies for pose detection
-- If garments appear incorrectly sized, adjust scaling factors in `place_garment()`
-
-## Comparison: FastAPI vs Flask
-
-**When to use FastAPI** (Recommended):
-- ✅ Production deployment
-- ✅ API-only service (no UI needed)
-- ✅ Integration with other microservices
-- ✅ Need comprehensive error handling
-- ✅ Require API documentation
-- ✅ Type safety important
-- ✅ Better performance with async operations
-- ✅ Environment-based configuration
-
-**When to use Flask** (Prototyping only):
-- ✅ Quick local testing with web UI
-- ✅ Learning/experimentation
-- ✅ Need virtual try-on with pose detection
-- ⚠️ Not recommended for production
-
-**Key Differences**:
-
-| Feature | FastAPI | Flask |
-|---------|---------|-------|
-| **Endpoints** | Single `/api/process` | Two-step `/classify_garment` + `/try_on` |
-| **Architecture** | Structured (services/models/api layers) | Monolithic single file |
-| **Type Safety** | Full Pydantic schemas | Manual validation |
-| **Documentation** | Auto-generated OpenAPI | None |
-| **Configuration** | Environment variables + Settings class | Hardcoded |
-| **Error Handling** | HTTP status codes + structured responses | Generic 400 errors |
-| **Testing** | Dependency injection ready | Difficult to test |
-| **Virtual Try-On** | ❌ Not included | ✅ MediaPipe pose overlay |
-| **Production Ready** | ✅ Yes | ❌ No |
-
----
+**Scalability considerations**:
+- Model loaded once per worker (increase workers carefully)
+- rembg uses significant CPU/RAM per request
+- Cloudinary has free tier limits (25GB storage, 25GB bandwidth)
 
 ## Relationship to Main Project
 
-This service is **independent** from the main AR Fashion Try-On system documented in `/CLAUDE.md`. The main system uses:
-- FastAPI (not Flask) for ML backend
-- NestJS for web backend
-- Next.js for frontend
-- YOLO v8 segmentation (not CNN classification)
+This microservice is part of the larger AR Fashion Try-On system. Integration points:
 
-This Flask service appears to be an earlier prototype or alternative implementation focused on simplicity over scalability.
+**Main system architecture** (from `/CLAUDE.md`):
+- **Frontend**: Next.js (http://localhost:3000)
+- **Web Backend**: NestJS (http://localhost:3001)
+- **ML Backend**: FastAPI (http://localhost:8000) - YOLO v8 segmentation
+- **AR Module**: TypeScript + Three.js
+- **This Service**: Garment extraction (http://localhost:5000)
 
-**Integration Path**:
-If integrating the FastAPI garment extraction service with the main AR system:
-1. Deploy as a separate microservice on port 5000
-2. Main web backend (NestJS) calls `/api/process` endpoint
-3. Extracted garment images passed to AR module for rendering
-4. Health checks via `/api/health` for monitoring
+**Integration flow**:
+1. User uploads garment image via Next.js frontend
+2. NestJS backend forwards to **this service** at `/classify_garment`
+3. This service returns Cloudinary URLs for original + cutout
+4. NestJS stores URLs in PostgreSQL
+5. Frontend fetches cutout URL for AR rendering
+6. AR Module uses MediaPipe + Three.js for virtual try-on
+
+**Key differences from ML backend**:
+- ML backend uses YOLO v8 for **pose estimation** and **body segmentation**
+- This service uses CNN for **garment classification** and rembg for **background removal**
+- ML backend uses local file storage; this service uses Cloudinary
+- Both are FastAPI but serve different purposes
+
+**Deployment strategy**:
+- This service deploys independently (Railway/Heroku)
+- Set `CORS_ALLOW_ORIGINS` to include main frontend/backend origins
+- Main backend stores Cloudinary URLs in database (not local paths)
