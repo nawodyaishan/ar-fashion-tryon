@@ -1,14 +1,21 @@
+# Core API dependencies
 fastapi
 uvicorn[standard]
 python-multipart
 pillow
+gunicorn
+cloudinary
+requests
+python-dotenv
+
+# Image processing
 numpy
 rembg
 onnxruntime
 opencv-python-headless
-tensorflow-cpu
-gunicorn
-cloudinary
-requests
-gradio-client>=0.10.0
-python-dotenv
+
+# Virtual try-on (Gradio API)
+gradio-client
+
+# TensorFlow (DISABLED - uncomment to enable garment classification)
+# tensorflow-cpu

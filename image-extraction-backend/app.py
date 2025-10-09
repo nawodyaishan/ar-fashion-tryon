@@ -54,11 +54,11 @@ app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
 # -------------------- Startup/Shutdown --------------------
 @app.on_event("startup")
 async def startup_load():
-    """Load models and initialize services on startup."""
+    """Initialize services on startup."""
     logger.info("Starting up application...")
 
-    # Load TensorFlow model
-    await run_in_threadpool(load_model_and_config)
+    # Log classification status (model loading disabled)
+    load_model_and_config()
 
     # Pre-connect to Gradio (optional, for faster first request)
     try:
