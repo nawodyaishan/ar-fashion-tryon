@@ -2,10 +2,14 @@
 Image processing service for background removal and format conversion.
 """
 import io
+import logging
 from pathlib import Path
+from typing import Optional
 
 from PIL import Image
 from rembg import remove
+
+logger = logging.getLogger(__name__)
 
 
 def remove_background(img_path: Path) -> Image.Image:
@@ -38,44 +42,41 @@ def image_to_png_bytes(im: Image.Image) -> bytes:
     return buf.getvalue()
 
 
-def prepare_image_for_format(image_bytes: bytes, target_format: str) -> bytes:
+def ensure_png_format(image_bytes: bytes) -> bytes:
     """
-    Prepare image bytes for a specific format (JPEG or PNG).
-    Converts RGBA to RGB for JPEG format to avoid errors.
+    Convert any image format to PNG.
+
+    This function ensures that images sent to Gradio are always in PNG format,
+    which eliminates "cannot write mode RGBA as JPEG" errors. PNG supports all
+    color modes (RGB, RGBA, L, LA, P, etc.) without conversion issues.
 
     Args:
-        image_bytes: Raw image bytes
-        target_format: Target format ('jpg', 'jpeg', or 'png')
+        image_bytes: Raw image bytes in any format (JPEG, PNG, WebP, etc.)
 
     Returns:
-        Properly formatted image bytes
+        PNG-formatted image bytes
+
+    Raises:
+        ValueError: If image_bytes cannot be opened as a valid image
     """
-    img = Image.open(io.BytesIO(image_bytes))
+    try:
+        # Open image from bytes
+        img = Image.open(io.BytesIO(image_bytes))
 
-    # For JPEG format, ensure RGB mode (no transparency)
-    if target_format.lower() in ('jpg', 'jpeg'):
-        if img.mode in ('RGBA', 'LA', 'P'):
-            # Convert to RGB, handling transparency
-            if img.mode == 'P':
-                img = img.convert('RGBA')
+        # Log original format and mode for debugging
+        original_format = img.format or 'UNKNOWN'
+        original_mode = img.mode
+        logger.debug(f"Converting image: format={original_format}, mode={original_mode} → PNG")
 
-            # Create white background
-            background = Image.new('RGB', img.size, (255, 255, 255))
-            if img.mode == 'RGBA':
-                background.paste(img, mask=img.split()[3])  # Use alpha channel as mask
-            else:
-                background.paste(img)
-            img = background
-        elif img.mode != 'RGB':
-            img = img.convert('RGB')
-
-        # Save as JPEG
+        # Convert to PNG (preserves all color modes)
         buf = io.BytesIO()
-        img.save(buf, format='JPEG', quality=95)
-        return buf.getvalue()
+        img.save(buf, format='PNG', optimize=True)
 
-    else:  # PNG format
-        # PNG supports all modes, just save as-is
-        buf = io.BytesIO()
-        img.save(buf, format='PNG')
-        return buf.getvalue()
+        png_bytes = buf.getvalue()
+        logger.debug(f"Conversion successful: {len(image_bytes)} bytes → {len(png_bytes)} bytes")
+
+        return png_bytes
+
+    except Exception as e:
+        logger.error(f"Failed to convert image to PNG: {e}")
+        raise ValueError(f"Invalid image data: {e}") from e

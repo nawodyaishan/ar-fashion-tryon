@@ -26,7 +26,7 @@ from middleware import RequestIDMiddleware
 from services.classifier import load_model_and_config, classify_image
 from services.cloudinary_service import upload_bytes, download_url_bytes
 from services.gradio_service import get_gradio_client, call_gradio_api
-from services.image_processing import remove_background, image_to_png_bytes, prepare_image_for_format
+from services.image_processing import remove_background, image_to_png_bytes, ensure_png_format
 
 # -------------------- Logging Setup --------------------
 logging.basicConfig(
@@ -333,21 +333,23 @@ async def virtual_tryon(
         garment_upload = await run_in_threadpool(upload_bytes, garment_body, garment_public_id, FOLDER_ORIG, None)
         garment_url = garment_upload["secure_url"]
 
-    # Save images to temp files for Gradio
-    # Prepare images for correct format (convert RGBA to RGB for JPEG)
-    person_ext = person_filename.rsplit(".", 1)[1].lower() if "." in person_filename else "jpg"
-    person_body = await run_in_threadpool(prepare_image_for_format, person_body, person_ext)
+    # Convert images to PNG format for Gradio (eliminates RGBA->JPEG errors)
+    # PNG supports all color modes and is fully compatible with Gradio processing
+    logger.info(f"[{request_id}] Converting images to PNG for Gradio compatibility")
 
-    with tempfile.NamedTemporaryFile(delete=False, suffix=f".{person_ext}") as person_tmp:
-        person_tmp.write(person_body)
+    person_body_png = await run_in_threadpool(ensure_png_format, person_body)
+    garment_body_png = await run_in_threadpool(ensure_png_format, garment_body)
+
+    # Save PNG images to temp files
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as person_tmp:
+        person_tmp.write(person_body_png)
         person_tmp_path = person_tmp.name
 
-    garment_ext = "png" if process_garment else (garment_filename.rsplit(".", 1)[1].lower() if "." in garment_filename else "jpg")
-    garment_body = await run_in_threadpool(prepare_image_for_format, garment_body, garment_ext)
-
-    with tempfile.NamedTemporaryFile(delete=False, suffix=f".{garment_ext}") as garment_tmp:
-        garment_tmp.write(garment_body)
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as garment_tmp:
+        garment_tmp.write(garment_body_png)
         garment_tmp_path = garment_tmp.name
+
+    logger.debug(f"[{request_id}] Temp files created: person={person_tmp_path}, garment={garment_tmp_path}")
 
     try:
         # Call Gradio API
