@@ -117,6 +117,27 @@ export interface VtonOptions {
   seed?: number; // default: 42, -1 for random
 }
 
+// FastAPI Virtual Try-On Response (new endpoint)
+export interface VirtualTryonResponse {
+  success: boolean;
+  person_url: string; // Cloudinary URL for person image
+  garment_url: string; // Cloudinary URL for garment image
+  cutout_url?: string; // Cloudinary URL for cutout garment (if processed)
+  result_url: string; // Cloudinary URL for try-on result
+  result_public_id: string; // Cloudinary public ID
+  cloth_type: ClothType;
+  parameters: {
+    num_inference_steps: number;
+    guidance_scale: number;
+    seed: number;
+    show_type: string;
+  };
+  garment_classification?: {
+    label: string;
+    confidence: number;
+  };
+}
+
 // Legacy types (kept for compatibility)
 export type VtonJobStatus = 'queued' | 'processing' | 'succeeded' | 'failed';
 

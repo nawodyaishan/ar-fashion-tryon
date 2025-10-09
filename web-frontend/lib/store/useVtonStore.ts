@@ -2,7 +2,7 @@
 import { create } from 'zustand';
 import type { GarmentProcessResponse, VtonOptions } from '@/lib/types';
 import { extractGarmentSmart } from '@/lib/services/garmentApi';
-import { processWithGradio } from '@/lib/services/gradioApi';
+import { virtualTryOn } from '@/lib/services/vtonApi';
 
 export type VtonStep = 'BODY' | 'GARMENT' | 'GENERATE' | 'RESULT';
 
@@ -132,19 +132,32 @@ export const useVtonStore = create<VtonState>((set, get) => ({
 
     try {
       const finalGarmentFile = garment.extractedFile || garment.file;
-      const token = (process.env.NEXT_PUBLIC_HF_TOKEN ?? '') as `hf_${string}`;
 
-      const resultDataUrl = await processWithGradio(
-        body.file,
-        finalGarmentFile!,
-        options.clothType || 'upper',
-        options.numInferenceSteps ?? 50,
-        options.guidanceScale ?? 2.5,
-        options.seed ?? 42,
-        { signal: controller.signal, token },
+      console.log('🎨 Starting virtual try-on via FastAPI...');
+
+      // Call FastAPI /virtual_tryon endpoint
+      const response = await virtualTryOn(
+        {
+          bodyFile: body.file,
+          garmentFile: finalGarmentFile!,
+          clothType: options.clothType || 'upper',
+          options: {
+            numInferenceSteps: options.numInferenceSteps ?? 50,
+            guidanceScale: options.guidanceScale ?? 2.5,
+            seed: options.seed ?? 42,
+          },
+        },
+        false, // process_garment = false (already extracted)
+        controller.signal,
       );
 
-      set({ status: 'done', resultUrl: resultDataUrl, step: 'RESULT' });
+      console.log('✅ Virtual try-on complete:', {
+        result_url: response.result_url,
+        classification: response.garment_classification,
+      });
+
+      // Set result URL from Cloudinary
+      set({ status: 'done', resultUrl: response.result_url, step: 'RESULT' });
     } catch (err: unknown) {
       const error = err as Error;
       let msg = error?.message || 'Processing failed. Please try again.';
