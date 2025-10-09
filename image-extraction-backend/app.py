@@ -15,7 +15,9 @@ from pydantic import BaseModel
 from PIL import Image
 from rembg import remove
 from starlette.concurrency import run_in_threadpool
-from starlette.middleware.proxy_headers import ProxyHeadersMiddleware
+
+# IMPORTANT: use uvicorn's ProxyHeadersMiddleware (not starlette.*)
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 import requests
 import cloudinary
@@ -29,9 +31,16 @@ ALLOWED_EXTS = {"png", "jpg", "jpeg"}
 MAX_CONTENT_MB = float(os.getenv("MAX_CONTENT_MB", "16"))
 MAX_CONTENT_BYTES = int(MAX_CONTENT_MB * 1024 * 1024)
 
-CORS_ALLOW_ORIGINS = os.getenv("CORS_ALLOW_ORIGINS", "*")
+# CORS: allow "*" OR a comma-list of origins. If "*" → credentials must be False.
+CORS_ALLOW_ORIGINS_RAW = os.getenv("CORS_ALLOW_ORIGINS", "*").strip()
+if CORS_ALLOW_ORIGINS_RAW == "*":
+    CORS_ALLOW_ORIGINS = ["*"]
+    CORS_ALLOW_CREDENTIALS = False
+else:
+    CORS_ALLOW_ORIGINS = [o.strip() for o in CORS_ALLOW_ORIGINS_RAW.split(",") if o.strip()]
+    CORS_ALLOW_CREDENTIALS = True  # explicit origins → credentials ok
 
-# Cloudinary config
+# Cloudinary config (set these in Railway Variables)
 cloudinary.config(
     cloud_name=os.environ.get("CLOUDINARY_CLOUD_NAME"),
     api_key=os.environ.get("CLOUDINARY_API_KEY"),
@@ -47,12 +56,13 @@ app = FastAPI(title="Garment Extraction API", version="2.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"] if CORS_ALLOW_ORIGINS == "*" else [o.strip() for o in CORS_ALLOW_ORIGINS.split(",")],
-    allow_credentials=True,
-    allow_methods=["*"],
+    allow_origins=CORS_ALLOW_ORIGINS,
+    allow_credentials=CORS_ALLOW_CREDENTIALS,
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
-# make sure we respect X-Forwarded-* from Railway’s proxy (HTTPS scheme, etc.)
+
+# Respect X-Forwarded-* from Railway’s proxy (correct scheme/host in URLs)
 app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
 
 # -------------------- Model loading --------------------
@@ -175,7 +185,6 @@ async def health():
 
 @app.post("/classify_garment")
 async def classify_garment(garment: UploadFile = File(...)):
-    # Validation
     filename = garment.filename or ""
     if not filename:
         raise HTTPException(status_code=400, detail="Empty filename")
@@ -185,18 +194,15 @@ async def classify_garment(garment: UploadFile = File(...)):
             detail=f"File type not allowed. Allowed: {', '.join(sorted(ALLOWED_EXTS))}",
         )
 
-    # Read limited bytes
     body = await garment.read()
     if len(body) > MAX_CONTENT_BYTES:
         raise HTTPException(status_code=413, detail=f"File too large (>{int(MAX_CONTENT_MB)}MB)")
 
-    # Verify image
     try:
         Image.open(io.BytesIO(body)).verify()
     except Exception:
         raise HTTPException(status_code=400, detail="Uploaded file is not a valid image")
 
-    # Persist original on Cloudinary
     token = secrets.token_hex(8)
     orig_public_id = f"garment_{token}"
     try:
@@ -207,18 +213,15 @@ async def classify_garment(garment: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Cloudinary upload (original) failed: {e}")
 
-    # Write to temp for classification/cutout
     with tempfile.NamedTemporaryFile(delete=False, suffix="." + filename.rsplit(".",1)[1].lower()) as tmp:
         tmp.write(body)
         tmp_path = Path(tmp.name)
 
-    # Classify (optional)
     try:
         label, conf = await run_in_threadpool(_run_classifier, tmp_path)
     except Exception:
         label, conf = "UNKNOWN", 0.0
 
-    # Cutout -> upload PNG to Cloudinary
     try:
         cut_im = await run_in_threadpool(_cutout_from_path, tmp_path)
         cut_bytes = await run_in_threadpool(_png_bytes, cut_im)
@@ -233,14 +236,13 @@ async def classify_garment(garment: UploadFile = File(...)):
 
     tmp_path.unlink(missing_ok=True)
 
-    # Response (same keys, but Cloudinary URLs)
     return JSONResponse(
         {
             "label": label,
             "confidence": round(conf, 4),
             "garment_url": garment_url,
             "cutout_url": cutout_url,
-            "cutout_path": f"{FOLDER_CUT}/{cut_public_id}.png",  # informational
+            "cutout_path": f"{FOLDER_CUT}/{cut_public_id}.png",
             "garment_public_id": f"{FOLDER_ORIG}/{orig_public_id}",
             "cutout_public_id": f"{FOLDER_CUT}/{cut_public_id}",
         }
@@ -252,7 +254,6 @@ async def classify_garment_by_url(payload: UrlIn):
     if not (url.startswith("http://") or url.startswith("https://")):
         raise HTTPException(status_code=400, detail="source_url must be http(s)")
 
-    # Download with size cap
     try:
         body = await run_in_threadpool(_download_url_bytes, url, MAX_CONTENT_BYTES)
         Image.open(io.BytesIO(body)).verify()
@@ -261,7 +262,6 @@ async def classify_garment_by_url(payload: UrlIn):
     except Exception:
         raise HTTPException(status_code=400, detail="Unable to fetch/parse image from source_url")
 
-    # Upload original to Cloudinary (keeps a persistent copy)
     token = secrets.token_hex(8)
     orig_public_id = f"garment_{token}"
     try:
@@ -272,18 +272,15 @@ async def classify_garment_by_url(payload: UrlIn):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Cloudinary upload (original) failed: {e}")
 
-    # Temp file for classifier/cutout
     with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp:
         tmp.write(body)
         tmp_path = Path(tmp.name)
 
-    # Classify
     try:
         label, conf = await run_in_threadpool(_run_classifier, tmp_path)
     except Exception:
         label, conf = "UNKNOWN", 0.0
 
-    # Cutout -> Cloudinary
     try:
         cut_im = await run_in_threadpool(_cutout_from_path, tmp_path)
         cut_bytes = await run_in_threadpool(_png_bytes, cut_im)
