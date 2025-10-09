@@ -62,14 +62,20 @@ export function calculateShoulderPosition(
   );
 
   // Calculate shoulder angle (for rotation)
-  const angle = Math.atan2(right.y - left.y, right.x - left.x) * (180 / Math.PI);
+  // Note: Since video is mirrored and landmarks are flipped in usePoseDetection,
+  // we negate the angle to get correct rotation direction
+  const rawAngle = Math.atan2(right.y - left.y, right.x - left.x) * (180 / Math.PI);
+  const angle = -rawAngle; // Negate for mirrored view
+
+  // Clamp angle to reasonable range (-45° to +45°)
+  const clampedAngle = Math.max(-45, Math.min(45, angle));
 
   return {
     leftShoulder: left,
     rightShoulder: right,
     center,
     width,
-    angle
+    angle: clampedAngle
   };
 }
 

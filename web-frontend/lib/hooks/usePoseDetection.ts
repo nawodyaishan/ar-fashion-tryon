@@ -118,15 +118,17 @@ export function usePoseDetection(
           const visibleLandmarks = landmarks.filter(l => (l.visibility || 0) > 0.5);
           const confidence = visibleLandmarks.length / landmarks.length;
 
+          // Mirror landmarks to match mirrored video (selfie view)
+          // Video is mirrored with scale-x-[-1], so flip X coordinates
           setLastResult({
             landmarks: landmarks.map(l => ({
-              x: l.x,
+              x: 1 - l.x, // Flip X coordinate for mirrored video
               y: l.y,
               z: l.z,
               visibility: l.visibility
             })),
             worldLandmarks: worldLandmarks.map(l => ({
-              x: l.x,
+              x: -l.x, // Flip world X coordinate
               y: l.y,
               z: l.z,
               visibility: l.visibility

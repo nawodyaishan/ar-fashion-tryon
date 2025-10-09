@@ -216,8 +216,8 @@ export const useTryonStore = create<TryonState>()(
             ...state.transform,
             x: Math.round(x),
             y: Math.round(y),
-            scale: Math.max(0.3, Math.min(3.0, scale)), // Clamp scale
-            rotation: Math.round(rotation)
+            scale: Math.max(0.3, Math.min(3.0, scale)), // Clamp scale: 0.3 to 3.0
+            rotation: Math.max(-45, Math.min(45, Math.round(rotation))) // Clamp rotation: -45° to +45°
           },
           autoAlignInProgress: false,
           lastAutoAlignTime: Date.now()
