@@ -6,9 +6,9 @@ numpy
 rembg
 onnxruntime
 opencv-python-headless
-tensorflow
+tensorflow-cpu
 gunicorn
 cloudinary
 requests
-gradio-client
+gradio-client>=0.10.0
 python-dotenv
