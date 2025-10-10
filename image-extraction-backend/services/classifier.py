@@ -99,7 +99,7 @@ def load_model_and_config():
             logger.info(f"  Class labels: {class_names}")
         else:
             # Fallback: use default class order from training notebook
-            # Training notebook: CLASS_ORDER = ['tshirt','trouser','other']
+            # Training notebook: classes = ['tshirt', 'trouser', 'other']
             # Index 0 = tshirt (upper), Index 1 = trouser (lower), Index 2 = other
             num_classes = model.output_shape[-1]
             default_labels = ['tshirt', 'trouser', 'other']
@@ -197,9 +197,10 @@ def _decide_label(probs: np.ndarray) -> Tuple[str, float]:
     """
     # Mapping from internal labels to frontend-compatible labels
     LABEL_MAP = {
-        'trouser': 'trousers',  # Frontend expects plural
-        'other': 'unknown',     # Frontend expects 'unknown' for unrecognized items
-        'tshirt': 'tshirt',     # Keep as-is
+        'trouser': 'trousers',   # Frontend expects plural
+        'trousers': 'trousers',  # Already plural, keep as-is
+        'other': 'unknown',      # Frontend expects 'unknown' for unrecognized items
+        'tshirt': 'tshirt',      # Keep as-is
     }
 
     p = probs.reshape(-1)
