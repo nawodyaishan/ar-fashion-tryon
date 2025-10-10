@@ -20,7 +20,7 @@ echo "Downloading trained_models.zip from Google Drive..."
 gdown "https://drive.google.com/uc?id=${FILE_ID}" -O /tmp/trained_models.zip
 
 echo "Extracting models..."
-unzip -q /tmp/trained_models.zip -d "$MODELS_DIR"
+unzip -o -q /tmp/trained_models.zip -d "$MODELS_DIR"
 
 echo "Verifying model files..."
 for file in best_clothing_model.h5 clothing_model_final.h5 class_labels.json model_config.json rejection_threshold.json; do
