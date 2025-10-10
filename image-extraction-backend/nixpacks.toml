@@ -1,5 +1,5 @@
 [phases.setup]
-nixPkgs = ["python39", "unzip"]
+nixPkgs = ["python310", "unzip"]
 
 [phases.install]
 cmds = [
