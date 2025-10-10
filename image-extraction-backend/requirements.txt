@@ -17,5 +17,5 @@ opencv-python-headless
 # Virtual try-on (Gradio API)
 gradio-client
 
-# TensorFlow (DISABLED - uncomment to enable garment classification)
-# tensorflow-cpu
+# TensorFlow for garment classification
+tensorflow-cpu

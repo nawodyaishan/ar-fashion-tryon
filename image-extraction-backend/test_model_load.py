@@ -23,24 +23,24 @@ def test_model_loading():
     print("Testing TensorFlow Model Loading")
     print("="*60)
 
-    from services.classifier import load_model_and_config, model, class_labels, _tf_err
+    from services import classifier
 
     # Load the model
     print("\n1. Loading model...")
-    load_model_and_config()
+    classifier.load_model_and_config()
 
     # Check results
     print("\n2. Checking results...")
-    if model is None:
+    if classifier.model is None:
         print(f"❌ FAILED: Model did not load")
-        print(f"   Error: {_tf_err}")
+        print(f"   Error: {classifier._tf_err}")
         return False
 
     print(f"✅ SUCCESS: Model loaded")
-    print(f"   Classes: {len(class_labels)}")
-    print(f"   Labels: {class_labels}")
-    print(f"   Input shape: {model.input_shape}")
-    print(f"   Output shape: {model.output_shape}")
+    print(f"   Classes: {len(classifier.class_labels)}")
+    print(f"   Labels: {classifier.class_labels}")
+    print(f"   Input shape: {classifier.model.input_shape}")
+    print(f"   Output shape: {classifier.model.output_shape}")
 
     # Test prediction with a dummy image
     print("\n3. Testing prediction with dummy data...")
@@ -50,7 +50,7 @@ def test_model_loading():
 
         # Create dummy 224x224 RGB image
         dummy_input = np.random.rand(1, 224, 224, 3).astype('float32')
-        predictions = model.predict(dummy_input, verbose=0)
+        predictions = classifier.model.predict(dummy_input, verbose=0)
 
         print(f"✅ Prediction successful")
         print(f"   Output shape: {predictions.shape}")

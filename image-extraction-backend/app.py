@@ -57,8 +57,8 @@ async def startup_load():
     """Initialize services on startup."""
     logger.info("Starting up application...")
 
-    # Log classification status (model loading disabled)
-    load_model_and_config()
+    # Load TensorFlow model (in threadpool to avoid blocking)
+    await run_in_threadpool(load_model_and_config)
 
     # Pre-connect to Gradio (optional, for faster first request)
     try:
