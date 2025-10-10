@@ -161,7 +161,6 @@ export const microcopy = {
     autoAlign: 'Auto-align',
     useRearCamera: 'Use rear camera',
     lockAspect: 'Lock aspect ratio',
-    lightingEffects: 'Lighting effects',
   },
   sliders: {
     scale: 'Scale',

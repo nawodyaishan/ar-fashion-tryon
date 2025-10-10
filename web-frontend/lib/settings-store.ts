@@ -2,16 +2,12 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 interface SettingsState {
-  lighting: boolean;
-  setLighting: (value: boolean) => void;
+  // Settings store - currently empty but kept for future settings
 }
 
 export const useSettingsStore = create<SettingsState>()(
   persist(
-    (set) => ({
-      lighting: true,
-      setLighting: (lighting) => set({ lighting }),
-    }),
+    (set) => ({}),
     {
       name: 'settings-store',
     },

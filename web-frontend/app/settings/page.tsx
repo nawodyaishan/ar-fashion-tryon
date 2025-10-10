@@ -35,7 +35,7 @@ import { privacyContent, microcopy } from '@/lib/constants';
 import { toast } from 'sonner';
 
 export default function SettingsPage() {
-  const { lighting, setLighting, theme, setTheme, exportSettings, resetSettings } = useSettings();
+  const { theme, setTheme, exportSettings, resetSettings } = useSettings();
 
   const handleDeleteUploads = () => {
     // Implement deletion logic here
@@ -102,29 +102,6 @@ export default function SettingsPage() {
                   </div>
                 </div>
 
-                <Separator />
-
-                {/* Background Effects */}
-                <div className="flex items-center justify-between">
-                  <div className="space-y-1">
-                    <Label className="text-base font-medium">{microcopy.toggles.lightingEffects}</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Dynamic background animations and lighting
-                    </p>
-                  </div>
-                  <Switch
-                    checked={lighting}
-                    onCheckedChange={setLighting}
-                    className="data-[state=checked]:bg-primary"
-                  />
-                </div>
-
-                <Alert>
-                  <Info className="h-4 w-4" />
-                  <AlertDescription>
-                    Disabling background effects may improve performance on lower-end devices.
-                  </AlertDescription>
-                </Alert>
               </CardContent>
             </Card>
           </section>
