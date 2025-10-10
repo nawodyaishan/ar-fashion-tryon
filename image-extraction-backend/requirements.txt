@@ -15,7 +15,7 @@ onnxruntime
 opencv-python-headless
 
 # Virtual try-on (Gradio API)
-gradio-client
+gradio-client>=1.4.0
 
 # TensorFlow for garment classification
 tensorflow-cpu

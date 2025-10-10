@@ -57,14 +57,11 @@ async def startup_load():
     """Initialize services on startup."""
     logger.info("Starting up application...")
 
-    # Log classification status (model loading disabled)
+    # Load classification model
     load_model_and_config()
 
-    # Pre-connect to Gradio (optional, for faster first request)
-    try:
-        await get_gradio_client()
-    except Exception as e:
-        logger.warning(f"Gradio pre-connection failed (will retry on first request): {e}")
+    # Note: Gradio client will connect on first use (lazy loading)
+    # This prevents startup failures if Gradio space is temporarily unavailable
 
     logger.info("Application startup complete")
 

@@ -27,14 +27,16 @@ async def get_gradio_client() -> Client:
     if gradio_client is None:
         try:
             logger.info(f"Connecting to Gradio Space: {GRADIO_SPACE}")
+            # Create client with specific version compatibility
             gradio_client = await asyncio.to_thread(
                 Client,
                 GRADIO_SPACE,
-                hf_token=HF_TOKEN
+                hf_token=HF_TOKEN if HF_TOKEN else None
             )
-            logger.info("Gradio client connected successfully")
+            logger.info("✅ Gradio client connected successfully")
         except Exception as e:
-            logger.error(f"Gradio client connection failed: {e}")
+            logger.error(f"❌ Gradio client connection failed: {e}")
+            # Don't set gradio_client = None, let it retry next time
             raise HTTPException(
                 status_code=503,
                 detail=f"Unable to connect to AI service: {str(e)}"
