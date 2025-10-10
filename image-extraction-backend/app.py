@@ -57,8 +57,8 @@ async def startup_load():
     """Initialize services on startup."""
     logger.info("Starting up application...")
 
-    # Load TensorFlow model (in threadpool to avoid blocking)
-    await run_in_threadpool(load_model_and_config)
+    # Log classification status (model loading disabled)
+    load_model_and_config()
 
     # Pre-connect to Gradio (optional, for faster first request)
     try:
@@ -78,36 +78,8 @@ def _allowed_file(filename: str) -> bool:
 # -------------------- Routes --------------------
 @app.get("/health", response_model=HealthOut)
 async def health():
-    """
-    Comprehensive health check endpoint for monitoring and deployment validation.
-
-    Returns service status including model loading state and Gradio connection.
-    """
-    from services import classifier, gradio_service
-
-    # Check model status
-    model_loaded = classifier.model is not None
-    model_name_val = classifier.model_name if model_loaded else None
-
-    # Check Gradio connection
-    gradio_connected = gradio_service.gradio_client is not None
-
-    # Build service status
-    services = {
-        "classification": "operational" if model_loaded else "degraded",
-        "background_removal": "operational",
-        "virtual_tryon": "operational" if gradio_connected else "degraded",
-        "cloudinary": "operational"
-    }
-
-    return HealthOut(
-        status="ok",
-        version="2.0.0",
-        model_loaded=model_loaded,
-        model_name=model_name_val,
-        gradio_connected=gradio_connected,
-        services=services
-    )
+    """Health check endpoint."""
+    return HealthOut()
 
 
 @app.post("/classify_garment")
@@ -577,7 +549,7 @@ async def virtual_tryon(
     guidance_scale: float = 2.5,
     seed: int = 42,
     show_type: str = "result only",
-    process_garment: bool = False
+    process_garment: bool = True
 ):
     """Complete virtual try-on workflow."""
     request_id = getattr(request.state, "request_id", "unknown")
