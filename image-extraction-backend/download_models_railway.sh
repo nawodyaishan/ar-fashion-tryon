@@ -10,7 +10,7 @@ mkdir -p "$MODELS_DIR"
 
 # Google Drive file ID from your trained_models.zip
 # https://drive.google.com/file/d/FILE_ID/view
-FILE_ID="YOUR_FILE_ID_HERE"
+FILE_ID="1oZhdDnXcQs5Oy84z1AqxoGV9GxEVKUbH"
 
 # Download using gdown
 echo "Installing gdown..."
