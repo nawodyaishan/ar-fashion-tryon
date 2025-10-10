@@ -78,8 +78,36 @@ def _allowed_file(filename: str) -> bool:
 # -------------------- Routes --------------------
 @app.get("/health", response_model=HealthOut)
 async def health():
-    """Health check endpoint."""
-    return HealthOut()
+    """
+    Comprehensive health check endpoint for monitoring and deployment validation.
+
+    Returns service status including model loading state and Gradio connection.
+    """
+    from services import classifier, gradio_service
+
+    # Check model status
+    model_loaded = classifier.model is not None
+    model_name_val = classifier.model_name if model_loaded else None
+
+    # Check Gradio connection
+    gradio_connected = gradio_service.gradio_client is not None
+
+    # Build service status
+    services = {
+        "classification": "operational" if model_loaded else "degraded",
+        "background_removal": "operational",
+        "virtual_tryon": "operational" if gradio_connected else "degraded",
+        "cloudinary": "operational"
+    }
+
+    return HealthOut(
+        status="ok",
+        version="2.0.0",
+        model_loaded=model_loaded,
+        model_name=model_name_val,
+        gradio_connected=gradio_connected,
+        services=services
+    )
 
 
 @app.post("/classify_garment")

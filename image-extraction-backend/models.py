@@ -1,11 +1,17 @@
 """
 Pydantic models for request/response schemas.
 """
+from typing import Optional, Dict
 from pydantic import BaseModel
 
 
 class HealthOut(BaseModel):
     status: str = "ok"
+    version: str = "2.0.0"
+    model_loaded: bool = False
+    model_name: Optional[str] = None
+    gradio_connected: bool = False
+    services: Optional[Dict[str, str]] = None
 
 
 class UrlIn(BaseModel):

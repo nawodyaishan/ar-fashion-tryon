@@ -96,7 +96,7 @@ For production deployment, consider implementing:
 
 **Endpoint:** `GET /health`
 
-Check if the API is running and responsive.
+Comprehensive health check for monitoring service status, model availability, and external service connections.
 
 #### Request
 
@@ -106,11 +106,46 @@ curl -X GET "https://your-api-domain.com/health"
 
 #### Response
 
+**Status:** 200 OK
+
 ```json
 {
-  "status": "ok"
+  "status": "ok",
+  "version": "2.0.0",
+  "model_loaded": true,
+  "model_name": "best_clothing_model.h5",
+  "gradio_connected": true,
+  "services": {
+    "classification": "operational",
+    "background_removal": "operational",
+    "virtual_tryon": "operational",
+    "cloudinary": "operational"
+  }
 }
 ```
+
+#### Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `status` | string | Overall API status ("ok" or "degraded") |
+| `version` | string | API version number |
+| `model_loaded` | boolean | Whether TensorFlow model is loaded |
+| `model_name` | string | Loaded model filename (null if not loaded) |
+| `gradio_connected` | boolean | Whether Gradio client is connected |
+| `services.classification` | string | Classification service status ("operational" or "degraded") |
+| `services.background_removal` | string | Background removal status (always "operational") |
+| `services.virtual_tryon` | string | Virtual try-on status ("operational" or "degraded") |
+| `services.cloudinary` | string | Cloudinary upload status (always "operational") |
+
+**Use Cases:**
+- Deployment validation after Railway pushes
+- Continuous monitoring and alerting
+- Service status dashboard
+- Load balancer health checks
+
+**Degraded Mode:**
+If `model_loaded: false`, the API still functions but classification returns "UNKNOWN". Background removal and virtual try-on remain operational.
 
 ---
 
@@ -768,7 +803,7 @@ CORS_ALLOW_ORIGINS=https://yourfrontend.com,https://app.example.com
 
 1. **Connect Repository**
    ```bash
-   # Railway auto-detects Procfile
+   # Railway auto-detects nixpacks.toml configuration
    ```
 
 2. **Set Environment Variables**
@@ -776,13 +811,33 @@ CORS_ALLOW_ORIGINS=https://yourfrontend.com,https://app.example.com
    CLOUDINARY_CLOUD_NAME=xxx
    CLOUDINARY_API_KEY=xxx
    CLOUDINARY_API_SECRET=xxx
+   GDRIVE_MODEL_FILE_ID=xxx  # Optional, for model download
    ```
 
 3. **Deploy**
    ```bash
    git push origin main
-   # Railway deploys automatically
+   # Railway deploys automatically (5-8 minutes build time)
    ```
+
+4. **Verify Deployment**
+   ```bash
+   # Check health endpoint
+   curl https://your-app.railway.app/health | jq .
+
+   # Verify model is loaded
+   # Expected: "model_loaded": true
+   ```
+
+**Build Process:**
+- ✅ Python venv creation
+- ✅ Dependencies installation (~2 min)
+- ✅ Model download from Google Drive (~1-2 min, 293 MB)
+- ✅ Model validation with TensorFlow
+- ✅ Application startup
+
+**Troubleshooting:**
+See [DEPLOYMENT.md](./DEPLOYMENT.md) for comprehensive deployment guide and common issues.
 
 ### Local Development
 
@@ -871,13 +926,41 @@ CMD ["gunicorn", "-k", "uvicorn.workers.UvicornWorker", "-w", "1", "-b", "0.0.0.
 
 ## Changelog
 
-### Version 2.0.0 (2025-10-09)
-- ✨ Added `/construct_outfit` endpoint
-- ✨ Added `/detect_garment_type` endpoint
+### Version 2.0.0 (2025-10-10)
+
+**🚀 Major Features:**
+- ✨ Added `/construct_outfit` endpoint - Merge upper + lower garments
+- ✨ Added `/detect_garment_type` endpoint - Lightweight classification
+- ✨ Enhanced `/health` endpoint - Comprehensive service monitoring
+- 🤖 Retrained TensorFlow model (78.7% validation accuracy)
+- 🔧 Fixed TensorFlow 2.15+ compatibility (no more batch_shape errors)
+
+**🛠️ DevOps & Deployment:**
+- 🐳 Added `nixpacks.toml` for Railway deployment
+- 📦 Automated model download from Google Drive during build
+- ✅ Build validation script with retry logic (`download_models_railway_v2.sh`)
+- 📝 Comprehensive deployment documentation (DEPLOYMENT.md)
+- 🔍 Health endpoint now reports model status and service health
+
+**🐛 Bug Fixes:**
 - 🔧 Fixed RGBA→JPEG errors in virtual try-on
 - 🔧 Added WebP to PNG conversion for Gradio results
+- 🔧 Fixed Git LFS model download issues on Railway
+- 🔧 Fixed unzip overwrite prompts in build process
+- 🔧 Fixed Python venv activation in nixpacks
+
+**🏗️ Code Quality:**
 - 📝 Improved logging with request ID tracking
-- 🏗️ Refactored to modular architecture
+- 🏗️ Refactored to modular architecture (services/, models.py, config.py)
+- 🧪 Added test_model_load.py for local validation
+- 📚 Updated API documentation with deployment guide
+
+**📊 Model Updates:**
+- 🎯 New model trained with TensorFlow 2.16.2
+- 📈 3-class classification: trousers, tshirt, other
+- 🎚️ Rejection threshold (tau): 0.8452
+- 📐 Input: 224x224x3, Output: softmax (3 classes)
+- 💾 Model size: 152 MB each (best + final)
 
 ### Version 1.0.0 (2025-09-01)
 - 🎉 Initial release
