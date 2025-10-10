@@ -5,8 +5,8 @@ nixPkgs = ["python39", "unzip"]
 cmds = [
   "python -m venv /opt/venv",
   ". /opt/venv/bin/activate && pip install -r requirements.txt",
-  "chmod +x download_models_railway.sh",
-  ". /opt/venv/bin/activate && ./download_models_railway.sh"
+    "chmod +x download_models_railway_v2.sh",
+    ". /opt/venv/bin/activate && bash download_models_railway_v2.sh"
 ]
 
 [start]

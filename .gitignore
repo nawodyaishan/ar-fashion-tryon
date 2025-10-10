@@ -152,7 +152,6 @@ build/
 *.pt
 *.onnx
 *.tflite
-models/
 checkpoints/
 
 # IDE
