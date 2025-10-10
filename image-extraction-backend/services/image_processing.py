@@ -130,6 +130,87 @@ def ensure_png_format(image_bytes: bytes) -> bytes:
     return convert_to_rgb_png(image_bytes)
 
 
+def compress_image_for_upload(image_bytes: bytes, max_size_mb: float = 9.5) -> bytes:
+    """
+    Compress image to stay under size limit for Cloudinary upload.
+
+    Cloudinary free tier has a 10MB limit, so we target 9.5MB to leave margin.
+    This function progressively reduces quality or dimensions if needed.
+
+    Args:
+        image_bytes: Original image bytes (any format)
+        max_size_mb: Maximum target size in MB
+
+    Returns:
+        Compressed image bytes (PNG or JPEG depending on compression needed)
+    """
+    max_bytes = int(max_size_mb * 1024 * 1024)
+
+    # If already under limit, return as-is
+    if len(image_bytes) <= max_bytes:
+        logger.info(f"Image already under {max_size_mb}MB limit: {len(image_bytes)} bytes")
+        return image_bytes
+
+    logger.info(f"Image too large ({len(image_bytes)} bytes), compressing to under {max_size_mb}MB...")
+
+    try:
+        img = Image.open(io.BytesIO(image_bytes))
+        original_size = img.size
+        original_mode = img.mode
+
+        # Convert RGBA to RGB with white background for JPEG compatibility
+        if img.mode in ('RGBA', 'LA', 'PA'):
+            background = Image.new('RGB', img.size, (255, 255, 255))
+            if img.mode == 'RGBA':
+                background.paste(img, mask=img.split()[3])
+            else:
+                img_rgba = img.convert('RGBA')
+                background.paste(img_rgba, mask=img_rgba.split()[3])
+            img = background
+        elif img.mode != 'RGB':
+            img = img.convert('RGB')
+
+        # Try progressive JPEG compression with decreasing quality
+        for quality in [95, 85, 75, 65, 55, 45]:
+            buf = io.BytesIO()
+            img.save(buf, format='JPEG', quality=quality, optimize=True)
+            compressed = buf.getvalue()
+
+            if len(compressed) <= max_bytes:
+                logger.info(
+                    f"Compressed: {len(image_bytes)} → {len(compressed)} bytes "
+                    f"({original_mode} {original_size} → JPEG q{quality})"
+                )
+                return compressed
+
+        # If still too large, resize image
+        logger.warning(f"Image still too large after JPEG compression, resizing...")
+        scale_factors = [0.9, 0.8, 0.7, 0.6, 0.5]
+
+        for scale in scale_factors:
+            new_size = (int(img.width * scale), int(img.height * scale))
+            resized = img.resize(new_size, Image.LANCZOS)
+
+            buf = io.BytesIO()
+            resized.save(buf, format='JPEG', quality=85, optimize=True)
+            compressed = buf.getvalue()
+
+            if len(compressed) <= max_bytes:
+                logger.info(
+                    f"Compressed with resize: {len(image_bytes)} → {len(compressed)} bytes "
+                    f"({original_size} → {new_size}, JPEG q85)"
+                )
+                return compressed
+
+        # If all else fails, return the smallest we could achieve
+        logger.warning(f"Could not compress below {max_size_mb}MB, returning best effort")
+        return compressed
+
+    except Exception as e:
+        logger.error(f"Compression failed: {e}, returning original")
+        return image_bytes
+
+
 def construct_outfit_image(upper_bytes: bytes, lower_bytes: bytes) -> bytes:
     """
     Construct a full outfit image by vertically stacking upper and lower garments.

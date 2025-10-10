@@ -10,6 +10,7 @@ import cloudinary.uploader
 import requests
 
 from config import CLOUDINARY_CONFIG, MAX_CONTENT_BYTES
+from services.image_processing import compress_image_for_upload
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +20,9 @@ cloudinary.config(**CLOUDINARY_CONFIG)
 
 def upload_bytes(data: bytes, public_id: str, folder: str, fmt: Optional[str] = None) -> dict:
     """
-    Upload bytes to Cloudinary.
+    Upload bytes to Cloudinary with automatic compression.
+
+    Compresses images to stay under Cloudinary's 10MB free tier limit.
 
     Args:
         data: Image bytes to upload
@@ -30,6 +33,10 @@ def upload_bytes(data: bytes, public_id: str, folder: str, fmt: Optional[str] = 
     Returns:
         Cloudinary upload response dict with 'secure_url'
     """
+    # Compress image if needed (targets 9.5MB to stay under 10MB limit)
+    logger.info(f"Preparing upload: {len(data)} bytes")
+    compressed_data = compress_image_for_upload(data, max_size_mb=9.5)
+
     kwargs = {
         "folder": folder,
         "public_id": public_id,
@@ -39,7 +46,11 @@ def upload_bytes(data: bytes, public_id: str, folder: str, fmt: Optional[str] = 
     if fmt:
         kwargs["format"] = fmt
 
-    return cloudinary.uploader.upload(io.BytesIO(data), **kwargs)
+    logger.info(f"Uploading to Cloudinary: {len(compressed_data)} bytes → {folder}/{public_id}")
+    result = cloudinary.uploader.upload(io.BytesIO(compressed_data), **kwargs)
+    logger.info(f"Upload successful: {result.get('secure_url')}")
+
+    return result
 
 
 def download_url_bytes(url: str, max_bytes: int = MAX_CONTENT_BYTES) -> bytes:
