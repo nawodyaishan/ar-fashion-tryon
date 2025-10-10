@@ -220,7 +220,7 @@ main() {
 
     # Output summary for Railway logs
     echo ""
-    echo "DEPLOYMENT_READY=true" >> "$GITHUB_ENV" 2>/dev/null || true
+    echo "DEPLOYMENT_READY=true" >> "${GITHUB_ENV:-/dev/null}" 2>/dev/null || true
 }
 
 main "$@"
