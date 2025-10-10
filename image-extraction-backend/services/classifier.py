@@ -89,7 +89,7 @@ def load_model_and_config():
         if model is None:
             raise RuntimeError("No model file could be loaded")
 
-        # Load class labels (format: {"trousers": 0, "tshirt": 1, "other": 2})
+        # Load class labels (format: {"tshirt": 0, "trouser": 1, "other": 2})
         class_indices = _load_json(LABELS_PATH, {})
         if class_indices:
             # Reverse mapping: index -> label
@@ -98,11 +98,20 @@ def load_model_and_config():
             class_names = [k for k, _ in sorted(class_indices.items(), key=lambda kv: kv[1])]
             logger.info(f"  Class labels: {class_names}")
         else:
-            # Fallback: create generic labels from model output shape
+            # Fallback: use default class order from training notebook
+            # CLASS_ORDER = ['tshirt','trouser','other'] -> index 0=tshirt, 1=trouser, 2=other
             num_classes = model.output_shape[-1]
-            class_labels = {i: f"class_{i}" for i in range(num_classes)}
-            class_names = [f"class_{i}" for i in range(num_classes)]
-            logger.warning(f"  No class labels found, using generic: {class_names}")
+            default_labels = ['tshirt', 'trouser', 'other']
+
+            if num_classes == len(default_labels):
+                class_labels = {i: default_labels[i] for i in range(num_classes)}
+                class_names = default_labels
+                logger.warning(f"  No class_labels.json found, using default class order: {class_names}")
+            else:
+                # If model has different number of classes, use generic labels
+                class_labels = {i: f"class_{i}" for i in range(num_classes)}
+                class_names = [f"class_{i}" for i in range(num_classes)]
+                logger.warning(f"  Model has {num_classes} classes, expected 3. Using generic: {class_names}")
 
         # Load model config (head_type: softmax or sigmoid_ovr)
         cfg = _load_json(CONFIG_PATH, {})
@@ -175,6 +184,9 @@ def _decide_label(probs: np.ndarray) -> Tuple[str, float]:
     Decide label from model predictions.
 
     Supports both softmax and sigmoid_ovr head types.
+    Maps internal labels to frontend-compatible labels:
+    - 'trouser' -> 'trousers' (frontend expects plural)
+    - 'other' -> 'unknown' (frontend expects unknown for unrecognized items)
 
     Args:
         probs: Raw model output probabilities
@@ -182,6 +194,13 @@ def _decide_label(probs: np.ndarray) -> Tuple[str, float]:
     Returns:
         Tuple of (label, confidence)
     """
+    # Mapping from internal labels to frontend-compatible labels
+    LABEL_MAP = {
+        'trouser': 'trousers',  # Frontend expects plural
+        'other': 'unknown',     # Frontend expects 'unknown' for unrecognized items
+        'tshirt': 'tshirt',     # Keep as-is
+    }
+
     p = probs.reshape(-1)
 
     if head_type == 'softmax':
@@ -193,7 +212,9 @@ def _decide_label(probs: np.ndarray) -> Tuple[str, float]:
             logger.debug(f"Confidence {conf:.4f} below tau {tau:.4f}, returning UNKNOWN")
             return 'UNKNOWN', conf
 
-        label = class_labels.get(idx, f"class_{idx}")
+        raw_label = class_labels.get(idx, f"class_{idx}")
+        # Map to frontend-compatible label
+        label = LABEL_MAP.get(raw_label, raw_label)
         return label, conf
 
     else:  # sigmoid_ovr
@@ -205,7 +226,7 @@ def _decide_label(probs: np.ndarray) -> Tuple[str, float]:
         cond_tee = p_tee >= tau and p_trou < tau
 
         if cond_trou:
-            return 'trousers', p_trou
+            return 'trousers', p_trou  # Already using frontend-compatible 'trousers'
         if cond_tee:
             return 'tshirt', p_tee
 

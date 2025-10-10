@@ -577,7 +577,7 @@ async def virtual_tryon(
     guidance_scale: float = 2.5,
     seed: int = 42,
     show_type: str = "result only",
-    process_garment: bool = True
+    process_garment: bool = False
 ):
     """Complete virtual try-on workflow."""
     request_id = getattr(request.state, "request_id", "unknown")
