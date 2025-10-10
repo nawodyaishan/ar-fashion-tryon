@@ -89,7 +89,7 @@ def load_model_and_config():
         if model is None:
             raise RuntimeError("No model file could be loaded")
 
-        # Load class labels (format: {"tshirt": 0, "trouser": 1, "other": 2})
+        # Load class labels (format from training: {"trousers": 0, "tshirt": 1, "other": 2})
         class_indices = _load_json(LABELS_PATH, {})
         if class_indices:
             # Reverse mapping: index -> label
@@ -99,14 +99,15 @@ def load_model_and_config():
             logger.info(f"  Class labels: {class_names}")
         else:
             # Fallback: use default class order from training notebook
-            # CLASS_ORDER = ['tshirt','trouser','other'] -> index 0=tshirt, 1=trouser, 2=other
+            # Training notebook: CLASS_ORDER = ['tshirt','trouser','other']
+            # Index 0 = tshirt (upper), Index 1 = trouser (lower), Index 2 = other
             num_classes = model.output_shape[-1]
             default_labels = ['tshirt', 'trouser', 'other']
 
             if num_classes == len(default_labels):
                 class_labels = {i: default_labels[i] for i in range(num_classes)}
                 class_names = default_labels
-                logger.warning(f"  No class_labels.json found, using default class order: {class_names}")
+                logger.warning(f"  No class_labels.json found, using training default: {class_names}")
             else:
                 # If model has different number of classes, use generic labels
                 class_labels = {i: f"class_{i}" for i in range(num_classes)}
