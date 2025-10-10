@@ -1,12 +1,13 @@
 [phases.setup]
-nixPkgs = ["python39"]
+nixPkgs = ["python39", "unzip"]
 
 [phases.install]
 cmds = [
-  "pip install -r requirements.txt",
+  "python -m venv /opt/venv",
+  ". /opt/venv/bin/activate && pip install -r requirements.txt",
   "chmod +x download_models_railway.sh",
-  "./download_models_railway.sh"
+  ". /opt/venv/bin/activate && ./download_models_railway.sh"
 ]
 
 [start]
-cmd = "gunicorn -k uvicorn.workers.UvicornWorker -w 1 -b 0.0.0.0:$PORT app:app"
+cmd = ". /opt/venv/bin/activate && gunicorn -k uvicorn.workers.UvicornWorker -w 1 -b 0.0.0.0:$PORT app:app"
