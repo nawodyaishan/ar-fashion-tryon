@@ -1,11 +1,11 @@
 [phases.setup]
-nixPkgs = ["python39", "git-lfs"]
+nixPkgs = ["python39"]
 
 [phases.install]
 cmds = [
-  "git lfs install",
-  "git lfs pull",
-  "pip install -r requirements.txt"
+  "pip install -r requirements.txt",
+  "chmod +x download_models_railway.sh",
+  "./download_models_railway.sh"
 ]
 
 [start]
