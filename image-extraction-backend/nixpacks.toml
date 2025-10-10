@@ -1,0 +1,12 @@
+[phases.setup]
+nixPkgs = ["python39", "git-lfs"]
+
+[phases.install]
+cmds = [
+  "git lfs install",
+  "git lfs pull",
+  "pip install -r requirements.txt"
+]
+
+[start]
+cmd = "gunicorn -k uvicorn.workers.UvicornWorker -w 1 -b 0.0.0.0:$PORT app:app"
