@@ -17,6 +17,7 @@ import {
   FileText,
   ArrowRight,
 } from 'lucide-react';
+import { APP_VERSION } from '@/lib/version';
 
 export default function Home() {
   const mounted = useMount();
@@ -239,7 +240,11 @@ export default function Home() {
       <footer className="border-t py-12 mt-24">
         <div className="max-w-[1160px] mx-auto px-4">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-            <p className="text-sm text-muted-foreground">Made for research & demos.</p>
+            <div className="flex items-center gap-3 text-sm text-muted-foreground">
+              <span>Made for research & demos.</span>
+              <span>·</span>
+              <span className="font-mono">{APP_VERSION}</span>
+            </div>
             <div className="flex flex-wrap items-center justify-center gap-6 text-sm">
               <Link href="/about" className="text-muted-foreground hover:text-foreground transition-colors">
                 Docs

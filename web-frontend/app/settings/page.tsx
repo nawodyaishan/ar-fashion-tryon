@@ -23,7 +23,6 @@ import {
   Shield,
   Download,
   RotateCcw,
-  Info,
   Trash2,
   Database,
   Sun,
@@ -31,8 +30,9 @@ import {
   Monitor,
 } from 'lucide-react';
 import { useSettings } from '@/lib/hooks/useSettings';
-import { privacyContent, microcopy } from '@/lib/constants';
+import { privacyContent } from '@/lib/constants';
 import { toast } from 'sonner';
+import { APP_VERSION, BUILD_DATE } from '@/lib/version';
 
 export default function SettingsPage() {
   const { theme, setTheme, exportSettings, resetSettings } = useSettings();
@@ -247,11 +247,11 @@ export default function SettingsPage() {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                 <div>
                   <p className="text-muted-foreground">Version</p>
-                  <p className="font-medium">1.0.0-beta</p>
+                  <p className="font-medium">{APP_VERSION}</p>
                 </div>
                 <div>
                   <p className="text-muted-foreground">Build</p>
-                  <p className="font-medium">2025.01.22</p>
+                  <p className="font-medium">{BUILD_DATE}</p>
                 </div>
                 <div>
                   <p className="text-muted-foreground">Engine</p>

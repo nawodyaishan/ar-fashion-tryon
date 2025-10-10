@@ -3,6 +3,7 @@
 import { useTryonStore } from '@/lib/tryon-store';
 import { Shield, ExternalLink, Loader2 } from 'lucide-react';
 import Link from 'next/link';
+import { APP_VERSION } from '@/lib/version';
 
 export default function StatusFooter() {
   const { activeMode, status } = useTryonStore();
@@ -36,6 +37,7 @@ export default function StatusFooter() {
 
           {/* Right: Privacy info */}
           <div className="flex items-center gap-4">
+            <span className="text-muted-foreground/70">{APP_VERSION}</span>
             <div className="flex items-center gap-1.5">
               <Shield className="h-3 w-3 text-green-500" />
               <span>
