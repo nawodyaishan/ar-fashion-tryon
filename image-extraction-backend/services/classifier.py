@@ -98,11 +98,11 @@ def load_model_and_config():
             class_names = [k for k, _ in sorted(class_indices.items(), key=lambda kv: kv[1])]
             logger.info(f"  Class labels: {class_names}")
         else:
-            # Fallback: use default class order from training notebook
-            # Training notebook: classes = ['tshirt', 'trouser', 'other']
-            # Index 0 = tshirt (upper), Index 1 = trouser (lower), Index 2 = other
+            # Fallback: use actual training class order matching class_labels.json
+            # Model was trained with: {"trousers": 0, "tshirt": 1, "other": 2}
+            # Index 0 = trousers (lower body), Index 1 = tshirt (upper body), Index 2 = other
             num_classes = model.output_shape[-1]
-            default_labels = ['tshirt', 'trouser', 'other']
+            default_labels = ['trousers', 'tshirt', 'other']  # CORRECT ORDER!
 
             if num_classes == len(default_labels):
                 class_labels = {i: default_labels[i] for i in range(num_classes)}
