@@ -4,6 +4,8 @@ import type { VtonOptions, ClothType } from '@/lib/types';
 import { virtualTryOn } from '@/lib/services/vtonApi';
 import { detectGarmentType, constructOutfit } from '@/lib/services/garmentApi';
 import { analyzeImageQuality, type QualityLevel } from '@/lib/utils/imageQuality';
+import { ensureBackendCompatibleFormat } from '@/lib/utils/imageConversion';
+import { toast } from 'sonner';
 
 // Three different try-on paths
 export type TryOnPath = 'NORMAL' | 'FULL' | 'REFERENCE';
@@ -138,6 +140,21 @@ export const useVtonStore = create<VtonState>((set, get) => ({
       return;
     }
 
+    // Convert WebP to PNG if needed (backend doesn't support WebP)
+    try {
+      const { file: processedFile, converted, originalFormat } = await ensureBackendCompatibleFormat(file);
+
+      if (converted) {
+        toast.success(`Converted ${originalFormat?.toUpperCase()} to PNG for backend compatibility`);
+        file = processedFile; // Use converted file
+      }
+    } catch (err) {
+      const error = err as Error;
+      toast.error(error.message || 'Failed to process image');
+      set({ body: {}, status: 'error', error: error.message });
+      return;
+    }
+
     const previewUrl = URL.createObjectURL(file);
 
     // Analyze image quality
@@ -184,6 +201,22 @@ export const useVtonStore = create<VtonState>((set, get) => ({
     const maxSize = 10 * 1024 * 1024;
     if (file.size > maxSize) {
       const msg = 'File too large. Maximum size is 10MB.';
+      set({ status: 'error', error: msg });
+      return { ok: false, message: msg };
+    }
+
+    // Convert WebP to PNG if needed (backend doesn't support WebP)
+    try {
+      const { file: processedFile, converted, originalFormat } = await ensureBackendCompatibleFormat(file);
+
+      if (converted) {
+        toast.success(`Converted ${originalFormat?.toUpperCase()} to PNG for backend compatibility`);
+        file = processedFile; // Use converted file
+      }
+    } catch (err) {
+      const error = err as Error;
+      const msg = error.message || 'Failed to process image';
+      toast.error(msg);
       set({ status: 'error', error: msg });
       return { ok: false, message: msg };
     }
@@ -294,6 +327,21 @@ export const useVtonStore = create<VtonState>((set, get) => ({
       return { ok: false, message: msg };
     }
 
+    // Convert WebP to PNG if needed (backend doesn't support WebP)
+    try {
+      const { file: processedFile, converted, originalFormat } = await ensureBackendCompatibleFormat(file);
+
+      if (converted) {
+        toast.success(`Converted ${originalFormat?.toUpperCase()} to PNG for backend compatibility`);
+        file = processedFile; // Use converted file
+      }
+    } catch (err) {
+      const error = err as Error;
+      const msg = error.message || 'Failed to process image';
+      toast.error(msg);
+      return { ok: false, message: msg };
+    }
+
     const previewUrl = URL.createObjectURL(file);
     set({
       upperGarment: { file, previewUrl },
@@ -349,6 +397,21 @@ export const useVtonStore = create<VtonState>((set, get) => ({
 
     if (file.size > 10 * 1024 * 1024) {
       const msg = 'File too large. Maximum size is 10MB.';
+      return { ok: false, message: msg };
+    }
+
+    // Convert WebP to PNG if needed (backend doesn't support WebP)
+    try {
+      const { file: processedFile, converted, originalFormat } = await ensureBackendCompatibleFormat(file);
+
+      if (converted) {
+        toast.success(`Converted ${originalFormat?.toUpperCase()} to PNG for backend compatibility`);
+        file = processedFile; // Use converted file
+      }
+    } catch (err) {
+      const error = err as Error;
+      const msg = error.message || 'Failed to process image';
+      toast.error(msg);
       return { ok: false, message: msg };
     }
 

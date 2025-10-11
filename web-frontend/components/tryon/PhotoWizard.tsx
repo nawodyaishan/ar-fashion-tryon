@@ -39,6 +39,7 @@ import QualityTipsCard from './QualityTipsCard';
 import ClassificationChip from './ClassificationChip';
 import ClothTypeSelector from './ClothTypeSelector';
 import PreflightChecklist from './PreflightChecklist';
+import ScrollIndicator from '@/components/ui/scroll-indicator';
 
 export default function PhotoWizard() {
   const bodyFileInputRef = useRef<HTMLInputElement>(null);
@@ -49,6 +50,7 @@ export default function PhotoWizard() {
   const bodyCanvasRef = useRef<HTMLCanvasElement>(null);
   const garmentVideoRef = useRef<HTMLVideoElement>(null);
   const garmentCanvasRef = useRef<HTMLCanvasElement>(null);
+  const contentScrollRef = useRef<HTMLDivElement>(null);
 
   // VTON Store
   const {
@@ -350,7 +352,7 @@ export default function PhotoWizard() {
       )}
 
       {/* Content Area */}
-      <div className="flex-1 overflow-y-auto">
+      <div ref={contentScrollRef} className="flex-1 overflow-y-auto">
         {/* PATH SELECTION */}
         {step === 'PATH_SELECT' && (
           <div className="p-4 space-y-4 max-w-2xl mx-auto">
@@ -1286,6 +1288,16 @@ export default function PhotoWizard() {
             </Button>
           </div>
         </div>
+      )}
+
+      {/* Scroll Indicator for Mobile - Shows when content below fold */}
+      {step !== 'PATH_SELECT' && step !== 'RESULT' && (
+        <ScrollIndicator
+          containerRef={contentScrollRef}
+          text="Scroll down"
+          hideThreshold={50}
+          mobileOnly={true}
+        />
       )}
     </div>
   );

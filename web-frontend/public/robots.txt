@@ -1,0 +1,19 @@
+# robots.txt for AR Fashion Try-On
+
+# Allow all crawlers
+User-agent: *
+Allow: /
+
+# Disallow admin/private paths (if any)
+# Disallow: /admin/
+# Disallow: /api/
+
+# Sitemap location
+Sitemap: https://ar-fashion-tryon.vercel.app/sitemap.xml
+
+# Crawl-delay for specific bots (optional)
+# User-agent: Googlebot
+# Crawl-delay: 0
+
+# User-agent: Bingbot
+# Crawl-delay: 1
