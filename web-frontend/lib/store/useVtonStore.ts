@@ -3,14 +3,19 @@ import { create } from 'zustand';
 import type { VtonOptions, ClothType } from '@/lib/types';
 import { virtualTryOn } from '@/lib/services/vtonApi';
 import { detectGarmentType, constructOutfit } from '@/lib/services/garmentApi';
+import { analyzeImageQuality, type QualityLevel } from '@/lib/utils/imageQuality';
 
 // Three different try-on paths
 export type TryOnPath = 'NORMAL' | 'FULL' | 'REFERENCE';
 export type VtonStep = 'PATH_SELECT' | 'BODY' | 'GARMENT' | 'UPPER' | 'LOWER' | 'PREVIEW' | 'GENERATE' | 'RESULT';
 
+// Preselection states for cloth type
+export type PreselectState = 'LOCKED' | 'SUGGESTED' | 'UNKNOWN';
+
 interface ImageSelection {
   file?: File;
   previewUrl?: string;
+  quality?: QualityLevel; // GOOD | OK | POOR
 }
 
 interface GarmentClassification {
@@ -26,6 +31,15 @@ interface OutfitData {
   lowerLabel?: string;
   upperConfidence?: number;
   lowerConfidence?: number;
+}
+
+// Preflight validation results
+interface PreflightChecks {
+  resolutionOK: boolean;
+  brightnessOK: boolean;
+  requiredImagesOK: boolean;
+  clothTypeSelected: boolean;
+  outfitReady?: boolean; // for FULL mode
 }
 
 interface VtonState {
@@ -45,6 +59,12 @@ interface VtonState {
   // Options
   options: VtonOptions;
 
+  // Preselection state for cloth type
+  preselectState: PreselectState;
+
+  // Preflight validation
+  preflight: PreflightChecks;
+
   // Status
   status: 'idle' | 'valid' | 'uploading' | 'classifying' | 'constructing' | 'processing' | 'done' | 'error';
   resultUrl?: string;
@@ -53,7 +73,7 @@ interface VtonState {
   // Actions
   setPath: (path: TryOnPath) => void;
   setStep: (s: VtonStep) => void;
-  setBody: (file: File | undefined) => void;
+  setBody: (file: File | undefined) => Promise<void>;
 
   // Normal path - single garment
   setGarmentFile: (file: File | undefined, skipClassification?: boolean) => Promise<{ ok: boolean; message?: string }>;
@@ -68,6 +88,9 @@ interface VtonState {
 
   // Helpers
   getAvailableClothTypes: () => ClothType[];
+  getDisabledClothTypes: () => { type: ClothType; reason: string }[];
+  getPreselectState: () => PreselectState;
+  getPreflightChecks: () => PreflightChecks;
   canProceedToGenerate: () => boolean;
 
   // Try-on execution
@@ -84,6 +107,13 @@ export const useVtonStore = create<VtonState>((set, get) => ({
   lowerGarment: {},
   outfit: {},
   options: { clothType: 'upper' },
+  preselectState: 'UNKNOWN',
+  preflight: {
+    resolutionOK: false,
+    brightnessOK: false,
+    requiredImagesOK: false,
+    clothTypeSelected: false,
+  },
   status: 'idle',
 
   setPath: (path) => {
@@ -102,9 +132,29 @@ export const useVtonStore = create<VtonState>((set, get) => ({
 
   setStep: (s) => set({ step: s }),
 
-  setBody: (file) => {
-    const previewUrl = file ? URL.createObjectURL(file) : undefined;
-    set({ body: { file, previewUrl } });
+  setBody: async (file) => {
+    if (!file) {
+      set({ body: {} });
+      return;
+    }
+
+    const previewUrl = URL.createObjectURL(file);
+
+    // Analyze image quality
+    try {
+      const qualityCheck = await analyzeImageQuality(file, 3 / 4, 0.4); // expect portrait ~3:4
+      set({
+        body: { file, previewUrl, quality: qualityCheck.level },
+      });
+
+      if (qualityCheck.level === 'POOR') {
+        console.warn('⚠️ Body photo quality is poor:', qualityCheck.suggestions);
+      }
+    } catch (err) {
+      // If quality check fails, still set the image
+      console.warn('Quality check failed:', err);
+      set({ body: { file, previewUrl, quality: 'OK' } });
+    }
   },
 
   // Normal path & Reference path - single garment upload
@@ -191,6 +241,18 @@ export const useVtonStore = create<VtonState>((set, get) => ({
         detectedType,
       });
 
+      // Auto-preselect cloth type based on classification
+      if (detectedType && classification.confidence >= 0.6) {
+        const autoClothType: ClothType =
+          detectedType === 'full' ? 'overall' : detectedType;
+
+        set({
+          options: { ...get().options, clothType: autoClothType },
+        });
+
+        console.log('🎯 Auto-preselected cloth type:', autoClothType);
+      }
+
       return { ok: true };
     } catch (err: unknown) {
       const error = err as Error;
@@ -262,7 +324,7 @@ export const useVtonStore = create<VtonState>((set, get) => ({
       });
 
       return { ok: true };
-    } catch (_err) {
+    } catch {
       // Classification failed, continue without it
       set({
         upperGarment: { file, previewUrl },
@@ -320,7 +382,7 @@ export const useVtonStore = create<VtonState>((set, get) => ({
       });
 
       return { ok: true };
-    } catch (_err) {
+    } catch {
       // Classification failed, continue without it
       set({
         lowerGarment: { file, previewUrl },
@@ -404,6 +466,95 @@ export const useVtonStore = create<VtonState>((set, get) => ({
     return types;
   },
 
+  // Get disabled cloth types with reasons
+  getDisabledClothTypes: () => {
+    const { tryOnPath, garment } = get();
+    const disabled: { type: ClothType; reason: string }[] = [];
+
+    // FULL mode: all types disabled except overall
+    if (tryOnPath === 'FULL') {
+      disabled.push(
+        { type: 'upper', reason: 'Complete outfits require Overall' },
+        { type: 'lower', reason: 'Complete outfits require Overall' },
+      );
+      return disabled;
+    }
+
+    // REFERENCE mode: no disabled types
+    if (tryOnPath === 'REFERENCE') {
+      return [];
+    }
+
+    // NORMAL mode: disable based on classification
+    const detectedType = garment.classification?.detectedType;
+
+    if (detectedType === 'upper') {
+      disabled.push({ type: 'lower', reason: 'Lower garments not compatible with detected upper' });
+    } else if (detectedType === 'lower') {
+      disabled.push({ type: 'upper', reason: 'Upper garments not compatible with detected lower' });
+    } else if (detectedType === 'full') {
+      disabled.push(
+        { type: 'upper', reason: 'Full-body garment requires Overall' },
+        { type: 'lower', reason: 'Full-body garment requires Overall' },
+      );
+    }
+
+    return disabled;
+  },
+
+  // Get preselection state based on classification confidence
+  getPreselectState: () => {
+    const { tryOnPath, garment } = get();
+
+    // FULL mode: always locked to overall
+    if (tryOnPath === 'FULL') {
+      return 'LOCKED';
+    }
+
+    // REFERENCE mode: no preselection
+    if (tryOnPath === 'REFERENCE') {
+      return 'UNKNOWN';
+    }
+
+    // NORMAL mode: based on classification confidence
+    const confidence = garment.classification?.confidence;
+
+    if (!confidence) {
+      return 'UNKNOWN';
+    }
+
+    if (confidence >= 0.85) {
+      return 'LOCKED'; // High confidence
+    } else if (confidence >= 0.6) {
+      return 'SUGGESTED'; // Medium confidence
+    } else {
+      return 'UNKNOWN'; // Low confidence
+    }
+  },
+
+  // Get preflight validation checks
+  getPreflightChecks: () => {
+    const { tryOnPath, body, garment, outfit, options } = get();
+
+    const checks: PreflightChecks = {
+      resolutionOK: body.quality !== 'POOR',
+      brightnessOK: body.quality !== 'POOR',
+      requiredImagesOK: false,
+      clothTypeSelected: !!options.clothType,
+      outfitReady: false,
+    };
+
+    // Check required images based on path
+    if (tryOnPath === 'FULL') {
+      checks.requiredImagesOK = !!body.file;
+      checks.outfitReady = !!outfit.url;
+    } else {
+      checks.requiredImagesOK = !!body.file && !!garment.file;
+    }
+
+    return checks;
+  },
+
   // Check if user can proceed to generate
   canProceedToGenerate: () => {
     const { tryOnPath, body, garment, outfit } = get();
@@ -433,6 +584,13 @@ export const useVtonStore = create<VtonState>((set, get) => ({
       lowerGarment: {},
       outfit: {},
       options: { clothType: 'upper' },
+      preselectState: 'UNKNOWN',
+      preflight: {
+        resolutionOK: false,
+        brightnessOK: false,
+        requiredImagesOK: false,
+        clothTypeSelected: false,
+      },
       status: 'idle',
       resultUrl: undefined,
       error: undefined,

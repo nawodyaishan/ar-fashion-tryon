@@ -6,7 +6,6 @@ import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Progress } from '@/components/ui/progress';
 import {
   Accordion,
@@ -15,7 +14,6 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion';
 import { useVtonStore } from '@/lib/store/useVtonStore';
-import type { ClothType } from '@/lib/types';
 import {
   AlertCircle,
   Camera,
@@ -37,6 +35,10 @@ import { toast } from 'sonner';
 import Image from 'next/image';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { downloadBase64ImageSmart } from '@/lib/services/gradioApi';
+import QualityTipsCard from './QualityTipsCard';
+import ClassificationChip from './ClassificationChip';
+import ClothTypeSelector from './ClothTypeSelector';
+import PreflightChecklist from './PreflightChecklist';
 
 export default function PhotoWizard() {
   const bodyFileInputRef = useRef<HTMLInputElement>(null);
@@ -72,6 +74,9 @@ export default function PhotoWizard() {
     tryOn,
     reset,
     getAvailableClothTypes,
+    getDisabledClothTypes,
+    getPreselectState,
+    getPreflightChecks,
     canProceedToGenerate,
   } = useVtonStore();
 
@@ -426,9 +431,23 @@ export default function PhotoWizard() {
             <div className="text-center space-y-2">
               <h2 className="text-xl sm:text-2xl font-bold">Upload Body Photo</h2>
               <p className="text-sm text-muted-foreground">
-                Front-facing photo with clear view of {tryOnPath === 'FULL' ? 'full body' : 'upper body'}
+                Upload a clear, front-facing upper-body photo. Good lighting. Plain background.
               </p>
             </div>
+
+            {/* Quality Tips */}
+            {!body.file && (
+              <QualityTipsCard
+                title="Body Photo — Quick Tips"
+                tips={[
+                  'Face camera straight on; shoulders fully visible',
+                  'Bright, even light in front of you',
+                  'Plain background; avoid busy rooms',
+                  'Arms relaxed; avoid crossing',
+                  'Image width ≥ 1024 px for best quality',
+                ]}
+              />
+            )}
 
             {!body.file && !showBodyCamera ? (
               <div className="space-y-3">
@@ -508,6 +527,16 @@ export default function PhotoWizard() {
                   >
                     <X className="h-4 w-4" />
                   </Button>
+
+                  {/* Quality badge */}
+                  {body.quality && (
+                    <Badge
+                      variant={body.quality === 'GOOD' ? 'default' : body.quality === 'OK' ? 'outline' : 'destructive'}
+                      className="absolute top-2 left-2 text-xs"
+                    >
+                      Input quality: {body.quality}
+                    </Badge>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
@@ -552,6 +581,27 @@ export default function PhotoWizard() {
                   : 'Upload garment photo or capture with camera'}
               </p>
             </div>
+
+            {/* Quality Tips */}
+            {!garment.file && (
+              <QualityTipsCard
+                title={tryOnPath === 'REFERENCE' ? 'Reference Mode — Quick Tips' : 'Garment Photo — Quick Tips'}
+                tips={
+                  tryOnPath === 'REFERENCE'
+                    ? [
+                        'Full body, front view; minimal occlusions',
+                        'Outfit clearly visible; avoid heavy filters',
+                        'Similar lighting to your body photo helps',
+                      ]
+                    : [
+                        'Front view, laid flat or on hanger',
+                        'Plain or transparent background (PNG preferred)',
+                        'Centered, no severe wrinkles',
+                        'Recommended width ≥ 1024 px',
+                      ]
+                }
+              />
+            )}
 
             {!garment.file && !showGarmentCamera ? (
               <div className="space-y-3">
@@ -903,11 +953,34 @@ export default function PhotoWizard() {
         {step === 'GENERATE' && !resultUrl && (
           <div className="p-4 space-y-4 max-w-2xl mx-auto">
             <div className="text-center space-y-2">
-              <h2 className="text-xl sm:text-2xl font-bold">Review & Generate</h2>
+              <h2 className="text-xl sm:text-2xl font-bold">Options & Generate</h2>
               <p className="text-sm text-muted-foreground">
-                Check your selections before generating
+                Check selections and adjust settings before generating
               </p>
             </div>
+
+            {/* Classification Summary Chips */}
+            {garment.classification && tryOnPath === 'NORMAL' && (
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
+                <span className="text-xs font-medium text-muted-foreground">Detected:</span>
+                <ClassificationChip
+                  label={garment.classification.label}
+                  confidence={garment.classification.confidence}
+                  size="md"
+                />
+              </div>
+            )}
+
+            {/* Cloth Type Selector with Preselection Logic */}
+            <ClothTypeSelector
+              value={options.clothType || 'upper'}
+              onChange={(value) => setOptions({ clothType: value })}
+              availableTypes={getAvailableClothTypes()}
+              disabledTypes={getDisabledClothTypes()}
+              preselectState={getPreselectState()}
+              detectedLabel={garment.classification?.label}
+              confidence={garment.classification?.confidence}
+            />
 
             <div className="grid grid-cols-2 gap-3">
               {/* Body Preview */}
@@ -938,50 +1011,21 @@ export default function PhotoWizard() {
               </Card>
             </div>
 
-            {/* Cloth Type Selector - Accordion */}
+            {/* Advanced Options - Accordion */}
             <Accordion type="single" collapsible className="w-full">
               <AccordionItem value="options">
                 <AccordionTrigger className="text-sm">
                   <div className="flex items-center justify-between w-full pr-2">
-                    <span>Garment Type & Options</span>
-                    <Badge variant="outline" className="text-xs">
-                      {options.clothType || 'upper'}
-                    </Badge>
+                    <span>Advanced Settings</span>
                   </div>
                 </AccordionTrigger>
                 <AccordionContent className="space-y-4 pt-4">
-                  {/* Cloth Type */}
                   <div className="space-y-3">
-                    <Label className="text-sm font-medium">Garment Type</Label>
-                    <RadioGroup
-                      value={options.clothType || 'upper'}
-                      onValueChange={(value) => setOptions({ clothType: value as ClothType })}
-                      className="grid grid-cols-1 gap-2"
-                    >
-                      {getAvailableClothTypes().map((type) => (
-                        <div key={type}>
-                          <RadioGroupItem value={type} id={type} className="peer sr-only" />
-                          <Label
-                            htmlFor={type}
-                            className="flex items-center justify-between rounded-md border-2 border-muted bg-popover p-3 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"
-                          >
-                            <span className="text-sm font-medium capitalize">{type}</span>
-                            {garment.classification?.detectedType === type && (
-                              <Badge variant="default" className="text-xs">Detected</Badge>
-                            )}
-                          </Label>
-                        </div>
-                      ))}
-                    </RadioGroup>
-                  </div>
-
-                  {/* Advanced Settings */}
-                  <div className="space-y-3 pt-2 border-t">
-                    <p className="text-xs text-muted-foreground">Advanced Settings</p>
-
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <Label className="text-xs">Inference Steps</Label>
+                        <Label className="text-xs" title="Number of diffusion steps (higher = better quality, slower)">
+                          Inference Steps
+                        </Label>
                         <span className="text-xs text-muted-foreground">
                           {options.numInferenceSteps ?? 50}
                         </span>
@@ -998,7 +1042,9 @@ export default function PhotoWizard() {
 
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <Label className="text-xs">Guidance Scale</Label>
+                        <Label className="text-xs" title="How closely to follow the prompt (1.0-10.0)">
+                          Guidance Scale
+                        </Label>
                         <span className="text-xs text-muted-foreground">
                           {(options.guidanceScale ?? 2.5).toFixed(1)}
                         </span>
@@ -1016,6 +1062,29 @@ export default function PhotoWizard() {
                 </AccordionContent>
               </AccordionItem>
             </Accordion>
+
+            {/* Preflight Validation */}
+            {(() => {
+              const preflight = getPreflightChecks();
+              const allPassed = preflight.resolutionOK && preflight.brightnessOK && preflight.requiredImagesOK && preflight.clothTypeSelected;
+
+              if (tryOnPath === 'FULL' && !preflight.outfitReady) {
+                return null; // Don't show preflight for outfit construction
+              }
+
+              const failedChecks = [
+                !preflight.resolutionOK && { label: 'Resolution check', passed: false, message: 'Image resolution is too low' },
+                !preflight.clothTypeSelected && { label: 'Cloth type', passed: false, message: 'Choose a cloth type to continue' },
+                !preflight.requiredImagesOK && { label: 'Images', passed: false, message: 'Upload required images' },
+              ].filter(Boolean) as { label: string; passed: boolean; message: string }[];
+
+              return (
+                <PreflightChecklist
+                  checks={failedChecks}
+                  allPassed={allPassed}
+                />
+              );
+            })()}
 
             {error && (
               <Alert variant="destructive">
@@ -1152,7 +1221,7 @@ export default function PhotoWizard() {
                 <div className="space-y-1">
                   <p className="text-sm font-medium">Processing Complete</p>
                   <p className="text-xs text-muted-foreground">
-                    Your try-on image is ready to download or share.
+                    Synthetic preview; colors and fit may vary. Your try-on image is ready to download or share.
                   </p>
                 </div>
               </div>
