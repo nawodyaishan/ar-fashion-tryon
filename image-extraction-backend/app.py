@@ -335,16 +335,17 @@ async def construct_outfit(
     This endpoint:
     1. Validates both garment uploads (extension, MIME, size, PIL)
     2. Classifies each garment to verify it's a shirt (upper) and pants/trousers (lower)
-    3. Merges the two garments vertically (shirt on top, pants on bottom)
-    4. Uploads the constructed outfit to Cloudinary
-    5. Returns both individual garment URLs and the constructed outfit URL
+    3. Removes backgrounds from both garments (creates transparent cutouts)
+    4. Merges the cutouts vertically (shirt on top, pants on bottom)
+    5. Uploads originals, cutouts, and the constructed outfit to Cloudinary
+    6. Returns all URLs (originals, cutouts, and merged outfit)
 
     Form-Data:
         upper_garment: Image file of shirt/t-shirt/top (PNG, JPG, JPEG)
         lower_garment: Image file of pants/trousers/skirt (PNG, JPG, JPEG)
 
     Returns:
-        JSON with garment classifications, individual URLs, and constructed outfit URL
+        JSON with garment classifications, individual URLs, cutout URLs, and constructed outfit URL
     """
     request_id = getattr(request.state, "request_id", "unknown")
     logger.info(f"[{request_id}] construct_outfit request started")
@@ -495,10 +496,33 @@ async def construct_outfit(
         lower_upload = await run_in_threadpool(upload_bytes, lower_body, lower_public_id, FOLDER_ORIG, None)
         lower_url = lower_upload["secure_url"]
 
-        # ========== CONSTRUCT OUTFIT IMAGE ==========
-        logger.info(f"[{request_id}] Constructing full outfit image...")
+        # ========== BACKGROUND REMOVAL ==========
+        logger.info(f"[{request_id}] Removing backgrounds from garments...")
 
-        outfit_bytes = await run_in_threadpool(construct_outfit_image, upper_body, lower_body)
+        # Remove background from upper garment
+        upper_cutout_im = await run_in_threadpool(remove_background, upper_tmp_path)
+        upper_cutout_bytes = await run_in_threadpool(image_to_png_bytes, upper_cutout_im)
+
+        # Upload upper cutout
+        upper_cutout_public_id = f"upper_cutout_{token}"
+        upper_cutout_upload = await run_in_threadpool(upload_bytes, upper_cutout_bytes, upper_cutout_public_id, FOLDER_CUT, "png")
+        upper_cutout_url = upper_cutout_upload["secure_url"]
+        logger.info(f"Upper garment cutout created: {upper_cutout_url}")
+
+        # Remove background from lower garment
+        lower_cutout_im = await run_in_threadpool(remove_background, lower_tmp_path)
+        lower_cutout_bytes = await run_in_threadpool(image_to_png_bytes, lower_cutout_im)
+
+        # Upload lower cutout
+        lower_cutout_public_id = f"lower_cutout_{token}"
+        lower_cutout_upload = await run_in_threadpool(upload_bytes, lower_cutout_bytes, lower_cutout_public_id, FOLDER_CUT, "png")
+        lower_cutout_url = lower_cutout_upload["secure_url"]
+        logger.info(f"Lower garment cutout created: {lower_cutout_url}")
+
+        # ========== CONSTRUCT OUTFIT IMAGE ==========
+        logger.info(f"[{request_id}] Constructing full outfit image from cutouts...")
+
+        outfit_bytes = await run_in_threadpool(construct_outfit_image, upper_cutout_bytes, lower_cutout_bytes)
 
         # Upload constructed outfit
         outfit_public_id = f"outfit_{token}"
@@ -520,18 +544,23 @@ async def construct_outfit(
             "label": upper_label,
             "confidence": round(upper_conf, 4),
             "url": upper_url,
-            "public_id": f"{FOLDER_ORIG}/{upper_public_id}"
+            "cutout_url": upper_cutout_url,
+            "public_id": f"{FOLDER_ORIG}/{upper_public_id}",
+            "cutout_public_id": f"{FOLDER_CUT}/{upper_cutout_public_id}"
         },
         "lower_garment": {
             "label": lower_label,
             "confidence": round(lower_conf, 4),
             "url": lower_url,
-            "public_id": f"{FOLDER_ORIG}/{lower_public_id}"
+            "cutout_url": lower_cutout_url,
+            "public_id": f"{FOLDER_ORIG}/{lower_public_id}",
+            "cutout_public_id": f"{FOLDER_CUT}/{lower_cutout_public_id}"
         },
         "outfit": {
             "url": outfit_url,
             "public_id": f"{FOLDER_ORIG}/{outfit_public_id}",
-            "format": "png"
+            "format": "png",
+            "description": "Merged outfit image from cutouts (transparent backgrounds)"
         }
     })
 
@@ -592,14 +621,12 @@ async def virtual_tryon(
         logger.error(f"[{request_id}] Person upload failed: {e}")
         raise HTTPException(status_code=500, detail=f"Person upload failed: {e}")
 
-    # Process garment (optional)
+    # Process garment (optional background removal)
     garment_url = None
     cutout_url = None
-    garment_label = None
-    garment_confidence = None
 
     if process_garment:
-        logger.info("Processing garment (classify + background removal)")
+        logger.info("Processing garment (background removal only)")
 
         # Save garment to temp file
         garment_ext = garment_filename.rsplit(".", 1)[1].lower()
@@ -613,15 +640,7 @@ async def virtual_tryon(
             garment_upload = await run_in_threadpool(upload_bytes, garment_body, garment_public_id, FOLDER_ORIG, None)
             garment_url = garment_upload["secure_url"]
 
-            # Classify
-            try:
-                garment_label, garment_confidence = await run_in_threadpool(classify_image, tmp_garment_path)
-                logger.info(f"Garment classified: {garment_label} (confidence={garment_confidence:.2%})")
-            except Exception as e:
-                logger.warning(f"Garment classification failed: {e}")
-                garment_label, garment_confidence = "UNKNOWN", 0.0
-
-            # Background removal
+            # Background removal (classification already done on frontend)
             cutout_im = await run_in_threadpool(remove_background, tmp_garment_path)
             cutout_bytes = await run_in_threadpool(image_to_png_bytes, cutout_im)
 
@@ -699,13 +718,6 @@ async def virtual_tryon(
             "show_type": show_type
         }
     }
-
-    # Add garment classification if available
-    if process_garment and garment_label:
-        response["garment_classification"] = {
-            "label": garment_label,
-            "confidence": round(garment_confidence, 4)
-        }
 
     logger.info(f"[{request_id}] virtual_tryon completed successfully")
     return JSONResponse(response)
