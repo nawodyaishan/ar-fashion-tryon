@@ -20,7 +20,14 @@ echo "Downloading trained_models.zip from Google Drive..."
 gdown "https://drive.google.com/uc?id=${FILE_ID}" -O /tmp/trained_models.zip
 
 echo "Extracting models..."
-unzip -o -q /tmp/trained_models.zip -d "$MODELS_DIR"
+# Extract to temp directory first to preserve JSON configs from git
+mkdir -p /tmp/models_temp
+unzip -o -q /tmp/trained_models.zip -d /tmp/models_temp
+
+# Only copy .h5 model files (preserve JSON configs from git)
+echo "Copying .h5 model files (preserving JSON configs from git)..."
+find /tmp/models_temp -name "*.h5" -exec cp -v {} "$MODELS_DIR/" \;
+rm -rf /tmp/models_temp
 
 echo "Verifying model files..."
 for file in best_clothing_model.h5 clothing_model_final.h5 class_labels.json model_config.json rejection_threshold.json; do

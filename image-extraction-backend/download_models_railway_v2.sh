@@ -112,11 +112,22 @@ extract_models() {
         return 1
     fi
 
-    # Extract with overwrite
-    if ! unzip -o -q "$zip_path" -d "$MODELS_DIR"; then
+    # Extract to temporary directory first
+    local temp_extract="$DOWNLOAD_DIR/models_temp"
+    mkdir -p "$temp_extract"
+
+    if ! unzip -o -q "$zip_path" -d "$temp_extract"; then
         log_error "Extraction failed"
+        rm -rf "$temp_extract"
         return 1
     fi
+
+    # Only copy .h5 model files (preserve JSON configs from git)
+    log_info "Copying .h5 model files (preserving JSON configs from git)..."
+    find "$temp_extract" -name "*.h5" -exec cp -v {} "$MODELS_DIR/" \;
+
+    # Cleanup temp directory
+    rm -rf "$temp_extract"
 
     log_info "Extraction complete"
     return 0

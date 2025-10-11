@@ -39,6 +39,41 @@ This API provides AI-powered garment classification, background removal, outfit 
 - ☁️ Cloudinary integration for image storage
 - 🚀 Fast, async processing
 
+### Architecture
+
+The API uses a **modular architecture** with clear separation of concerns:
+
+```
+image-extraction-backend/
+├── app.py                    # Main FastAPI application (endpoints & routing)
+├── config.py                 # Configuration & environment variables
+├── models.py                 # Pydantic request/response models
+├── middleware.py             # Request ID middleware
+├── services/                 # Business logic services
+│   ├── classifier.py         # TensorFlow model loading & classification
+│   ├── cloudinary_service.py # Cloudinary upload/download
+│   ├── gradio_service.py     # Gradio API client & virtual try-on
+│   └── image_processing.py   # Background removal & image utilities
+└── models/                   # ML model files
+    ├── best_clothing_model.h5
+    ├── class_labels.json
+    ├── model_config.json
+    └── rejection_threshold.json
+```
+
+**Key Components:**
+- **app.py** (727 lines): FastAPI endpoints with request validation and error handling
+- **services/classifier.py**: TensorFlow model loading with graceful degradation
+- **services/gradio_service.py**: Singleton Gradio client with retry logic
+- **services/cloudinary_service.py**: Cloudinary upload/download utilities
+- **services/image_processing.py**: Background removal (rembg) and format conversion
+
+**Design Principles:**
+- **Graceful Degradation**: API continues working even if model loading fails
+- **Async Processing**: All I/O operations use async/await for better performance
+- **Request Tracking**: Each request gets a unique ID for debugging
+- **Lazy Initialization**: Gradio client connects on first use (not at startup)
+
 ---
 
 ## Authentication
@@ -96,7 +131,9 @@ For production deployment, consider implementing:
 
 **Endpoint:** `GET /health`
 
-Comprehensive health check for monitoring service status, model availability, and external service connections.
+Basic health check endpoint that returns API version and service information.
+
+**Note:** Current implementation returns default values. Future versions will implement comprehensive service health checks.
 
 #### Request
 
@@ -112,15 +149,10 @@ curl -X GET "https://your-api-domain.com/health"
 {
   "status": "ok",
   "version": "2.0.0",
-  "model_loaded": true,
-  "model_name": "best_clothing_model.h5",
-  "gradio_connected": true,
-  "services": {
-    "classification": "operational",
-    "background_removal": "operational",
-    "virtual_tryon": "operational",
-    "cloudinary": "operational"
-  }
+  "model_loaded": false,
+  "model_name": null,
+  "gradio_connected": false,
+  "services": null
 }
 ```
 
@@ -128,24 +160,28 @@ curl -X GET "https://your-api-domain.com/health"
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `status` | string | Overall API status ("ok" or "degraded") |
+| `status` | string | Overall API status (always "ok") |
 | `version` | string | API version number |
-| `model_loaded` | boolean | Whether TensorFlow model is loaded |
-| `model_name` | string | Loaded model filename (null if not loaded) |
-| `gradio_connected` | boolean | Whether Gradio client is connected |
-| `services.classification` | string | Classification service status ("operational" or "degraded") |
-| `services.background_removal` | string | Background removal status (always "operational") |
-| `services.virtual_tryon` | string | Virtual try-on status ("operational" or "degraded") |
-| `services.cloudinary` | string | Cloudinary upload status (always "operational") |
+| `model_loaded` | boolean | Whether TensorFlow model is loaded (always false in current implementation) |
+| `model_name` | string | Loaded model filename (always null in current implementation) |
+| `gradio_connected` | boolean | Whether Gradio client is connected (always false in current implementation) |
+| `services` | object | Service status information (always null in current implementation) |
 
 **Use Cases:**
-- Deployment validation after Railway pushes
-- Continuous monitoring and alerting
-- Service status dashboard
+- Basic uptime monitoring
 - Load balancer health checks
+- Deployment validation
 
-**Degraded Mode:**
-If `model_loaded: false`, the API still functions but classification returns "UNKNOWN". Background removal and virtual try-on remain operational.
+**Implementation Note:**
+The current health endpoint returns static default values. The API functions normally regardless of these values. To verify actual service availability:
+- **Classification**: Call `/detect_garment_type` with a test image
+- **Background Removal**: Call `/classify_garment` with a test image
+- **Virtual Try-On**: Call `/virtual_tryon` with test images
+
+**Graceful Degradation:**
+Even if the TensorFlow model fails to load at startup, the API continues to operate:
+- Classification endpoints return `"UNKNOWN"` as the label with 0.0 confidence
+- Background removal and virtual try-on continue to work normally
 
 ---
 
@@ -192,13 +228,23 @@ curl -X POST "https://your-api-domain.com/classify_garment" \
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `label` | string | Classified garment type (e.g., "tshirt", "trousers", "UNKNOWN") |
+| `label` | string | Classified garment type: `"tshirt"`, `"trousers"`, `"unknown"`, or `"UNKNOWN"` (see Label Values below) |
 | `confidence` | float | Classification confidence (0.0 - 1.0) |
 | `garment_url` | string | Cloudinary URL of original garment |
 | `cutout_url` | string | Cloudinary URL of background-removed garment |
 | `cutout_path` | string | Relative path to cutout |
 | `garment_public_id` | string | Cloudinary public ID of original |
 | `cutout_public_id` | string | Cloudinary public ID of cutout |
+
+**Label Values:**
+- `"tshirt"` - T-shirts, shirts, tops, upper body garments
+- `"trousers"` - Pants, trousers, lower body garments
+- `"unknown"` - Other garment types not in training set (confidence below threshold)
+- `"UNKNOWN"` - Classification failed or model not loaded
+
+**Note:** The model automatically maps internal labels to frontend-compatible labels:
+- Internal `"trouser"` → Returns `"trousers"` (plural)
+- Internal `"other"` → Returns `"unknown"` (lowercase)
 
 #### Error Responses
 
@@ -313,11 +359,17 @@ curl -X POST "https://your-api-domain.com/detect_garment_type" \
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `label` | string | Classified garment type |
+| `label` | string | Classified garment type: `"tshirt"`, `"trousers"`, `"unknown"`, or `"UNKNOWN"` |
 | `confidence` | float | Classification confidence (0.0 - 1.0) |
 | `filename` | string | Secure tokenized filename |
 | `file_size_bytes` | integer | File size in bytes |
 | `content_type` | string | MIME type of uploaded file |
+
+**Label Values:**
+- `"tshirt"` - T-shirts, shirts, tops, upper body garments
+- `"trousers"` - Pants, trousers, lower body garments
+- `"unknown"` - Other garment types (confidence below threshold)
+- `"UNKNOWN"` - Classification failed or model not loaded
 
 **Use Cases:**
 - Quick garment type detection
@@ -524,7 +576,7 @@ All endpoints return errors in a consistent format:
 }
 ```
 
-For endpoints with request ID tracking:
+For unhandled exceptions (500 errors), the global exception handler returns:
 
 ```json
 {
@@ -532,6 +584,13 @@ For endpoints with request ID tracking:
   "request_id": "abc12345"
 }
 ```
+
+**Response Headers:**
+All API responses include the following headers:
+- `X-Request-ID`: Unique 8-character identifier for request tracking and debugging
+- Example: `X-Request-ID: 7a3f9e2b`
+
+**Note:** Request IDs are also logged server-side in the format `[request_id]` for correlation with client errors.
 
 ### Common Error Scenarios
 
@@ -926,7 +985,7 @@ CMD ["gunicorn", "-k", "uvicorn.workers.UvicornWorker", "-w", "1", "-b", "0.0.0.
 
 ## Changelog
 
-### Version 2.0.0 (2025-10-10)
+### Version 2.0.0 (2025-10-10 - Updated 2025-10-11)
 
 **🚀 Major Features:**
 - ✨ Added `/construct_outfit` endpoint - Merge upper + lower garments
@@ -955,12 +1014,20 @@ CMD ["gunicorn", "-k", "uvicorn.workers.UvicornWorker", "-w", "1", "-b", "0.0.0.
 - 🧪 Added test_model_load.py for local validation
 - 📚 Updated API documentation with deployment guide
 
+**📝 Documentation Updates (2025-10-11):**
+- ✅ Corrected `/health` endpoint response to reflect actual implementation (returns default values)
+- ✅ Added comprehensive architecture documentation with file structure
+- ✅ Documented classification label mappings (`trouser` → `trousers`, `other` → `unknown`)
+- ✅ Fixed default tau threshold value (0.75, configurable via `rejection_threshold.json`)
+- ✅ Added label value documentation for all classification endpoints
+- ✅ Clarified graceful degradation behavior when model fails to load
+
 **📊 Model Updates:**
 - 🎯 New model trained with TensorFlow 2.16.2
 - 📈 3-class classification: trousers, tshirt, other
-- 🎚️ Rejection threshold (tau): 0.8452
+- 🎚️ Default rejection threshold (tau): 0.75 (configurable via `rejection_threshold.json`)
 - 📐 Input: 224x224x3, Output: softmax (3 classes)
-- 💾 Model size: 152 MB each (best + final)
+- 💾 Model size: ~152 MB (best_clothing_model.h5)
 
 ### Version 1.0.0 (2025-09-01)
 - 🎉 Initial release
@@ -977,5 +1044,5 @@ CMD ["gunicorn", "-k", "uvicorn.workers.UvicornWorker", "-w", "1", "-b", "0.0.0.
 
 ---
 
-**Generated:** 2025-10-09
+**Last Updated:** 2025-10-11
 **API Version:** 2.0.0
