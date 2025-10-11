@@ -8,7 +8,7 @@ import secrets
 import tempfile
 from pathlib import Path
 
-from fastapi import FastAPI, File, UploadFile, Request, HTTPException
+from fastapi import FastAPI, File, UploadFile, Request, HTTPException, Form
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
@@ -541,7 +541,7 @@ async def virtual_tryon(
     request: Request,
     person_image: UploadFile = File(...),
     garment_image: UploadFile = File(...),
-    cloth_type: str = "upper",
+    cloth_type: str = Form("upper"),
     num_inference_steps: int = 50,
     guidance_scale: float = 2.5,
     seed: int = 42,
