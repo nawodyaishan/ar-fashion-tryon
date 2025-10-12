@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
@@ -22,14 +22,14 @@ import {
   ChevronRight,
   Download,
   Image as ImageIcon,
+  Layers,
   Loader2,
   RefreshCw,
+  Shirt,
   Sparkles,
   Upload,
-  X,
-  Shirt,
   User,
-  Layers,
+  X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import Image from 'next/image';
@@ -139,14 +139,18 @@ export default function PhotoWizard() {
 
     ctx.drawImage(video, 0, 0);
 
-    canvas.toBlob(async (blob) => {
-      if (!blob) return;
-      const file = new File([blob], `body-${Date.now()}.jpg`, { type: 'image/jpeg' });
+    canvas.toBlob(
+      async (blob) => {
+        if (!blob) return;
+        const file = new File([blob], `body-${Date.now()}.jpg`, { type: 'image/jpeg' });
 
-      setBody(file);
-      toast.success('Body photo captured');
-      stopBodyCamera();
-    }, 'image/jpeg', 0.95);
+        setBody(file);
+        toast.success('Body photo captured');
+        stopBodyCamera();
+      },
+      'image/jpeg',
+      0.95,
+    );
   };
 
   const stopBodyCamera = () => {
@@ -188,23 +192,27 @@ export default function PhotoWizard() {
 
     ctx.drawImage(video, 0, 0);
 
-    canvas.toBlob(async (blob) => {
-      if (!blob) return;
-      const file = new File([blob], `garment-${Date.now()}.jpg`, { type: 'image/jpeg' });
+    canvas.toBlob(
+      async (blob) => {
+        if (!blob) return;
+        const file = new File([blob], `garment-${Date.now()}.jpg`, { type: 'image/jpeg' });
 
-      const toastId = 'garment-capture';
-      toast.loading('Processing captured image...', { id: toastId });
+        const toastId = 'garment-capture';
+        toast.loading('Processing captured image...', { id: toastId });
 
-      const skipClassification = tryOnPath === 'REFERENCE';
-      const { ok, message } = await setGarmentFile(file, skipClassification);
+        const skipClassification = tryOnPath === 'REFERENCE';
+        const { ok, message } = await setGarmentFile(file, skipClassification);
 
-      if (ok) {
-        toast.success('Garment captured', { id: toastId });
-        stopGarmentCamera();
-      } else {
-        toast.error(message || 'Capture failed', { id: toastId });
-      }
-    }, 'image/jpeg', 0.95);
+        if (ok) {
+          toast.success('Garment captured', { id: toastId });
+          stopGarmentCamera();
+        } else {
+          toast.error(message || 'Capture failed', { id: toastId });
+        }
+      },
+      'image/jpeg',
+      0.95,
+    );
   };
 
   const stopGarmentCamera = () => {
@@ -331,10 +339,23 @@ export default function PhotoWizard() {
         <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b p-3">
           <div className="flex items-center justify-between text-xs sm:text-sm mb-2">
             <span className="font-medium">
-              {tryOnPath === 'FULL' ? 'Full Outfit Mode' : tryOnPath === 'REFERENCE' ? 'Reference Mode' : 'Normal Mode'}
+              {tryOnPath === 'FULL'
+                ? 'Full Outfit Mode'
+                : tryOnPath === 'REFERENCE'
+                  ? 'Reference Mode'
+                  : 'Normal Mode'}
             </span>
             <Badge variant="outline" className="text-xs">
-              Step {step === 'BODY' ? '1' : step === 'GARMENT' || step === 'UPPER' ? '2' : step === 'LOWER' ? '3' : step === 'PREVIEW' ? '4' : '5'}
+              Step{' '}
+              {step === 'BODY'
+                ? '1'
+                : step === 'GARMENT' || step === 'UPPER'
+                  ? '2'
+                  : step === 'LOWER'
+                    ? '3'
+                    : step === 'PREVIEW'
+                      ? '4'
+                      : '5'}
             </Badge>
           </div>
           {(status === 'classifying' || status === 'constructing' || status === 'processing') && (
@@ -377,7 +398,9 @@ export default function PhotoWizard() {
                     <p className="text-sm text-muted-foreground mb-2">
                       Try on one item (shirt, pants, or full dress)
                     </p>
-                    <Badge variant="secondary" className="text-xs">Recommended</Badge>
+                    <Badge variant="secondary" className="text-xs">
+                      Recommended
+                    </Badge>
                   </div>
                   <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0" />
                 </div>
@@ -397,7 +420,9 @@ export default function PhotoWizard() {
                     <p className="text-sm text-muted-foreground mb-2">
                       Combine top and bottom to create full outfit
                     </p>
-                    <Badge variant="outline" className="text-xs">Advanced</Badge>
+                    <Badge variant="outline" className="text-xs">
+                      Advanced
+                    </Badge>
                   </div>
                   <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0" />
                 </div>
@@ -417,7 +442,9 @@ export default function PhotoWizard() {
                     <p className="text-sm text-muted-foreground mb-2">
                       Use a full-body photo as style reference
                     </p>
-                    <Badge variant="outline" className="text-xs">Experimental</Badge>
+                    <Badge variant="outline" className="text-xs">
+                      Experimental
+                    </Badge>
                   </div>
                   <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0" />
                 </div>
@@ -439,7 +466,7 @@ export default function PhotoWizard() {
             {/* Quality Tips */}
             {!body.file && (
               <QualityTipsCard
-                title="Body Photo — Quick Tips"
+                title="Body Photo - Quick Tips"
                 tips={[
                   'Face camera straight on; shoulders fully visible',
                   'Bright, even light in front of you',
@@ -464,9 +491,7 @@ export default function PhotoWizard() {
                     </div>
                     <div className="space-y-2">
                       <p className="font-medium">Tap to upload</p>
-                      <p className="text-xs text-muted-foreground">
-                        JPG, PNG up to 10MB
-                      </p>
+                      <p className="text-xs text-muted-foreground">JPG, PNG up to 10MB</p>
                     </div>
                   </div>
                 </Card>
@@ -480,12 +505,7 @@ export default function PhotoWizard() {
                   </div>
                 </div>
 
-                <Button
-                  variant="outline"
-                  size="lg"
-                  className="w-full"
-                  onClick={startBodyCamera}
-                >
+                <Button variant="outline" size="lg" className="w-full" onClick={startBodyCamera}>
                   <Camera className="h-5 w-5 mr-2" />
                   Capture with Camera
                 </Button>
@@ -503,10 +523,7 @@ export default function PhotoWizard() {
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
-                  <Button
-                    variant="outline"
-                    onClick={stopBodyCamera}
-                  >
+                  <Button variant="outline" onClick={stopBodyCamera}>
                     <X className="h-4 w-4 mr-2" />
                     Cancel
                   </Button>
@@ -532,7 +549,13 @@ export default function PhotoWizard() {
                   {/* Quality badge */}
                   {body.quality && (
                     <Badge
-                      variant={body.quality === 'GOOD' ? 'default' : body.quality === 'OK' ? 'outline' : 'destructive'}
+                      variant={
+                        body.quality === 'GOOD'
+                          ? 'default'
+                          : body.quality === 'OK'
+                            ? 'outline'
+                            : 'destructive'
+                      }
                       className="absolute top-2 left-2 text-xs"
                     >
                       Input quality: {body.quality}
@@ -541,17 +564,11 @@ export default function PhotoWizard() {
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
-                  <Button
-                    variant="outline"
-                    onClick={() => bodyFileInputRef.current?.click()}
-                  >
+                  <Button variant="outline" onClick={() => bodyFileInputRef.current?.click()}>
                     <Upload className="h-4 w-4 mr-2" />
                     Upload New
                   </Button>
-                  <Button
-                    variant="outline"
-                    onClick={startBodyCamera}
-                  >
+                  <Button variant="outline" onClick={startBodyCamera}>
                     <Camera className="h-4 w-4 mr-2" />
                     Capture
                   </Button>
@@ -570,7 +587,7 @@ export default function PhotoWizard() {
         )}
 
         {/* STEP 2: GARMENT UPLOAD (NORMAL & REFERENCE) */}
-        {(step === 'GARMENT' && (tryOnPath === 'NORMAL' || tryOnPath === 'REFERENCE')) && (
+        {step === 'GARMENT' && (tryOnPath === 'NORMAL' || tryOnPath === 'REFERENCE') && (
           <div className="p-4 space-y-4 max-w-2xl mx-auto">
             <div className="text-center space-y-2">
               <h2 className="text-xl sm:text-2xl font-bold">
@@ -586,7 +603,11 @@ export default function PhotoWizard() {
             {/* Quality Tips */}
             {!garment.file && (
               <QualityTipsCard
-                title={tryOnPath === 'REFERENCE' ? 'Reference Mode — Quick Tips' : 'Garment Photo — Quick Tips'}
+                title={
+                  tryOnPath === 'REFERENCE'
+                    ? 'Reference Mode - Quick Tips'
+                    : 'Garment Photo - Quick Tips'
+                }
                 tips={
                   tryOnPath === 'REFERENCE'
                     ? [
@@ -618,9 +639,7 @@ export default function PhotoWizard() {
                     </div>
                     <div className="space-y-2">
                       <p className="font-medium">Tap to upload</p>
-                      <p className="text-xs text-muted-foreground">
-                        PNG, JPEG up to 10MB
-                      </p>
+                      <p className="text-xs text-muted-foreground">PNG, JPEG up to 10MB</p>
                     </div>
                   </div>
                 </Card>
@@ -661,10 +680,7 @@ export default function PhotoWizard() {
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
-                  <Button
-                    variant="outline"
-                    onClick={stopGarmentCamera}
-                  >
+                  <Button variant="outline" onClick={stopGarmentCamera}>
                     <X className="h-4 w-4 mr-2" />
                     Cancel
                   </Button>
@@ -698,9 +714,7 @@ export default function PhotoWizard() {
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-medium">Detected Type</span>
-                        <Badge variant="secondary">
-                          {garment.classification.label}
-                        </Badge>
+                        <Badge variant="secondary">{garment.classification.label}</Badge>
                       </div>
                       <div className="flex items-center justify-between text-xs text-muted-foreground">
                         <span>Confidence</span>
@@ -720,18 +734,12 @@ export default function PhotoWizard() {
                 )}
 
                 <div className="grid grid-cols-2 gap-3">
-                  <Button
-                    variant="outline"
-                    onClick={() => garmentFileInputRef.current?.click()}
-                  >
+                  <Button variant="outline" onClick={() => garmentFileInputRef.current?.click()}>
                     <Upload className="h-4 w-4 mr-2" />
                     Upload New
                   </Button>
                   {tryOnPath !== 'REFERENCE' && (
-                    <Button
-                      variant="outline"
-                      onClick={startGarmentCamera}
-                    >
+                    <Button variant="outline" onClick={startGarmentCamera}>
                       <Camera className="h-4 w-4 mr-2" />
                       Capture
                     </Button>
@@ -755,9 +763,7 @@ export default function PhotoWizard() {
           <div className="p-4 space-y-4 max-w-2xl mx-auto">
             <div className="text-center space-y-2">
               <h2 className="text-xl sm:text-2xl font-bold">Upload Upper Garment</h2>
-              <p className="text-sm text-muted-foreground">
-                Shirt, t-shirt, top, or jacket
-              </p>
+              <p className="text-sm text-muted-foreground">Shirt, t-shirt, top, or jacket</p>
             </div>
 
             {!upperGarment.file ? (
@@ -773,9 +779,7 @@ export default function PhotoWizard() {
                   </div>
                   <div className="space-y-2">
                     <p className="font-medium">Upload Upper Garment</p>
-                    <p className="text-xs text-muted-foreground">
-                      PNG, JPEG up to 10MB
-                    </p>
+                    <p className="text-xs text-muted-foreground">PNG, JPEG up to 10MB</p>
                   </div>
                 </div>
               </Card>
@@ -802,9 +806,7 @@ export default function PhotoWizard() {
                   <Card className="p-3 bg-blue-500/10">
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium">Detected</span>
-                      <Badge variant="secondary">
-                        {upperGarment.classification.label}
-                      </Badge>
+                      <Badge variant="secondary">{upperGarment.classification.label}</Badge>
                     </div>
                   </Card>
                 )}
@@ -834,9 +836,7 @@ export default function PhotoWizard() {
           <div className="p-4 space-y-4 max-w-2xl mx-auto">
             <div className="text-center space-y-2">
               <h2 className="text-xl sm:text-2xl font-bold">Upload Lower Garment</h2>
-              <p className="text-sm text-muted-foreground">
-                Pants, jeans, skirt, or shorts
-              </p>
+              <p className="text-sm text-muted-foreground">Pants, jeans, skirt, or shorts</p>
             </div>
 
             {!lowerGarment.file ? (
@@ -852,9 +852,7 @@ export default function PhotoWizard() {
                   </div>
                   <div className="space-y-2">
                     <p className="font-medium">Upload Lower Garment</p>
-                    <p className="text-xs text-muted-foreground">
-                      PNG, JPEG up to 10MB
-                    </p>
+                    <p className="text-xs text-muted-foreground">PNG, JPEG up to 10MB</p>
                   </div>
                 </div>
               </Card>
@@ -881,9 +879,7 @@ export default function PhotoWizard() {
                   <Card className="p-3 bg-purple-500/10">
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium">Detected</span>
-                      <Badge variant="secondary">
-                        {lowerGarment.classification.label}
-                      </Badge>
+                      <Badge variant="secondary">{lowerGarment.classification.label}</Badge>
                     </div>
                   </Card>
                 )}
@@ -913,9 +909,7 @@ export default function PhotoWizard() {
           <div className="p-4 space-y-4 max-w-2xl mx-auto">
             <div className="text-center space-y-2">
               <h2 className="text-xl sm:text-2xl font-bold">Outfit Preview</h2>
-              <p className="text-sm text-muted-foreground">
-                Your complete outfit is ready
-              </p>
+              <p className="text-sm text-muted-foreground">Your complete outfit is ready</p>
             </div>
 
             {outfit.url && (
@@ -1049,7 +1043,9 @@ export default function PhotoWizard() {
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
                           <Label className="text-xs">Inference Steps</Label>
-                          <span className="text-xs text-muted-foreground">{options.numInferenceSteps ?? 50}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {options.numInferenceSteps ?? 50}
+                          </span>
                         </div>
                         <Slider
                           value={[options.numInferenceSteps ?? 50]}
@@ -1062,7 +1058,9 @@ export default function PhotoWizard() {
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
                           <Label className="text-xs">Guidance Scale</Label>
-                          <span className="text-xs text-muted-foreground">{(options.guidanceScale ?? 2.5).toFixed(1)}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {(options.guidanceScale ?? 2.5).toFixed(1)}
+                          </span>
                         </div>
                         <Slider
                           value={[options.guidanceScale ?? 2.5]}
@@ -1130,7 +1128,13 @@ export default function PhotoWizard() {
                               ) : (
                                 <AlertCircle className="h-3 w-3 text-amber-500" />
                               )}
-                              <span className={preflight.resolutionOK ? 'text-muted-foreground' : 'text-amber-500'}>
+                              <span
+                                className={
+                                  preflight.resolutionOK
+                                    ? 'text-muted-foreground'
+                                    : 'text-amber-500'
+                                }
+                              >
                                 Resolution
                               </span>
                             </div>
@@ -1140,7 +1144,13 @@ export default function PhotoWizard() {
                               ) : (
                                 <AlertCircle className="h-3 w-3 text-amber-500" />
                               )}
-                              <span className={preflight.brightnessOK ? 'text-muted-foreground' : 'text-amber-500'}>
+                              <span
+                                className={
+                                  preflight.brightnessOK
+                                    ? 'text-muted-foreground'
+                                    : 'text-amber-500'
+                                }
+                              >
                                 Brightness
                               </span>
                             </div>
@@ -1150,7 +1160,13 @@ export default function PhotoWizard() {
                               ) : (
                                 <X className="h-3 w-3 text-red-500" />
                               )}
-                              <span className={preflight.clothTypeSelected ? 'text-muted-foreground' : 'text-red-500'}>
+                              <span
+                                className={
+                                  preflight.clothTypeSelected
+                                    ? 'text-muted-foreground'
+                                    : 'text-red-500'
+                                }
+                              >
                                 Cloth type
                               </span>
                             </div>
@@ -1170,7 +1186,13 @@ export default function PhotoWizard() {
                         <p className="text-sm font-medium">Body Photo</p>
                         {body.quality && (
                           <Badge
-                            variant={body.quality === 'GOOD' ? 'default' : body.quality === 'OK' ? 'outline' : 'secondary'}
+                            variant={
+                              body.quality === 'GOOD'
+                                ? 'default'
+                                : body.quality === 'OK'
+                                  ? 'outline'
+                                  : 'secondary'
+                            }
                             className="text-[10px]"
                           >
                             {body.quality}
@@ -1182,12 +1204,7 @@ export default function PhotoWizard() {
                           className="relative rounded-lg overflow-hidden border bg-muted/20"
                           style={{ height: 'clamp(420px, 56vh, 680px)' }}
                         >
-                          <Image
-                            src={body.previewUrl}
-                            alt="Body"
-                            fill
-                            className="object-contain"
-                          />
+                          <Image src={body.previewUrl} alt="Body" fill className="object-contain" />
                         </div>
                       )}
                     </Card>
@@ -1195,7 +1212,11 @@ export default function PhotoWizard() {
                     {/* Garment Preview Frame */}
                     <Card className="p-3 space-y-2">
                       <p className="text-sm font-medium">
-                        {tryOnPath === 'FULL' ? 'Outfit' : tryOnPath === 'REFERENCE' ? 'Reference' : 'Garment'}
+                        {tryOnPath === 'FULL'
+                          ? 'Outfit'
+                          : tryOnPath === 'REFERENCE'
+                            ? 'Reference'
+                            : 'Garment'}
                       </p>
                       {(tryOnPath === 'FULL' ? outfit.url : garment.previewUrl) && (
                         <div
@@ -1323,9 +1344,7 @@ export default function PhotoWizard() {
                 <Check className="h-6 w-6 text-green-500" />
                 <h2 className="text-2xl font-bold">Try-On Complete!</h2>
               </div>
-              <p className="text-sm text-muted-foreground">
-                Your virtual try-on is ready
-              </p>
+              <p className="text-sm text-muted-foreground">Your virtual try-on is ready</p>
             </div>
 
             {/* Result Image */}
@@ -1381,20 +1400,11 @@ export default function PhotoWizard() {
 
             {/* Actions */}
             <div className="flex flex-col gap-3">
-              <Button
-                size="lg"
-                onClick={handleDownload}
-                className="w-full"
-              >
+              <Button size="lg" onClick={handleDownload} className="w-full">
                 <Download className="h-5 w-5 mr-2" />
                 Download Result
               </Button>
-              <Button
-                size="lg"
-                variant="outline"
-                onClick={handleNewTryOn}
-                className="w-full"
-              >
+              <Button size="lg" variant="outline" onClick={handleNewTryOn} className="w-full">
                 <RefreshCw className="h-5 w-5 mr-2" />
                 Try Another Outfit
               </Button>
@@ -1407,7 +1417,8 @@ export default function PhotoWizard() {
                 <div className="space-y-1">
                   <p className="text-sm font-medium">Processing Complete</p>
                   <p className="text-xs text-muted-foreground">
-                    Synthetic preview; colors and fit may vary. Your try-on image is ready to download or share.
+                    Synthetic preview; colors and fit may vary. Your try-on image is ready to
+                    download or share.
                   </p>
                 </div>
               </div>

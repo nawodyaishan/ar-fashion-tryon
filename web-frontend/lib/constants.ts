@@ -294,7 +294,7 @@ export const aboutContent = {
     intro:
       'We are building a practical bridge between quick AR previews and photoreal AI try-ons. Our hybrid approach keeps the demo smooth while delivering quality when it matters.',
   },
-  mission: 'Make remote shopping feel confident and fun—without extra hardware or complex setup.',
+  mission: 'Make remote shopping feel confident and fun-without extra hardware or complex setup.',
   principles: [
     {
       title: 'Hybrid where it helps',

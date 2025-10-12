@@ -8,15 +8,7 @@ import { HeroSplit } from '@/components/HeroSplit';
 import { Roadmap } from '@/components/Roadmap';
 import { StickyMobileCTA } from '@/components/StickyMobileCTA';
 import { useMount } from '@/lib/hooks/useMount';
-import {
-  Camera,
-  Sparkles,
-  Zap,
-  Lock,
-  Smartphone,
-  FileText,
-  ArrowRight,
-} from 'lucide-react';
+import { ArrowRight, Camera, FileText, Lock, Smartphone, Sparkles, Zap } from 'lucide-react';
 import { APP_VERSION } from '@/lib/version';
 
 export default function Home() {
@@ -38,7 +30,7 @@ export default function Home() {
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold mb-3">Choose Your Mode</h2>
             <p className="text-muted-foreground text-lg">
-              Fast AR preview or photoreal AI results — you pick.
+              Fast AR preview or photoreal AI results - you pick.
             </p>
           </div>
 
@@ -65,7 +57,8 @@ export default function Home() {
 
                 {/* Body */}
                 <p className="text-muted-foreground mb-6 leading-relaxed">
-                  Instant camera overlay that snaps to your shoulders. Great for quick sizing and vibe checks.
+                  Instant camera overlay that snaps to your shoulders. Great for quick sizing and
+                  vibe checks.
                 </p>
 
                 {/* Pills */}
@@ -153,7 +146,7 @@ export default function Home() {
                 <Zap className="w-6 h-6" />
               </div>
               <p className="text-sm leading-relaxed">
-                <strong>Pick a mode</strong> — Live AR for speed, Photo HD for realism.
+                <strong>Pick a mode</strong> - Live AR for speed, Photo HD for realism.
               </p>
             </div>
 
@@ -162,7 +155,7 @@ export default function Home() {
                 <Camera className="w-6 h-6" />
               </div>
               <p className="text-sm leading-relaxed">
-                <strong>Add your image(s)</strong> — Use a plain background and clear lighting.
+                <strong>Add your image(s)</strong> - Use a plain background and clear lighting.
               </p>
             </div>
 
@@ -171,7 +164,7 @@ export default function Home() {
                 <Sparkles className="w-6 h-6" />
               </div>
               <p className="text-sm leading-relaxed">
-                <strong>Adjust & save</strong> — Fine-tune scale/rotation, then download.
+                <strong>Adjust & save</strong> - Fine-tune scale/rotation, then download.
               </p>
             </div>
           </div>
@@ -200,7 +193,9 @@ export default function Home() {
                   <Lock className="h-6 w-6" />
                 </div>
                 <h3 className="font-semibold mb-2">Privacy-first</h3>
-                <p className="text-sm text-muted-foreground">AR runs locally; HD asks before upload.</p>
+                <p className="text-sm text-muted-foreground">
+                  AR runs locally; HD asks before upload.
+                </p>
               </CardContent>
             </Card>
 
@@ -210,7 +205,9 @@ export default function Home() {
                   <Smartphone className="h-6 w-6" />
                 </div>
                 <h3 className="font-semibold mb-2">Mobile-ready</h3>
-                <p className="text-sm text-muted-foreground">Works on phones, tablets, and desktop.</p>
+                <p className="text-sm text-muted-foreground">
+                  Works on phones, tablets, and desktop.
+                </p>
               </CardContent>
             </Card>
 
@@ -246,7 +243,10 @@ export default function Home() {
               <span className="font-mono">{APP_VERSION}</span>
             </div>
             <div className="flex flex-wrap items-center justify-center gap-6 text-sm">
-              <Link href="/about" className="text-muted-foreground hover:text-foreground transition-colors">
+              <Link
+                href="/about"
+                className="text-muted-foreground hover:text-foreground transition-colors"
+              >
                 Docs
               </Link>
               <span className="text-muted-foreground">·</span>
@@ -259,11 +259,17 @@ export default function Home() {
                 Source
               </Link>
               <span className="text-muted-foreground">·</span>
-              <Link href="/settings" className="text-muted-foreground hover:text-foreground transition-colors">
+              <Link
+                href="/settings"
+                className="text-muted-foreground hover:text-foreground transition-colors"
+              >
                 Privacy
               </Link>
               <span className="text-muted-foreground">·</span>
-              <Link href="/contact" className="text-muted-foreground hover:text-foreground transition-colors">
+              <Link
+                href="/contact"
+                className="text-muted-foreground hover:text-foreground transition-colors"
+              >
                 Contact
               </Link>
             </div>
