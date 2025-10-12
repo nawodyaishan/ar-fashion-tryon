@@ -129,6 +129,12 @@ export const navigationItems: NavigationItem[] = [
     badge: 'New',
   },
   {
+    title: 'Docs',
+    href: '/docs',
+    description: 'Documentation and guides',
+    icon: FileText,
+  },
+  {
     title: 'About',
     href: '/about',
     description: 'Learn more about the project',

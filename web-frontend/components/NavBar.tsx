@@ -15,7 +15,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Sparkles, Settings, HelpCircle, Info, Smartphone, MoreVertical, Moon, Sun } from 'lucide-react';
+import { Sparkles, Settings, HelpCircle, Info, Smartphone, MoreVertical, Moon, Sun, Github, Shield, Mail, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { navigationItems } from '@/lib/constants';
 import { useTryonStore } from '@/lib/tryon-store';
@@ -150,6 +150,30 @@ export default function NavBar() {
                       </DropdownMenuItem>
                     );
                   })}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link href="/privacy" className="flex items-center gap-3 cursor-pointer">
+                      <Shield className="w-4 h-4 flex-shrink-0" />
+                      <span className="text-sm">Privacy</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/contact" className="flex items-center gap-3 cursor-pointer">
+                      <Mail className="w-4 h-4 flex-shrink-0" />
+                      <span className="text-sm">Contact</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <a
+                      href="https://github.com/nawodyaishan/ar-fashion-tryon"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-3 cursor-pointer"
+                    >
+                      <Github className="w-4 h-4 flex-shrink-0" />
+                      <span className="text-sm">Source Code</span>
+                    </a>
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -204,6 +228,42 @@ export default function NavBar() {
             {!isTryOnPage && (
               <div className="hidden lg:block">
                 <BackendStatusIndicator />
+              </div>
+            )}
+
+            {/* Footer Links - Desktop Only */}
+            {!isTryOnPage && (
+              <div className="hidden lg:flex items-center gap-1">
+                <Link href="/privacy">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 px-2"
+                    title="Privacy Policy"
+                  >
+                    <Shield className="h-3.5 w-3.5" />
+                  </Button>
+                </Link>
+                <Link href="/contact">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 px-2"
+                    title="Contact"
+                  >
+                    <Mail className="h-3.5 w-3.5" />
+                  </Button>
+                </Link>
+                <a href="https://github.com/nawodyaishan/ar-fashion-tryon" target="_blank" rel="noopener noreferrer">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 px-2"
+                    title="Source Code"
+                  >
+                    <Github className="h-3.5 w-3.5" />
+                  </Button>
+                </a>
               </div>
             )}
 
