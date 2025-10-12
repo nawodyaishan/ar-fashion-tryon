@@ -325,7 +325,7 @@ export const aboutContent = {
     note: 'Built for research & demos.',
     links: [
       { label: 'Documentation', href: '/docs' },
-      { label: 'Source Code', href: 'https://github.com/yourusername/ar-fashion-tryon' },
+      { label: 'Source Code', href: 'https://github.com/nawodyaishan/ar-fashion-tryon' },
       { label: 'Privacy Policy', href: '/privacy' },
       { label: 'Contact', href: '/contact' },
     ],

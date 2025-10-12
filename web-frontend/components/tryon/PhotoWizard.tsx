@@ -38,7 +38,6 @@ import { downloadBase64ImageSmart } from '@/lib/services/gradioApi';
 import QualityTipsCard from './QualityTipsCard';
 import ClassificationChip from './ClassificationChip';
 import ClothTypeSelector from './ClothTypeSelector';
-import PreflightChecklist from './PreflightChecklist';
 import ScrollIndicator from '@/components/ui/scroll-indicator';
 
 export default function PhotoWizard() {
@@ -951,183 +950,368 @@ export default function PhotoWizard() {
           </div>
         )}
 
-        {/* GENERATE STEP */}
+        {/* GENERATE STEP - 3-Rail Pro Canvas Layout */}
         {step === 'GENERATE' && !resultUrl && (
-          <div className="p-4 space-y-4 max-w-2xl mx-auto">
-            <div className="text-center space-y-2">
-              <h2 className="text-xl sm:text-2xl font-bold">Options & Generate</h2>
-              <p className="text-sm text-muted-foreground">
-                Check selections and adjust settings before generating
-              </p>
-            </div>
+          <div className="w-full px-4 sm:px-8 py-6">
+            {/* Desktop: 3-Rail Layout (≥1440px) */}
+            <div className="mx-auto max-w-[1600px]">
+              {/* Mobile/Tablet: Stacked Layout (< 1280px) */}
+              <div className="block xl:hidden space-y-4">
+                {/* Title - Mobile Only */}
+                <div className="text-center space-y-1">
+                  <h2 className="text-xl font-semibold">Options & Generate</h2>
+                </div>
 
-            {/* Classification Summary Chips */}
-            {garment.classification && tryOnPath === 'NORMAL' && (
-              <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
-                <span className="text-xs font-medium text-muted-foreground">Detected:</span>
-                <ClassificationChip
-                  label={garment.classification.label}
-                  confidence={garment.classification.confidence}
-                  size="md"
-                />
-              </div>
-            )}
-
-            {/* Cloth Type Selector with Preselection Logic */}
-            <ClothTypeSelector
-              value={options.clothType || 'upper'}
-              onChange={(value) => setOptions({ clothType: value })}
-              availableTypes={getAvailableClothTypes()}
-              disabledTypes={getDisabledClothTypes()}
-              preselectState={getPreselectState()}
-              detectedLabel={garment.classification?.label}
-              confidence={garment.classification?.confidence}
-            />
-
-            <div className="grid grid-cols-2 gap-3">
-              {/* Body Preview */}
-              <Card className="p-3 space-y-2">
-                <p className="text-xs font-medium">Body Photo</p>
-                {body.previewUrl && (
-                  <div className="relative aspect-[3/4] rounded-md overflow-hidden border">
-                    <Image src={body.previewUrl} alt="Body" fill className="object-cover" />
-                  </div>
-                )}
-              </Card>
-
-              {/* Garment/Outfit Preview */}
-              <Card className="p-3 space-y-2">
-                <p className="text-xs font-medium">
-                  {tryOnPath === 'FULL' ? 'Outfit' : tryOnPath === 'REFERENCE' ? 'Reference' : 'Garment'}
-                </p>
-                {(tryOnPath === 'FULL' ? outfit.url : garment.previewUrl) && (
-                  <div className="relative aspect-[3/4] rounded-md overflow-hidden border bg-muted/20">
-                    <Image
-                      src={(tryOnPath === 'FULL' ? outfit.url : garment.previewUrl)!}
-                      alt="Garment"
-                      fill
-                      className="object-contain p-2"
+                {/* Detection + Cloth Type */}
+                {garment.classification && tryOnPath === 'NORMAL' && (
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <span>Auto-selected:</span>
+                    <ClassificationChip
+                      label={garment.classification.label}
+                      confidence={garment.classification.confidence}
+                      size="sm"
                     />
                   </div>
                 )}
-              </Card>
-            </div>
 
-            {/* Advanced Options - Accordion */}
-            <Accordion type="single" collapsible className="w-full">
-              <AccordionItem value="options">
-                <AccordionTrigger className="text-sm">
-                  <div className="flex items-center justify-between w-full pr-2">
-                    <span>Advanced Settings</span>
-                  </div>
-                </AccordionTrigger>
-                <AccordionContent className="space-y-4 pt-4">
-                  <div className="space-y-3">
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label className="text-xs" title="Number of diffusion steps (higher = better quality, slower)">
-                          Inference Steps
-                        </Label>
-                        <span className="text-xs text-muted-foreground">
-                          {options.numInferenceSteps ?? 50}
-                        </span>
-                      </div>
-                      <Slider
-                        value={[options.numInferenceSteps ?? 50]}
-                        onValueChange={([value]) => setOptions({ numInferenceSteps: value })}
-                        min={20}
-                        max={100}
-                        step={5}
-                        className="w-full"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label className="text-xs" title="How closely to follow the prompt (1.0-10.0)">
-                          Guidance Scale
-                        </Label>
-                        <span className="text-xs text-muted-foreground">
-                          {(options.guidanceScale ?? 2.5).toFixed(1)}
-                        </span>
-                      </div>
-                      <Slider
-                        value={[options.guidanceScale ?? 2.5]}
-                        onValueChange={([value]) => setOptions({ guidanceScale: value })}
-                        min={1.0}
-                        max={10.0}
-                        step={0.5}
-                        className="w-full"
-                      />
-                    </div>
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-            </Accordion>
-
-            {/* Preflight Validation */}
-            {(() => {
-              const preflight = getPreflightChecks();
-              const allPassed = preflight.resolutionOK && preflight.brightnessOK && preflight.requiredImagesOK && preflight.clothTypeSelected;
-
-              if (tryOnPath === 'FULL' && !preflight.outfitReady) {
-                return null; // Don't show preflight for outfit construction
-              }
-
-              const failedChecks = [
-                !preflight.resolutionOK && { label: 'Resolution check', passed: false, message: 'Image resolution is too low' },
-                !preflight.clothTypeSelected && { label: 'Cloth type', passed: false, message: 'Choose a cloth type to continue' },
-                !preflight.requiredImagesOK && { label: 'Images', passed: false, message: 'Upload required images' },
-              ].filter(Boolean) as { label: string; passed: boolean; message: string }[];
-
-              return (
-                <PreflightChecklist
-                  checks={failedChecks}
-                  allPassed={allPassed}
+                <ClothTypeSelector
+                  value={options.clothType || 'upper'}
+                  onChange={(value) => setOptions({ clothType: value })}
+                  availableTypes={getAvailableClothTypes()}
+                  disabledTypes={getDisabledClothTypes()}
+                  preselectState={getPreselectState()}
+                  detectedLabel={garment.classification?.label}
+                  confidence={garment.classification?.confidence}
                 />
-              );
-            })()}
 
-            {error && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-
-            <Button
-              size="lg"
-              onClick={handleGenerate}
-              disabled={!canProceedToGenerate() || status === 'processing'}
-              className="w-full"
-            >
-              {status === 'processing' ? (
-                <>
-                  <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                  Processing...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="h-5 w-5 mr-2" />
-                  Generate Try-On
-                </>
-              )}
-            </Button>
-
-            {status === 'processing' && (
-              <Card className="p-4 space-y-3">
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="font-medium">Generating try-on...</span>
-                    <span className="text-muted-foreground">{progress}%</span>
-                  </div>
-                  <Progress value={progress} className="h-2" />
+                {/* Previews */}
+                <div className="grid grid-cols-2 gap-3">
+                  <Card className="p-2 space-y-1">
+                    <p className="text-[10px] font-medium text-muted-foreground">Body</p>
+                    {body.previewUrl && (
+                      <div className="relative aspect-[3/4] rounded-md overflow-hidden border">
+                        <Image src={body.previewUrl} alt="Body" fill className="object-contain" />
+                      </div>
+                    )}
+                  </Card>
+                  <Card className="p-2 space-y-1">
+                    <p className="text-[10px] font-medium text-muted-foreground">
+                      {tryOnPath === 'FULL' ? 'Outfit' : 'Garment'}
+                    </p>
+                    {(tryOnPath === 'FULL' ? outfit.url : garment.previewUrl) && (
+                      <div className="relative aspect-[3/4] rounded-md overflow-hidden border bg-muted/20">
+                        <Image
+                          src={(tryOnPath === 'FULL' ? outfit.url : garment.previewUrl)!}
+                          alt="Garment"
+                          fill
+                          className="object-contain p-1"
+                        />
+                      </div>
+                    )}
+                  </Card>
                 </div>
-                <p className="text-xs text-muted-foreground text-center">
-                  This may take 30-60 seconds. Please wait...
-                </p>
-              </Card>
-            )}
+
+                {/* Generate Button */}
+                <Button
+                  size="lg"
+                  onClick={handleGenerate}
+                  disabled={!canProceedToGenerate() || status === 'processing'}
+                  className="w-full"
+                >
+                  {status === 'processing' ? (
+                    <>
+                      <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                      Processing {progress}%
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="h-5 w-5 mr-2" />
+                      Generate Try-On
+                    </>
+                  )}
+                </Button>
+
+                {/* Progress Bar - Mobile */}
+                {status === 'processing' && (
+                  <Card className="p-3 space-y-2">
+                    <Progress value={progress} className="h-1.5" />
+                    <p className="text-xs text-muted-foreground text-center">
+                      This may take 30-60 seconds...
+                    </p>
+                  </Card>
+                )}
+
+                {/* Advanced - Collapsed on Mobile */}
+                <Accordion type="single" collapsible className="w-full">
+                  <AccordionItem value="options">
+                    <AccordionTrigger className="text-sm">Advanced Settings</AccordionTrigger>
+                    <AccordionContent className="space-y-3 pt-3">
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-xs">Inference Steps</Label>
+                          <span className="text-xs text-muted-foreground">{options.numInferenceSteps ?? 50}</span>
+                        </div>
+                        <Slider
+                          value={[options.numInferenceSteps ?? 50]}
+                          onValueChange={([value]) => setOptions({ numInferenceSteps: value })}
+                          min={20}
+                          max={100}
+                          step={5}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-xs">Guidance Scale</Label>
+                          <span className="text-xs text-muted-foreground">{(options.guidanceScale ?? 2.5).toFixed(1)}</span>
+                        </div>
+                        <Slider
+                          value={[options.guidanceScale ?? 2.5]}
+                          onValueChange={([value]) => setOptions({ guidanceScale: value })}
+                          min={1.0}
+                          max={10.0}
+                          step={0.5}
+                        />
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
+
+                {error && (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>{error}</AlertDescription>
+                  </Alert>
+                )}
+              </div>
+
+              {/* Desktop: 3-Rail Grid (≥ 1280px) */}
+              <div className="hidden xl:grid xl:grid-cols-12 xl:gap-6">
+                {/* LEFT RAIL - Controls (3 cols, sticky) */}
+                <div className="col-span-3 space-y-4 sticky top-20 self-start">
+                  <Card className="p-4 space-y-4">
+                    <h3 className="text-lg font-semibold">Garment Options</h3>
+
+                    {/* Inline Detection + Cloth Type */}
+                    {garment.classification && tryOnPath === 'NORMAL' && (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <span>Auto-selected:</span>
+                          <ClassificationChip
+                            label={garment.classification.label}
+                            confidence={garment.classification.confidence}
+                            size="sm"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    <ClothTypeSelector
+                      value={options.clothType || 'upper'}
+                      onChange={(value) => setOptions({ clothType: value })}
+                      availableTypes={getAvailableClothTypes()}
+                      disabledTypes={getDisabledClothTypes()}
+                      preselectState={getPreselectState()}
+                      detectedLabel={garment.classification?.label}
+                      confidence={garment.classification?.confidence}
+                    />
+
+                    {/* Mini Preflight Checklist */}
+                    {(() => {
+                      const preflight = getPreflightChecks();
+                      if (tryOnPath === 'FULL' && !preflight.outfitReady) return null;
+
+                      return (
+                        <div className="space-y-1.5 text-xs">
+                          <p className="font-medium text-muted-foreground">Quick Checks</p>
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              {preflight.resolutionOK ? (
+                                <Check className="h-3 w-3 text-green-500" />
+                              ) : (
+                                <AlertCircle className="h-3 w-3 text-amber-500" />
+                              )}
+                              <span className={preflight.resolutionOK ? 'text-muted-foreground' : 'text-amber-500'}>
+                                Resolution
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {preflight.brightnessOK ? (
+                                <Check className="h-3 w-3 text-green-500" />
+                              ) : (
+                                <AlertCircle className="h-3 w-3 text-amber-500" />
+                              )}
+                              <span className={preflight.brightnessOK ? 'text-muted-foreground' : 'text-amber-500'}>
+                                Brightness
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {preflight.clothTypeSelected ? (
+                                <Check className="h-3 w-3 text-green-500" />
+                              ) : (
+                                <X className="h-3 w-3 text-red-500" />
+                              )}
+                              <span className={preflight.clothTypeSelected ? 'text-muted-foreground' : 'text-red-500'}>
+                                Cloth type
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </Card>
+                </div>
+
+                {/* CENTER RAIL - Preview Stage (6 cols) */}
+                <div className="col-span-6">
+                  <div className="grid grid-cols-2 gap-4">
+                    {/* Body Preview Frame */}
+                    <Card className="p-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-medium">Body Photo</p>
+                        {body.quality && (
+                          <Badge
+                            variant={body.quality === 'GOOD' ? 'default' : body.quality === 'OK' ? 'outline' : 'secondary'}
+                            className="text-[10px]"
+                          >
+                            {body.quality}
+                          </Badge>
+                        )}
+                      </div>
+                      {body.previewUrl && (
+                        <div
+                          className="relative rounded-lg overflow-hidden border bg-muted/20"
+                          style={{ height: 'clamp(420px, 56vh, 680px)' }}
+                        >
+                          <Image
+                            src={body.previewUrl}
+                            alt="Body"
+                            fill
+                            className="object-contain"
+                          />
+                        </div>
+                      )}
+                    </Card>
+
+                    {/* Garment Preview Frame */}
+                    <Card className="p-3 space-y-2">
+                      <p className="text-sm font-medium">
+                        {tryOnPath === 'FULL' ? 'Outfit' : tryOnPath === 'REFERENCE' ? 'Reference' : 'Garment'}
+                      </p>
+                      {(tryOnPath === 'FULL' ? outfit.url : garment.previewUrl) && (
+                        <div
+                          className="relative rounded-lg overflow-hidden border bg-muted/20"
+                          style={{ height: 'clamp(420px, 56vh, 680px)' }}
+                        >
+                          <Image
+                            src={(tryOnPath === 'FULL' ? outfit.url : garment.previewUrl)!}
+                            alt="Garment"
+                            fill
+                            className="object-contain p-4"
+                          />
+                        </div>
+                      )}
+                    </Card>
+                  </div>
+                </div>
+
+                {/* RIGHT RAIL - Actions (3 cols, sticky) */}
+                <div className="col-span-3 space-y-4 sticky top-20 self-start">
+                  <Card className="p-4 space-y-4">
+                    {/* Generate Button */}
+                    <Button
+                      size="lg"
+                      onClick={handleGenerate}
+                      disabled={!canProceedToGenerate() || status === 'processing'}
+                      className="w-full"
+                    >
+                      {status === 'processing' ? (
+                        <>
+                          <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                          Generating...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="h-5 w-5 mr-2" />
+                          Generate Try-On
+                        </>
+                      )}
+                    </Button>
+
+                    {/* Inline Progress */}
+                    {status === 'processing' && (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-medium">Processing</span>
+                          <span className="text-muted-foreground">{progress}%</span>
+                        </div>
+                        <Progress value={progress} className="h-1.5" />
+                        <p className="text-xs text-muted-foreground">
+                          This may take 30-60 seconds...
+                        </p>
+                      </div>
+                    )}
+
+                    {error && (
+                      <Alert variant="destructive" className="py-2">
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertDescription className="text-xs">{error}</AlertDescription>
+                      </Alert>
+                    )}
+
+                    {/* Advanced Settings */}
+                    <Accordion type="single" collapsible className="w-full">
+                      <AccordionItem value="advanced" className="border-none">
+                        <AccordionTrigger className="text-sm py-2">
+                          Advanced Settings
+                        </AccordionTrigger>
+                        <AccordionContent className="space-y-3 pt-2">
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <Label className="text-xs" title="Number of diffusion steps">
+                                Inference Steps
+                              </Label>
+                              <span className="text-xs text-muted-foreground">
+                                {options.numInferenceSteps ?? 50}
+                              </span>
+                            </div>
+                            <Slider
+                              value={[options.numInferenceSteps ?? 50]}
+                              onValueChange={([value]) => setOptions({ numInferenceSteps: value })}
+                              min={20}
+                              max={100}
+                              step={5}
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <Label className="text-xs" title="Guidance strength">
+                                Guidance Scale
+                              </Label>
+                              <span className="text-xs text-muted-foreground">
+                                {(options.guidanceScale ?? 2.5).toFixed(1)}
+                              </span>
+                            </div>
+                            <Slider
+                              value={[options.guidanceScale ?? 2.5]}
+                              onValueChange={([value]) => setOptions({ guidanceScale: value })}
+                              min={1.0}
+                              max={10.0}
+                              step={0.5}
+                            />
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+                    </Accordion>
+
+                    {/* Info Box */}
+                    <div className="p-3 rounded-lg bg-muted/30 text-xs text-muted-foreground">
+                      Processing uses shared GPU. First run may warm up.
+                    </div>
+                  </Card>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
