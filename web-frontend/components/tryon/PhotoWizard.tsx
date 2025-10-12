@@ -1290,13 +1290,13 @@ export default function PhotoWizard() {
         </div>
       )}
 
-      {/* Scroll Indicator for Mobile - Shows when content below fold */}
+      {/* Scroll Indicator - Shows when content below fold */}
       {step !== 'PATH_SELECT' && step !== 'RESULT' && (
         <ScrollIndicator
           containerRef={contentScrollRef}
           text="Scroll down"
           hideThreshold={50}
-          mobileOnly={true}
+          mobileOnly={false}
         />
       )}
     </div>

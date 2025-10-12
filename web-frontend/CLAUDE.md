@@ -32,19 +32,32 @@ This is an AR Fashion Try-On web application built with Next.js 15, featuring a 
 
 ### ML Backend Integration
 
-The frontend connects to a FastAPI ML backend (CatVTON model) running on port 8000:
+The frontend connects to a FastAPI ML backend (CatVTON model) with multiple endpoints:
 
+**Virtual Try-On API** (`/process_images/`):
 - **Base URL**: `http://127.0.0.1:8000` (configurable via `NEXT_PUBLIC_VTON_API_BASE`)
 - **Endpoint**: `POST /process_images/`
 - **Request Format**: `multipart/form-data` with 6 fields:
-  - `person_image` (File): Body photo
-  - `cloth_image` (File): Garment photo
-  - `cloth_type` (string): 'upper' | 'lower' | 'full'
+  - `person_image` (File): Body photo - **PNG or JPEG only** (WebP auto-converted on frontend)
+  - `cloth_image` (File): Garment photo - **PNG or JPEG only** (WebP auto-converted on frontend)
+  - `cloth_type` (string): 'upper' | 'lower' | 'overall'
   - `num_inference_steps` (number): 20-100, default 50
   - `guidance_scale` (number): 1.0-10.0, default 2.5
   - `seed` (number): -1 to 999, default 42
 - **Response**: Binary PNG image (Blob)
 - **Timeout**: 60 seconds
+
+**Garment Classification API** (`/classify-garment`):
+- **Endpoint**: `POST /classify-garment`
+- **Request**: Single garment image file
+- **Response**: `{ label: string, confidence: number }`
+- **Used for**: Auto-detecting garment types in NORMAL and FULL modes
+
+**Outfit Construction API** (`/construct-outfit`):
+- **Endpoint**: `POST /construct-outfit`
+- **Request**: Upper and lower garment images
+- **Response**: Combined outfit image URL, classifications for both garments
+- **Used for**: FULL mode outfit preview
 
 ### Application Structure
 
@@ -72,10 +85,17 @@ The `/try-on` page implements two distinct modes managed by separate state store
 - State: `lib/tryon-store.ts` (AR UI state)
 
 **2. Photo Try-On HD Mode** (`activeMode: 'photo'`)
-- 4-step wizard: BODY → GARMENT → GENERATE → RESULT
-- Upload body photo and garment image
-- ML backend processing with CatVTON model
-- Advanced settings: inference steps, guidance scale, seed
+- **Three Try-On Paths**: NORMAL (single garment), FULL (outfit construction), REFERENCE (style transfer)
+- **Multi-step wizard**: PATH_SELECT → BODY → GARMENT/UPPER/LOWER → GENERATE → RESULT
+- **Classification-Driven Preselection**: ML auto-detects garment types with confidence levels
+  - LOCKED (≥85% confidence): Auto-selected with option to change
+  - SUGGESTED (60-84% confidence): Recommended with confirm/change options
+  - UNKNOWN (<60% confidence): Manual selection required
+- **Client-Side Quality Validation**: Pre-upload image quality checks (resolution, brightness, aspect ratio)
+- **WebP Format Conversion**: Automatic browser-side conversion of WebP images to PNG for backend compatibility
+- **Camera Capture**: Upload via file or capture directly with device camera
+- **Mobile UX**: Scroll indicator for small screens to ensure buttons are discoverable
+- **Advanced settings**: inference steps, guidance scale, seed
 - State: `lib/store/useVtonStore.ts` (Photo HD workflow state)
 
 #### Directory Structure
@@ -93,20 +113,31 @@ web-frontend/
 │   │   ├── GarmentOverlay.tsx  # Draggable/resizable garment overlay (react-rnd)
 │   │   ├── ARPanel.tsx         # Garment picker + controls sidebar
 │   │   ├── TransformControls.tsx # Scale/rotation/opacity sliders
-│   │   ├── PhotoWizard.tsx     # 4-step Photo HD wizard
+│   │   ├── PhotoWizard.tsx     # Multi-path Photo HD wizard (NORMAL/FULL/REFERENCE)
+│   │   ├── ClothTypeSelector.tsx # Smart cloth type selector with preselection UI
+│   │   ├── ClassificationChip.tsx # Confidence indicator badges
+│   │   ├── QualityTipsCard.tsx # Pre-upload guidance cards
+│   │   ├── PreflightChecklist.tsx # Validation warnings before generation
+│   │   ├── UploadCard.tsx      # Enhanced upload area component
 │   │   ├── HelpModal.tsx       # Tabbed help content
 │   │   ├── AboutModal.tsx      # Project info modal
 │   │   └── GarmentGallery.tsx  # Categorized garment browser
 │   ├── ui/                     # shadcn/ui components
+│   │   ├── scroll-indicator.tsx # Mobile scroll-to-bottom indicator
+│   │   └── tooltip.tsx         # Radix UI tooltip wrapper
 │   ├── NavBar.tsx              # Navigation with try-on tabs
 │   ├── ClientLayout.tsx        # Client-side wrapper with modals
 │   └── StatusFooter.tsx        # FPS/status/privacy footer
 ├── lib/
 │   ├── store/                  # Zustand state stores
-│   │   └── useVtonStore.ts     # Photo HD mode state (BODY→GARMENT→GENERATE→RESULT)
+│   │   └── useVtonStore.ts     # Photo HD mode state (3 paths, classification, quality)
 │   ├── services/               # API layer
 │   │   ├── http.ts             # Axios client config
-│   │   └── vtonApi.ts          # ML backend API calls
+│   │   ├── vtonApi.ts          # Virtual try-on API calls
+│   │   └── garmentApi.ts       # Garment classification & outfit construction APIs
+│   ├── utils/                  # Utility functions
+│   │   ├── imageQuality.ts     # Client-side image quality analysis
+│   │   └── imageConversion.ts  # WebP to PNG/JPEG conversion
 │   ├── tryon-store.ts          # AR mode state (garments, transforms, modals)
 │   ├── settings-store.ts       # Global settings (lighting effects)
 │   ├── camera.ts               # Camera access utilities
@@ -140,18 +171,50 @@ web-frontend/
 2. **`lib/store/useVtonStore.ts`** - Photo HD Workflow State
    ```typescript
    interface VtonState {
-     step: 'BODY' | 'GARMENT' | 'GENERATE' | 'RESULT';
-     body: ImageSelection;              // Body photo file + preview
-     garment: ImageSelection & { id?: string };
-     options: VtonOptions;              // ML parameters
-     status: 'idle' | 'valid' | 'uploading' | 'processing' | 'done' | 'error';
-     resultUrl?: string;                // Blob URL of result image
+     tryOnPath: 'NORMAL' | 'FULL' | 'REFERENCE';  // Selected try-on mode
+     step: 'PATH_SELECT' | 'BODY' | 'GARMENT' | 'UPPER' | 'LOWER' | 'PREVIEW' | 'GENERATE' | 'RESULT';
+     body: ImageSelection;                         // Body photo + quality level
+     garment: ImageSelection & {                   // Single garment (NORMAL/REFERENCE)
+       id?: string;
+       classification?: GarmentClassification;     // ML-detected type + confidence
+     };
+     upperGarment: ImageSelection & { classification?: GarmentClassification };  // FULL mode
+     lowerGarment: ImageSelection & { classification?: GarmentClassification };  // FULL mode
+     outfit: OutfitData;                           // Constructed outfit for FULL mode
+     options: VtonOptions;                         // ML parameters
+     preselectState: 'LOCKED' | 'SUGGESTED' | 'UNKNOWN';  // Cloth type preselection state
+     preflight: PreflightChecks;                   // Validation checks
+     status: 'idle' | 'valid' | 'uploading' | 'classifying' | 'constructing' | 'processing' | 'done' | 'error';
+     resultUrl?: string;                           // Result image URL
      error?: string;
 
      // Actions
-     tryOn: () => Promise<void>;        // Execute ML backend API call
-     regenerate: () => Promise<void>;   // Re-run with same inputs
-     reset: () => void;                 // Clear all state
+     setPath: (path: TryOnPath) => void;
+     setBody: (file: File | undefined) => Promise<void>;  // With quality analysis
+     setGarmentFile: (file: File | undefined, skipClassification?: boolean) => Promise<{ ok: boolean; message?: string }>;
+     setUpperGarment: (file: File | undefined) => Promise<{ ok: boolean; message?: string }>;
+     setLowerGarment: (file: File | undefined) => Promise<{ ok: boolean; message?: string }>;
+     constructOutfitPreview: () => Promise<void>;   // Combine upper + lower
+     tryOn: () => Promise<void>;                    // Execute ML backend API call
+
+     // Helpers
+     getAvailableClothTypes: () => ClothType[];     // Based on classification
+     getDisabledClothTypes: () => { type: ClothType; reason: string }[];
+     getPreselectState: () => PreselectState;       // Confidence-based state
+     getPreflightChecks: () => PreflightChecks;     // Validation before generation
+     canProceedToGenerate: () => boolean;
+   }
+
+   interface ImageSelection {
+     file?: File;
+     previewUrl?: string;
+     quality?: 'GOOD' | 'OK' | 'POOR';  // Client-side quality assessment
+   }
+
+   interface GarmentClassification {
+     label: string;                      // "T-Shirt", "Jeans", etc.
+     confidence: number;                 // 0.0-1.0
+     detectedType?: 'upper' | 'lower' | 'full';
    }
    ```
 
@@ -252,30 +315,145 @@ export async function processImages(
    - Guides section (snap to shoulders, pose confidence)
    - Clear all button
 
-6. **`PhotoWizard.tsx`** - Multi-step Photo HD flow
-   - Step 1: Upload body photo
-   - Step 2: Upload/select garment
-   - Step 3: Advanced settings accordion
-     - Inference Steps (20-100, default 50)
-     - Guidance Scale (1.0-10.0, default 2.5)
-     - Seed (-1 to 999, default 42)
-   - Generate button → calls `tryOn()` action
-   - Step 4: Result display with download/regenerate options
+6. **`PhotoWizard.tsx`** - Multi-path Photo HD flow
+   - **Path Selection**: Choose NORMAL, FULL, or REFERENCE mode
+   - **NORMAL Path**: Single garment try-on
+     - Body photo upload with quality analysis
+     - Garment upload with automatic ML classification
+     - Smart cloth type preselection based on confidence
+   - **FULL Path**: Complete outfit construction
+     - Body photo upload
+     - Upper garment upload with classification
+     - Lower garment upload with classification
+     - Outfit preview (combined upper + lower)
+   - **REFERENCE Path**: Style transfer from reference photo
+     - Body photo upload
+     - Full-body reference photo upload (no classification)
+   - **Camera Capture**: Upload via file picker or device camera
+   - **Quality Tips**: Collapsible guidance cards before upload
+   - **Advanced Settings**: Inference steps, guidance scale, seed
+   - **Preflight Validation**: Warns about quality issues before generation
+   - **Mobile Scroll Indicator**: "Scroll down" indicator for small screens
+   - Result display with download (opens in new window) and regenerate options
 
-7. **`NavBar.tsx`** - Navigation with conditional tabs
-   - Normal nav menu on non-try-on pages
-   - Tab switcher on `/try-on` page (AR | Photo)
-   - Help and About buttons when on try-on page
+7. **`ClothTypeSelector.tsx`** - Smart cloth type selector
+   - Three states: LOCKED (high confidence), SUGGESTED (medium), UNKNOWN (low)
+   - Visual indicators for preselected types (green check, amber suggestion, gray unknown)
+   - Disabled cloth types with tooltip explanations
+   - Confidence badge display for detected garments
 
-8. **`ClientLayout.tsx`** - Client-side wrapper
-   - Theme provider
-   - Global modals (HelpModal, AboutModal, GarmentGallery)
-   - StatusFooter component
+8. **`ClassificationChip.tsx`** - Garment classification display
+   - Color-coded confidence badges (green ≥85%, amber 60-84%, gray <60%)
+   - Shows detected garment label and confidence percentage
 
-9. **`StatusFooter.tsx`** - Fixed footer
-   - FPS display (AR mode only)
-   - Processing status (Photo mode)
-   - Privacy badge (all processing local)
+9. **`QualityTipsCard.tsx`** - Pre-upload guidance
+   - Collapsible tip cards for body and garment photos
+   - Context-specific tips based on try-on path
+
+10. **`PreflightChecklist.tsx`** - Validation warnings
+    - Shows failed validation checks before generation
+    - Resolution, brightness, required images, cloth type selection
+
+11. **`ScrollIndicator.tsx`** - Mobile scroll helper
+    - Auto-detects scrollable content below viewport
+    - Animated bounce indicator with "Scroll down" text
+    - Hides after scroll or when at bottom
+    - Mobile-only (hidden on desktop)
+
+12. **`NavBar.tsx`** - Navigation with conditional tabs
+    - Normal nav menu on non-try-on pages
+    - Tab switcher on `/try-on` page (AR | Photo)
+    - Help and About buttons when on try-on page
+
+13. **`ClientLayout.tsx`** - Client-side wrapper
+    - Theme provider
+    - Global modals (HelpModal, AboutModal, GarmentGallery)
+    - StatusFooter component
+
+14. **`StatusFooter.tsx`** - Fixed footer
+    - FPS display (AR mode only)
+    - Processing status (Photo mode)
+    - Privacy badge (all processing local)
+
+### WebP Conversion System
+
+**Problem**: Backend ML API doesn't support WebP image format
+
+**Solution**: Automatic browser-side conversion using Canvas API
+
+**Implementation** (`lib/utils/imageConversion.ts`):
+- **`ensureBackendCompatibleFormat(file)`** - Main function used in all upload methods
+  - Detects WebP by MIME type (`image/webp`) or extension (`.webp`)
+  - Converts WebP → PNG using Canvas API (100-300ms typical)
+  - Passes through PNG/JPEG unchanged
+  - Returns: `{ file: File, converted: boolean, originalFormat?: string }`
+- **`convertImageFormat(file, targetFormat, quality)`** - Core conversion logic
+  - Loads image into `<img>` element via Object URL
+  - Draws to `<canvas>` element
+  - Converts canvas to Blob (PNG or JPEG)
+  - Creates new File with updated extension
+- **User Feedback**: Toast notification "Converted WEBP to PNG for backend compatibility"
+- **Console Logging**: Detailed metrics (original size, converted size, duration)
+
+**Integration Points** (all in `lib/store/useVtonStore.ts`):
+- `setBody()` - Body photo upload
+- `setGarmentFile()` - Single garment upload (NORMAL/REFERENCE)
+- `setUpperGarment()` - Upper garment (FULL mode)
+- `setLowerGarment()` - Lower garment (FULL mode)
+
+**Supported Formats**:
+- ✅ PNG - Native support (no conversion)
+- ✅ JPEG/JPG - Native support (no conversion)
+- ✅ WebP - Auto-converted to PNG
+
+**Documentation**: See `WEBP_CONVERSION.md` for detailed implementation guide
+
+### Image Quality Validation System
+
+**Client-Side Quality Analysis** (`lib/utils/imageQuality.ts`):
+
+**`analyzeImageQuality(file, expectedAspect?, tolerance?)`** - Main analysis function
+- **Resolution Check**:
+  - ✅ GOOD: ≥1024px width/height
+  - ⚠️ OK: 800-1024px
+  - ❌ POOR: <800px
+- **Brightness Check** (Luma analysis):
+  - ✅ GOOD: Average luma 50-230
+  - ❌ POOR: <50 (too dark) or >230 (overexposed)
+- **Aspect Ratio Check**:
+  - Validates against expected ratio (e.g., 3:4 for body photos)
+  - Tolerance: ±30% by default
+- **Returns**: `{ level: 'GOOD' | 'OK' | 'POOR', checks: {...}, suggestions: [...] }`
+
+**Integration**:
+- `setBody()` analyzes quality on upload
+- Quality badge displayed on image preview
+- Preflight validation warns if quality is POOR
+
+**Quality Tips**:
+- Body photos: Front-facing, shoulders visible, good lighting, plain background, ≥1024px
+- Garment photos: Front view, flat or on hanger, plain background, centered, ≥1024px
+
+### Mobile UX Enhancements
+
+**Scroll Indicator** (`components/ui/scroll-indicator.tsx`):
+- **Purpose**: Ensure buttons below fold are discoverable on small screens
+- **Auto-Detection**: Checks if container has scrollable content
+- **Visual Design**: Animated bounce, "Scroll down" text, ChevronDown icon
+- **Behavior**:
+  - Appears when content extends below viewport
+  - Hides after first scroll
+  - Hides when within 50px of bottom
+  - Click to smooth scroll to bottom
+- **Display**: Mobile/tablet only (hidden on desktop via `md:hidden`)
+- **Styling**: Black semi-transparent with backdrop blur, matches app aesthetic
+
+**Camera Capture Integration**:
+- Upload via file picker OR capture with device camera
+- Body photo: Front-facing camera (selfie mode)
+- Garment photo: Rear-facing camera
+- Video preview with capture button
+- JPEG output at 95% quality
 
 ### Styling Patterns
 
@@ -429,7 +607,8 @@ export interface VtonProcessResponse {
 **UI Framework**:
 - `next`: 15.4.2 - React framework with App Router
 - `react`: ^19 - UI library
-- `@radix-ui/*`: Accessible UI primitives
+- `@radix-ui/*`: Accessible UI primitives (includes tooltip, accordion, dialog, etc.)
+  - `@radix-ui/react-tooltip`: ^1.2.8 - Tooltip component for disabled option explanations
 - `tailwindcss`: ^4 - Utility-first CSS
 - `next-themes`: Dark/light mode theming
 
@@ -443,31 +622,79 @@ export interface VtonProcessResponse {
 - `class-variance-authority`: Component variants
 - `clsx` + `tailwind-merge`: Conditional styling
 
+### Documentation
+
+The project includes comprehensive documentation for recent features:
+
+1. **`WEBP_CONVERSION.md`** - WebP to PNG conversion system
+   - Complete implementation guide (550+ lines)
+   - Technical details, testing procedures, performance characteristics
+   - Browser compatibility notes and future enhancements
+
+2. **`SEO_IMPROVEMENTS.md`** - SEO and metadata optimization
+   - Complete SEO implementation documentation
+   - Open Graph, Twitter Cards, structured data, sitemap
+   - Testing tools and verification steps
+   - Asset requirements and design specifications
+
+3. **This file** (`CLAUDE.md`) - Development guide
+   - Architecture overview, component documentation
+   - State management patterns, API integration
+   - Recent feature implementations and best practices
+
 ### Testing Notes
 
-- No test setup currently configured
-- Recommend adding Jest + React Testing Library for component tests
-- Consider E2E tests with Playwright for multi-step Photo wizard flow
-- AR mode testing requires camera permissions (use virtual camera in CI)
+**Current Setup**:
+- No automated test setup currently configured
+- Manual testing for Photo HD wizard and WebP conversion
+
+**Recommended Testing Stack**:
+- **Unit Tests**: Jest + React Testing Library for component tests
+- **E2E Tests**: Playwright for multi-step Photo wizard flow
+- **Visual Regression**: Chromatic or Percy for UI consistency
+- **AR Mode Testing**: Requires camera permissions (use virtual camera in CI)
+
+**Testing Scenarios to Cover**:
+1. WebP conversion: Upload WebP → Verify conversion toast → Verify try-on works
+2. Quality validation: Upload low-res image → Verify quality badge and warnings
+3. Classification: Upload garment → Verify ML classification → Verify preselection
+4. Multi-path flows: Test NORMAL, FULL, and REFERENCE paths end-to-end
+5. Mobile scroll indicator: Verify appearance and dismissal on small screens
+6. Camera capture: Test body and garment photo capture with device cameras
 
 ### Performance Considerations
 
-- Camera stream requires proper cleanup to avoid memory leaks
+- **Camera stream** requires proper cleanup to avoid memory leaks
   - `stopCameraStream()` called on component unmount
   - Animation frames cancelled via `cancelAnimationFrame()`
-- Object URLs from Blobs must be revoked when no longer needed
-- ML backend requests have 60s timeout (can be slow on CPU)
-- Image uploads are sent as File objects (no base64 encoding overhead)
-- react-rnd drag/resize operations use RAF for smooth 60fps updates
-- Container dimension tracking uses ResizeObserver pattern via useEffect
-- Garment images preloaded to avoid layout shift during drag
+- **Object URLs** from Blobs must be revoked when no longer needed
+- **ML backend requests** have 60s timeout (can be slow on CPU)
+- **Image uploads** are sent as File objects (no base64 encoding overhead)
+- **WebP conversion** adds 100-300ms overhead but necessary for backend compatibility
+  - Conversion runs asynchronously to avoid blocking UI
+  - Progress shown via toast notifications
+- **Image quality analysis** runs on upload (minimal overhead, ~50-100ms)
+- **react-rnd** drag/resize operations use RAF for smooth 60fps updates
+- **Container dimension tracking** uses ResizeObserver pattern via useEffect
+- **Garment images** preloaded to avoid layout shift during drag
+- **Scroll indicator** uses passive event listeners for optimal scroll performance
 
 ### Browser Compatibility
 
-- Camera access requires HTTPS in production (or localhost)
-- MediaStream API support required for AR mode (getUserMedia)
-- Modern browser with ES2020+ support
-- FormData and Blob APIs required for ML backend integration
-- CSS transforms (scale, rotate) for garment overlay
-- Event handling: keyboard events, pointer events (drag/resize)
-- Recommended browsers: Chrome 90+, Firefox 88+, Safari 14+, Edge 90+
+- **Camera access** requires HTTPS in production (or localhost)
+- **MediaStream API** support required for AR mode (getUserMedia)
+- **Canvas API** required for WebP conversion (supported in all modern browsers)
+- **ES2020+** support required for modern JavaScript features
+- **FormData and Blob APIs** required for ML backend integration
+- **CSS transforms** (scale, rotate) for garment overlay
+- **ResizeObserver** for responsive container tracking
+- **Event handling**: keyboard events, pointer events (drag/resize), scroll events
+- **Recommended browsers**: Chrome 90+, Firefox 88+, Safari 14+, Edge 90+
+
+### Known Limitations
+
+1. **Backend doesn't support WebP**: Frontend automatically converts (users may not notice)
+2. **AR mode MediaPipe**: Pose detection dependencies included but not yet fully integrated
+3. **No automated tests**: Manual testing required for now
+4. **Camera capture**: Requires HTTPS in production (works on localhost for development)
+5. **Mobile performance**: WebP conversion may be slower on lower-end devices (100-500ms)

@@ -38,50 +38,35 @@ export default function ScrollIndicator({
   text = 'Scroll for more',
 }: ScrollIndicatorProps) {
   const [visible, setVisible] = useState(false);
-  const [hasScrolled, setHasScrolled] = useState(false);
 
   useEffect(() => {
-    // Check if there's scrollable content
+    // Check if there's scrollable content - always show if scrollable
     const checkScrollable = () => {
       if (containerRef?.current) {
         const container = containerRef.current;
         const hasScroll = container.scrollHeight > container.clientHeight;
-        const isAtBottom =
-          container.scrollHeight - container.scrollTop - container.clientHeight < hideThreshold;
-
-        setVisible(hasScroll && !isAtBottom && !hasScrolled);
+        setVisible(hasScroll);
       } else {
         // Use window scroll
         const hasScroll = document.documentElement.scrollHeight > window.innerHeight;
-        const isAtBottom =
-          document.documentElement.scrollHeight - window.scrollY - window.innerHeight <
-          hideThreshold;
-
-        setVisible(hasScroll && !isAtBottom && !hasScrolled);
+        setVisible(hasScroll);
       }
-    };
-
-    const handleScroll = () => {
-      setHasScrolled(true);
-      checkScrollable();
     };
 
     // Initial check
     checkScrollable();
 
-    // Add scroll listener
+    // Recheck on resize and scroll (content might change dynamically)
     const target = containerRef?.current || window;
-    target.addEventListener('scroll', handleScroll as EventListener);
-
-    // Recheck on resize
+    target.addEventListener('scroll', checkScrollable as EventListener);
     window.addEventListener('resize', checkScrollable);
 
     // Cleanup
     return () => {
-      target.removeEventListener('scroll', handleScroll as EventListener);
+      target.removeEventListener('scroll', checkScrollable as EventListener);
       window.removeEventListener('resize', checkScrollable);
     };
-  }, [containerRef, hideThreshold, hasScrolled]);
+  }, [containerRef, hideThreshold]);
 
   const handleClick = () => {
     if (containerRef?.current) {
@@ -95,7 +80,6 @@ export default function ScrollIndicator({
         behavior: 'smooth',
       });
     }
-    setHasScrolled(true);
   };
 
   if (!visible) return null;
@@ -112,10 +96,10 @@ export default function ScrollIndicator({
         onClick={handleClick}
         className={cn(
           'pointer-events-auto flex flex-col items-center gap-1 rounded-full px-4 py-2',
-          'bg-black/40 backdrop-blur-md border border-white/10',
-          'text-white/90 text-xs font-medium',
-          'transition-all duration-300 hover:bg-black/50 hover:scale-105',
-          'animate-bounce shadow-lg shadow-black/20',
+          'bg-green-500/30 backdrop-blur-md border border-green-400/40',
+          'text-green-50 text-xs font-medium',
+          'transition-all duration-300 hover:bg-green-500/40 hover:scale-105 hover:border-green-400/60',
+          'animate-bounce shadow-lg shadow-green-500/20',
         )}
         aria-label="Scroll to bottom"
       >
