@@ -197,6 +197,8 @@ export default function ARStage() {
             landmarks={landmarks}
             containerWidth={dimensions.width}
             containerHeight={dimensions.height}
+            metadata={currentMetadata}
+            enabled={mode === 'AutoTrack'}
           />
         )}
 

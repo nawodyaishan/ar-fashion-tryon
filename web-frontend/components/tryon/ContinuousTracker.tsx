@@ -3,46 +3,62 @@
 
 import { useEffect, useRef } from 'react';
 import { useTryonStore } from '@/lib/tryon-store';
-import { calculateShoulderPosition, calculateGarmentPosition, isConfidentPose } from '@/lib/pose-utils';
+import { calculateShoulderPosition, calculateAnchorBasedPosition, calculateGarmentPosition, isConfidentPose } from '@/lib/pose-utils';
 import type { PoseLandmark } from '@/lib/hooks/usePoseDetection';
+import type { GarmentMetadata } from '@/lib/types';
 
 interface ContinuousTrackerProps {
   landmarks: PoseLandmark[] | null;
   containerWidth: number;
   containerHeight: number;
+  metadata: GarmentMetadata | null;
+  enabled: boolean;
 }
 
 export function ContinuousTracker({
   landmarks,
   containerWidth,
-  containerHeight
+  containerHeight,
+  metadata,
+  enabled
 }: ContinuousTrackerProps) {
-  const { continuousTracking, autoAlignGarment, selectedGarmentId } = useTryonStore();
+  const { mode, setTracked, selectedGarmentId } = useTryonStore();
   const lastUpdateRef = useRef(0);
 
   useEffect(() => {
-    if (!continuousTracking || !landmarks || !selectedGarmentId) return;
+    // CRITICAL: Only run if enabled, in AutoTrack mode, and have required data
+    if (!enabled || mode !== 'AutoTrack' || !landmarks || !selectedGarmentId) {
+      return;
+    }
 
-    // Throttle updates to 10 FPS (100ms intervals)
+    // Throttle updates to 15 FPS (~67ms intervals)
     const now = Date.now();
-    if (now - lastUpdateRef.current < 100) return;
+    if (now - lastUpdateRef.current < 67) return;
 
-    if (!isConfidentPose(landmarks)) return;
+    // Check for confident pose
+    if (!isConfidentPose(landmarks)) {
+      return;
+    }
 
+    // Calculate shoulder position
     const shoulderPos = calculateShoulderPosition(landmarks, containerWidth, containerHeight);
     if (!shoulderPos) return;
 
-    const garmentSuggestion = calculateGarmentPosition(shoulderPos);
+    // CRITICAL FIX: Use anchor-based positioning if metadata available, else fallback
+    const garmentSuggestion = metadata
+      ? calculateAnchorBasedPosition(shoulderPos, metadata, containerWidth, containerHeight)
+      : calculateGarmentPosition(shoulderPos);
 
-    autoAlignGarment(
-      garmentSuggestion.x,
-      garmentSuggestion.y,
-      garmentSuggestion.scale,
-      garmentSuggestion.rotation
-    );
+    // Update tracked transform (part of dual transform system)
+    setTracked({
+      x: garmentSuggestion.x,
+      y: garmentSuggestion.y,
+      scale: garmentSuggestion.scale,
+      rotation: garmentSuggestion.rotation
+    });
 
     lastUpdateRef.current = now;
-  }, [landmarks, containerWidth, containerHeight, continuousTracking, autoAlignGarment, selectedGarmentId]);
+  }, [landmarks, containerWidth, containerHeight, enabled, mode, selectedGarmentId, metadata, setTracked]);
 
   return null; // No UI, just side effects
 }
