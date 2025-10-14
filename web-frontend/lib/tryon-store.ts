@@ -294,12 +294,67 @@ export const useTryonStore = create<TryonState>()(
       rebaseTransforms: () => {
         const state = get();
 
-        // Set tracked = final, userDelta = identity
-        set({
-          tracked: { ...state.final },
-          userDelta: identityTransform(),
-          final: { ...state.final }
-        });
+        console.log('🔄 Rebase: tracked =', state.tracked);
+        console.log('🔄 Rebase: userDelta =', state.userDelta);
+        console.log('🔄 Rebase: final =', state.final);
+
+        // OPTION 2: Smooth rebase with lerp (200ms transition)
+        // This prevents visible "snap" when resuming tracking
+        const startTracked = { ...state.tracked };
+        const targetTracked = { ...state.final };
+        const startDelta = { ...state.userDelta };
+        const targetDelta = identityTransform();
+
+        const duration = 200; // ms
+        const startTime = performance.now();
+
+        const animate = () => {
+          const elapsed = performance.now() - startTime;
+          const t = Math.min(elapsed / duration, 1.0); // 0 to 1
+
+          // Ease-out cubic: smooth deceleration
+          const eased = 1 - Math.pow(1 - t, 3);
+
+          // Lerp tracked: startTracked → targetTracked
+          const lerpedTracked = {
+            x: startTracked.x + (targetTracked.x - startTracked.x) * eased,
+            y: startTracked.y + (targetTracked.y - startTracked.y) * eased,
+            scale: startTracked.scale + (targetTracked.scale - startTracked.scale) * eased,
+            rotation: startTracked.rotation + (targetTracked.rotation - startTracked.rotation) * eased,
+            opacity: state.tracked.opacity,
+            lockAspect: state.tracked.lockAspect
+          };
+
+          // Lerp userDelta: startDelta → identityTransform
+          const lerpedDelta = {
+            x: startDelta.x + (targetDelta.x - startDelta.x) * eased,
+            y: startDelta.y + (targetDelta.y - startDelta.y) * eased,
+            scale: startDelta.scale + (targetDelta.scale - startDelta.scale) * eased,
+            rotation: startDelta.rotation + (targetDelta.rotation - startDelta.rotation) * eased,
+            opacity: startDelta.opacity,
+            lockAspect: startDelta.lockAspect
+          };
+
+          set({
+            tracked: lerpedTracked,
+            userDelta: lerpedDelta,
+            final: composeTransforms(lerpedTracked, lerpedDelta)
+          });
+
+          if (t < 1.0) {
+            requestAnimationFrame(animate);
+          } else {
+            // Ensure final state is exact
+            set({
+              tracked: targetTracked,
+              userDelta: targetDelta,
+              final: targetTracked
+            });
+            console.log('✅ Rebase complete');
+          }
+        };
+
+        requestAnimationFrame(animate);
       },
 
       toggleLockAspect: () =>

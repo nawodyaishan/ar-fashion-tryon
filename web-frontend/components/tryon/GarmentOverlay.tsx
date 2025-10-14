@@ -4,6 +4,7 @@
 import { useRef, useEffect, useState } from 'react';
 import { Rnd } from 'react-rnd';
 import { useTryonStore } from '@/lib/tryon-store';
+import { MouseGestureDetector } from '@/lib/gesture/mouse-gesture-detector';
 import type { DraggableData, ResizableDelta } from 'react-rnd';
 import type { Transform } from '@/lib/types';
 
@@ -18,7 +19,7 @@ export function GarmentOverlay({
   containerHeight, // Reserved for future bounds calculation
   transform, // NEW: Render the composition result
 }: GarmentOverlayProps) {
-  const { selectedGarmentId, garments, setUserDelta, mode, setUiMode, tracked } = useTryonStore();
+  const { selectedGarmentId, garments, setUserDelta, mode, setUiMode, tracked, rebaseTransforms } = useTryonStore();
 
   // Suppress unused variable warnings - these are reserved for future use
   void containerWidth;
@@ -26,6 +27,8 @@ export function GarmentOverlay({
 
   const [garmentDimensions, setGarmentDimensions] = useState({ width: 200, height: 300 });
   const imageRef = useRef<HTMLImageElement>(null);
+  const mouseDetectorRef = useRef(new MouseGestureDetector());
+  const resumeTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const selectedGarment = garments.find((g) => g.id === selectedGarmentId);
 
@@ -47,10 +50,83 @@ export function GarmentOverlay({
     };
   }, [selectedGarment, transform.scale]);
 
-  // Keyboard shortcuts - now updates userDelta instead of transform
+  // Mouse gesture handling with resume timer
+  useEffect(() => {
+    const handleMouseDown = (e: MouseEvent) => {
+      // Only handle if clicking on garment overlay
+      if (!(e.target as HTMLElement).closest('.garment-overlay')) return;
+
+      mouseDetectorRef.current.handleMouseDown(e);
+
+      if (mode === 'AutoTrack') {
+        setUiMode('GestureEdit');
+      }
+
+      // Clear any existing resume timer
+      if (resumeTimerRef.current) {
+        clearTimeout(resumeTimerRef.current);
+        resumeTimerRef.current = null;
+      }
+    };
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!mouseDetectorRef.current.isActive()) return;
+
+      mouseDetectorRef.current.handleMouseMove(e);
+
+      const gestureData = mouseDetectorRef.current.getGestureData();
+      const { userDelta } = useTryonStore.getState();
+
+      if (gestureData.type === 'scale') {
+        const deltaY = gestureData.currentPos.y - gestureData.startPos.y;
+        const scaleChange = 1 + (deltaY / 200); // 200px = 100% scale change
+
+        setUserDelta({ scale: Math.max(0.3, Math.min(3.0, userDelta.scale * scaleChange)) });
+      } else if (gestureData.type === 'rotate') {
+        const deltaX = gestureData.currentPos.x - gestureData.startPos.x;
+        const rotChange = deltaX * 0.5; // 0.5 degrees per pixel
+
+        setUserDelta({ rotation: Math.max(-45, Math.min(45, userDelta.rotation + rotChange)) });
+      }
+      // Note: Regular drag is handled by react-rnd, not here
+    };
+
+    const handleMouseUp = () => {
+      if (!mouseDetectorRef.current.isActive()) return;
+
+      mouseDetectorRef.current.handleMouseUp();
+
+      // Start 800ms resume timer
+      resumeTimerRef.current = setTimeout(() => {
+        console.log('🔄 Mouse gesture ended, rebasing...');
+        rebaseTransforms();
+        setUiMode('AutoTrack');
+        resumeTimerRef.current = null;
+      }, 800);
+    };
+
+    document.addEventListener('mousedown', handleMouseDown);
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousedown', handleMouseDown);
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+
+      if (resumeTimerRef.current) {
+        clearTimeout(resumeTimerRef.current);
+      }
+    };
+  }, [mode, setUiMode, setUserDelta, rebaseTransforms]);
+
+  // Enhanced keyboard shortcuts with resume timer
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
       if (!selectedGarment) return;
+
+      // Ignore if typing in input field
+      if ((e.target as HTMLElement).tagName === 'INPUT') return;
 
       // Switch to GestureEdit mode if in AutoTrack
       if (mode === 'AutoTrack') {
@@ -58,39 +134,85 @@ export function GarmentOverlay({
       }
 
       const step = e.shiftKey ? 10 : 1;
+      const { userDelta } = useTryonStore.getState();
+
+      let updated = false;
 
       switch (e.key) {
         case 'ArrowUp':
           e.preventDefault();
-          setUserDelta({ y: transform.y - tracked.y - step });
+          setUserDelta({ y: userDelta.y - step });
+          updated = true;
           break;
         case 'ArrowDown':
           e.preventDefault();
-          setUserDelta({ y: transform.y - tracked.y + step });
+          setUserDelta({ y: userDelta.y + step });
+          updated = true;
           break;
         case 'ArrowLeft':
           e.preventDefault();
-          setUserDelta({ x: transform.x - tracked.x - step });
+          setUserDelta({ x: userDelta.x - step });
+          updated = true;
           break;
         case 'ArrowRight':
           e.preventDefault();
-          setUserDelta({ x: transform.x - tracked.x + step });
+          setUserDelta({ x: userDelta.x + step });
+          updated = true;
           break;
         case '+':
         case '=':
           e.preventDefault();
-          setUserDelta({ scale: Math.min(3.0, transform.scale / tracked.scale + 0.05) });
+          setUserDelta({ scale: Math.min(3.0, userDelta.scale * 1.05) });
+          updated = true;
           break;
         case '-':
           e.preventDefault();
-          setUserDelta({ scale: Math.max(0.3, transform.scale / tracked.scale - 0.05) });
+          setUserDelta({ scale: Math.max(0.3, userDelta.scale * 0.95) });
+          updated = true;
           break;
+        case '[':
+          e.preventDefault();
+          setUserDelta({ rotation: Math.max(-45, userDelta.rotation - 5) });
+          updated = true;
+          break;
+        case ']':
+          e.preventDefault();
+          setUserDelta({ rotation: Math.min(45, userDelta.rotation + 5) });
+          updated = true;
+          break;
+        case 'r':
+        case 'R':
+          e.preventDefault();
+          // Reset and rebase immediately
+          console.log('⌨️ Reset triggered, rebasing...');
+          rebaseTransforms();
+          setUiMode('AutoTrack');
+          break;
+      }
+
+      // Start resume timer on any edit
+      if (updated) {
+        if (resumeTimerRef.current) {
+          clearTimeout(resumeTimerRef.current);
+        }
+
+        resumeTimerRef.current = setTimeout(() => {
+          console.log('⌨️ Keyboard edit ended, rebasing...');
+          rebaseTransforms();
+          setUiMode('AutoTrack');
+          resumeTimerRef.current = null;
+        }, 800);
       }
     };
 
     window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [selectedGarment, transform, tracked, mode, setUserDelta, setUiMode]);
+    return () => {
+      window.removeEventListener('keydown', handleKeyPress);
+      if (resumeTimerRef.current) {
+        clearTimeout(resumeTimerRef.current);
+      }
+    };
+  }, [selectedGarment, mode, setUiMode, setUserDelta, rebaseTransforms]);
 
   if (!selectedGarment) return null;
 
@@ -107,6 +229,18 @@ export function GarmentOverlay({
     const deltaY = d.y - tracked.y;
 
     setUserDelta({ x: deltaX, y: deltaY });
+
+    // Start 800ms resume timer
+    if (resumeTimerRef.current) {
+      clearTimeout(resumeTimerRef.current);
+    }
+
+    resumeTimerRef.current = setTimeout(() => {
+      console.log('🔄 Drag ended, rebasing...');
+      rebaseTransforms();
+      setUiMode('AutoTrack');
+      resumeTimerRef.current = null;
+    }, 800);
   };
 
   const handleResizeStop = (
@@ -130,6 +264,18 @@ export function GarmentOverlay({
       width: newWidth,
       height: parseInt(ref.style.height)
     });
+
+    // Start 800ms resume timer
+    if (resumeTimerRef.current) {
+      clearTimeout(resumeTimerRef.current);
+    }
+
+    resumeTimerRef.current = setTimeout(() => {
+      console.log('🔄 Resize ended, rebasing...');
+      rebaseTransforms();
+      setUiMode('AutoTrack');
+      resumeTimerRef.current = null;
+    }, 800);
   };
 
   return (
@@ -148,7 +294,7 @@ export function GarmentOverlay({
       onResizeStop={handleResizeStop}
       lockAspectRatio={transform.lockAspect}
       bounds="parent"
-      className="z-10"
+      className="garment-overlay z-10"
       enableResizing={{
         top: false,
         right: true,
