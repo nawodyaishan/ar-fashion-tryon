@@ -10,6 +10,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useTryonStore } from '@/lib/tryon-store';
 import { loadImageFromFile, getImageDimensions, getFileSizeKB } from '@/lib/canvas';
 import { extractGarmentSmart } from '@/lib/services/garmentApi';
+import { processGarment, validateGarmentFile, convertToFrontendMetadata } from '@/lib/services/garmentProcessingApi';
+import { saveLocalMetadata } from '@/lib/services/metadata';
 import { TransformControls } from './TransformControls';
 import { MediaPipeTestPanel } from './MediaPipeTestPanel';
 import { Plus, Trash2, Sparkles, Activity } from 'lucide-react';
@@ -46,72 +48,143 @@ export default function ARPanel() {
     return '🔴 Low';
   };
 
-  // Handle file upload with garment extraction
+  // Handle file upload with garment extraction + AR processing
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-      toast.error('Please upload an image file (JPEG, PNG, WEBP)');
+    // Validate file before processing
+    const validation = validateGarmentFile(file);
+    if (!validation.valid) {
+      toast.error(validation.error || 'Invalid file');
       return;
     }
 
-    // Validate file size (max 10MB for extraction API)
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error('File size must be less than 10MB');
-      return;
-    }
+    const garmentId = `custom-${Date.now()}`;
+    const garmentName = file.name.replace(/\.[^/.]+$/, '');
 
     try {
       setUploading(true);
-      toast.loading('Extracting garment...', { id: 'extraction' });
 
-      // Step 1: Extract garment through API (auto-selects Cloudinary or direct upload)
+      // Step 1: Extract garment (background removal + classification)
+      toast.loading('Extracting garment...', { id: 'processing' });
       const { result, extractedFile, method, cloudinaryUrl } = await extractGarmentSmart(file);
 
-      // Check if extraction was successful
       if (!result.success || !extractedFile) {
-        toast.error(result.message || 'Failed to extract garment', { id: 'extraction' });
+        toast.error(result.message || 'Failed to extract garment', { id: 'processing' });
         return;
       }
 
-      // Step 2: Load extracted image
-      const extractedSrc = await loadImageFromFile(extractedFile);
-      const dimensions = await getImageDimensions(extractedSrc);
+      // Step 2: Process for AR (anchor detection + neck cut + metadata)
+      toast.loading('Processing for AR...', { id: 'processing' });
 
-      // Step 3: Create new garment with extraction metadata
+      // Determine category from classification
+      const category = result.classification?.label === 'tshirt' ? 'tshirt' : 'shirt';
+
+      const processedResult = await processGarment(extractedFile, {
+        category,
+        upload: true, // Upload processed version to Cloudinary
+        useDefaults: true // Use default anchors
+      });
+
+      if (processedResult.status !== 'ok') {
+        toast.error('AR processing failed, using extracted version', { id: 'processing' });
+
+        // Fallback: Use extracted version without AR metadata
+        const extractedSrc = await loadImageFromFile(extractedFile);
+        const dimensions = await getImageDimensions(extractedSrc);
+
+        const fallbackGarment = {
+          id: garmentId,
+          name: garmentName,
+          src: extractedSrc,
+          width: dimensions.width,
+          height: dimensions.height,
+          sizeKb: getFileSizeKB(extractedFile),
+          category: 'misc' as const,
+          extracted: true,
+          extractedUrl: result.extraction?.cutout_url,
+          cloudinaryUrl,
+          classification: result.classification ? {
+            label: result.classification.label as 'tshirt' | 'trousers' | 'unknown',
+            confidence: result.classification.confidence
+          } : undefined
+        };
+
+        addGarment(fallbackGarment);
+        selectGarment(garmentId);
+        return;
+      }
+
+      // Step 3: Use AR-processed PNG (with neck cut and transparent background)
+      const processedPng = processedResult.urls.processed_png ||
+        processedResult.urls.processed_png_base64;
+
+      if (!processedPng) {
+        throw new Error('No processed PNG returned from AR processing');
+      }
+
+      // Step 4: Load processed image
+      const processedSrc = processedPng.startsWith('data:')
+        ? processedPng
+        : processedPng; // Already a URL
+
+      const dimensions = {
+        width: processedResult.meta.w,
+        height: processedResult.meta.h
+      };
+
+      // Step 5: Create garment with AR metadata
       const newGarment = {
-        id: `custom-${Date.now()}`,
-        name: file.name.replace(/\.[^/.]+$/, ''),
-        src: extractedSrc,
+        id: garmentId,
+        name: garmentName,
+        src: processedSrc,
         width: dimensions.width,
         height: dimensions.height,
-        sizeKb: getFileSizeKB(extractedFile),
-        category: 'misc' as const,
+        sizeKb: 0, // Will be calculated later if needed
+        category: (processedResult.meta.category === 'tshirt' ? 'tops' : 'tops') as 'tops' | 'jackets' | 'misc',
         extracted: true,
+        processed: true, // NEW: Mark as AR-processed
         extractedUrl: result.extraction?.cutout_url,
-        cloudinaryUrl: cloudinaryUrl, // Store Cloudinary URL if available
+        cloudinaryUrl: processedResult.urls.processed_png,
+        publicId: processedResult.urls.public_id,
         classification: result.classification ? {
           label: result.classification.label as 'tshirt' | 'trousers' | 'unknown',
           confidence: result.classification.confidence
         } : undefined,
-        processingTime: result.processing_time_ms || undefined,
+        processingTime: result.processing_time_ms
       };
 
-      addGarment(newGarment);
-      selectGarment(newGarment.id);
-
-      const methodEmoji = method === 'cloudinary' ? '🌩️' : '📤';
-      const methodLabel = method === 'cloudinary' ? 'via Cloudinary' : 'direct upload';
-      toast.success(
-        `${methodEmoji} Garment extracted ${methodLabel}: ${result.classification?.label.toUpperCase()} (${(result.classification!.confidence * 100).toFixed(0)}% confidence)`,
-        { id: 'extraction' },
+      // Step 6: Save AR metadata to local storage
+      const metadata = convertToFrontendMetadata(
+        garmentId,
+        garmentName,
+        processedResult.meta
       );
+      saveLocalMetadata(metadata);
+
+      // Step 7: Add garment to store
+      addGarment(newGarment);
+      selectGarment(garmentId);
+
+      // Success notification
+      const methodEmoji = method === 'cloudinary' ? '🌩️' : '📤';
+      toast.success(
+        `${methodEmoji} AR-ready garment processed! ${result.classification?.label.toUpperCase()} detected with anchors`,
+        { id: 'processing' },
+      );
+
+      console.log('✅ Garment added with metadata:', {
+        garmentId,
+        dimensions,
+        anchors: processedResult.meta.anchors,
+        category: processedResult.meta.category
+      });
+
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to upload garment';
-      toast.error(errorMessage, { id: 'extraction' });
-      console.error(err);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to process garment';
+      toast.error(errorMessage, { id: 'processing' });
+      console.error('Garment processing error:', err);
     } finally {
       setUploading(false);
       if (fileInputRef.current) {
@@ -240,12 +313,12 @@ export default function ARPanel() {
             {uploading ? (
               <>
                 <Sparkles className="h-4 w-4 mr-2 animate-pulse" />
-                Extracting...
+                Processing...
               </>
             ) : (
               <>
                 <Plus className="h-4 w-4 mr-2" />
-                Add Garment
+                Add AR Garment
               </>
             )}
           </Button>

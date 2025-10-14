@@ -79,6 +79,16 @@ export function loadLocalMetadata(garmentId: string): GarmentMetadata | null {
   }
 }
 
+/**
+ * Save metadata to localStorage
+ * Alias for saveGarmentMetadata for consistency with loadLocalMetadata
+ */
+export function saveLocalMetadata(metadata: GarmentMetadata): void {
+  const key = `garment-metadata-${metadata.id}`;
+  localStorage.setItem(key, JSON.stringify(metadata));
+  console.log(`💾 Saved local metadata for ${metadata.id}:`, metadata);
+}
+
 function createDefaultMetadata(garmentId: string): GarmentMetadata {
   return {
     ...DEFAULT_METADATA,
