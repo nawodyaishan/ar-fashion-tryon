@@ -10,11 +10,14 @@ import { AutoAlignButton } from './AutoAlignButton';
 import { ContinuousTracker } from './ContinuousTracker';
 import { StatusPill } from './StatusPill';
 import { GestureEditor } from './GestureEditor';
+import { WelcomeGuide } from './WelcomeGuide';
+import { CameraPermissionDialog } from './CameraPermissionDialog';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Target, X, Hand } from 'lucide-react';
 import { useTryonStore } from '@/lib/tryon-store';
 import { usePoseDetection } from '@/lib/hooks/usePoseDetection';
+import { useOnboarding } from '@/lib/hooks/useOnboarding';
 import { TransformFilter, HysteresisGate } from '@/lib/filtering';
 import { calculateShoulderPosition, calculateGarmentPosition, calculateAnchorBasedPosition } from '@/lib/pose-utils';
 import { loadGarmentMetadata, loadLocalMetadata } from '@/lib/services/metadata';
@@ -27,6 +30,14 @@ export default function ARStage() {
   const [handsEnabled, setHandsEnabled] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Onboarding state
+  const {
+    showWelcomeGuide,
+    showCameraPermission,
+    markOnboardingComplete,
+    markCameraPermissionRequested
+  } = useOnboarding();
 
   const {
     selectedGarmentId,
@@ -144,7 +155,40 @@ export default function ARStage() {
     videoRef.current = video;
   };
 
+  // Onboarding handlers
+  const handleWelcomeGuideClose = () => {
+    markOnboardingComplete();
+  };
+
+  const handleRequestCamera = () => {
+    // This will trigger the camera permission dialog
+    markCameraPermissionRequested();
+  };
+
+  const handleCameraPermissionGranted = () => {
+    console.log('✅ Camera permission granted, enabling MediaPipe');
+    // Auto-enable MediaPipe when camera permission is granted
+    if (!useTryonStore.getState().mediaPipeEnabled) {
+      useTryonStore.getState().toggleMediaPipe();
+    }
+  };
+
   return (
+    <>
+      {/* Onboarding Modals */}
+      <WelcomeGuide
+        open={showWelcomeGuide}
+        onClose={handleWelcomeGuideClose}
+        onRequestCamera={handleRequestCamera}
+      />
+
+      <CameraPermissionDialog
+        open={showCameraPermission}
+        onClose={() => markCameraPermissionRequested()}
+        onPermissionGranted={handleCameraPermissionGranted}
+      />
+
+      {/* Main AR Stage */}
     <Card className="relative w-full h-full min-h-[600px] overflow-hidden bg-black/20 backdrop-blur-sm">
       <div ref={containerRef} className="relative w-full h-full">
         {/* Continuous Tracker - tracks pose when enabled */}
@@ -289,5 +333,6 @@ export default function ARStage() {
         </div>
       </div>
     </Card>
+    </>
   );
 }
