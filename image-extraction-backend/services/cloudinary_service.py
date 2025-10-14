@@ -82,3 +82,30 @@ def download_url_bytes(url: str, max_bytes: int = MAX_CONTENT_BYTES) -> bytes:
         chunks.append(chunk)
 
     return b"".join(chunks)
+
+
+def upload_png(png_bytes: bytes, folder: str, public_id: Optional[str] = None) -> dict:
+    """
+    Upload PNG image to Cloudinary.
+
+    Convenience wrapper for uploading PNG images specifically.
+    Uses the existing upload_bytes function with PNG format.
+
+    Args:
+        png_bytes: PNG image bytes
+        folder: Cloudinary folder path
+        public_id: Optional public ID for the image
+
+    Returns:
+        Dictionary with 'url' and 'public_id' keys
+    """
+    if public_id is None:
+        import secrets
+        public_id = f"processed_{secrets.token_hex(8)}"
+
+    result = upload_bytes(png_bytes, public_id, folder, fmt="png")
+
+    return {
+        "url": result.get("secure_url"),
+        "public_id": result.get("public_id")
+    }

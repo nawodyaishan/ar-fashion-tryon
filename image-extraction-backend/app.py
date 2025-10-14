@@ -7,7 +7,11 @@ import sys
 import secrets
 import tempfile
 from pathlib import Path
+import base64
+import json
+from typing import Optional
 
+import requests
 from fastapi import FastAPI, File, UploadFile, Request, HTTPException, Form
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -24,9 +28,9 @@ from config import (
 from models import HealthOut, UrlIn
 from middleware import RequestIDMiddleware
 from services.classifier import load_model_and_config, classify_image
-from services.cloudinary_service import upload_bytes, download_url_bytes
+from services.cloudinary_service import upload_bytes, download_url_bytes, upload_png
 from services.gradio_service import get_gradio_client, call_gradio_api
-from services.image_processing import remove_background, image_to_png_bytes, ensure_png_format, construct_outfit_image
+from services.image_processing import remove_background, image_to_png_bytes, ensure_png_format, construct_outfit_image, process_shirt_top_png
 
 # -------------------- Logging Setup --------------------
 logging.basicConfig(
@@ -721,6 +725,161 @@ async def virtual_tryon(
 
     logger.info(f"[{request_id}] virtual_tryon completed successfully")
     return JSONResponse(response)
+
+
+@app.post("/process/garment/top")
+async def process_garment_top(
+    request: Request,
+    file: Optional[UploadFile] = File(default=None),
+    image_url: Optional[str] = Form(default=None),
+    category: str = Form(default="shirt"),
+    anchors_json: Optional[str] = Form(default=None),
+    use_defaults: bool = Form(default=True),
+    upload: bool = Form(default=True),
+    cloud_folder: str = Form(default="garments/processed"),
+    public_id: Optional[str] = Form(default=None),
+):
+    """
+    Prepare shirt/tshirt PNG for AR (remove background + cut collar).
+
+    This endpoint processes garment images for AR applications by:
+    1. Removing background → RGBA
+    2. Computing anchor points (collar left/right, neck apex)
+    3. Cutting back neck region with Bezier curve
+    4. Auto-cropping to garment bounds
+    5. Returning ready-for-AR PNG + metadata
+
+    Scoped to tops (shirt/t-shirt) only.
+
+    Form-Data:
+        file: Image file (PNG, JPG, JPEG) - mutually exclusive with image_url
+        image_url: Image URL to download - mutually exclusive with file
+        category: "shirt" or "tshirt" (default: "shirt")
+        anchors_json: Optional custom anchors as JSON string
+                      Format: {"collar_left":[x,y], "collar_right":[x,y], "neck_apex":[x,y]}
+                      Coordinates are normalized (0..1)
+        use_defaults: Whether to use default anchors for category (default: True)
+        upload: Whether to upload result to Cloudinary (default: True)
+        cloud_folder: Cloudinary folder path (default: "garments/processed")
+        public_id: Optional custom public ID for Cloudinary upload
+
+    Returns:
+        JSON with:
+        - status: "ok"
+        - meta: {version, category, w, h, anchors, body_offsets}
+        - urls: {processed_png (URL or base64), public_id (if uploaded)}
+    """
+    request_id = getattr(request.state, "request_id", "unknown")
+    logger.info(f"[{request_id}] process_garment_top started: category={category}")
+
+    # Validate input
+    if file is None and not image_url:
+        raise HTTPException(status_code=400, detail="Provide either a file or image_url")
+
+    if file is not None and image_url:
+        raise HTTPException(status_code=400, detail="Provide only one of file or image_url, not both")
+
+    # Load image bytes
+    try:
+        if file is not None:
+            logger.info(f"[{request_id}] Reading uploaded file: {file.filename}")
+            image_bytes = await file.read()
+
+            # Validate file extension
+            filename = file.filename or ""
+            if not filename or not _allowed_file(filename):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Invalid file type. Allowed: {', '.join(sorted(ALLOWED_EXTS))}"
+                )
+
+            # Validate file size
+            if len(image_bytes) > MAX_CONTENT_BYTES:
+                raise HTTPException(
+                    status_code=413,
+                    detail=f"File too large (>{int(MAX_CONTENT_MB)}MB)"
+                )
+
+            # Validate image
+            try:
+                Image.open(io.BytesIO(image_bytes)).verify()
+            except Exception:
+                raise HTTPException(status_code=400, detail="Invalid image file")
+
+        else:
+            logger.info(f"[{request_id}] Downloading image from URL: {image_url}")
+            r = requests.get(image_url, timeout=15)
+            r.raise_for_status()
+            image_bytes = r.content
+
+            # Validate downloaded image
+            if len(image_bytes) > MAX_CONTENT_BYTES:
+                raise HTTPException(
+                    status_code=413,
+                    detail=f"Downloaded image too large (>{int(MAX_CONTENT_MB)}MB)"
+                )
+
+            try:
+                Image.open(io.BytesIO(image_bytes)).verify()
+            except Exception:
+                raise HTTPException(status_code=400, detail="Downloaded file is not a valid image")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[{request_id}] Failed to read image: {e}")
+        raise HTTPException(status_code=400, detail=f"Failed to read image: {e}")
+
+    # Parse custom anchors if provided
+    anchors = None
+    if anchors_json:
+        try:
+            anchors = json.loads(anchors_json)
+            logger.info(f"[{request_id}] Using custom anchors: {anchors}")
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Invalid anchors_json: {e}")
+
+    # Run AR processing pipeline
+    try:
+        png_bytes, meta = await run_in_threadpool(
+            process_shirt_top_png,
+            image_bytes=image_bytes,
+            category=category,
+            anchors_norm=anchors,
+            use_defaults=use_defaults,
+        )
+        logger.info(f"[{request_id}] Processing complete: {meta['w']}x{meta['h']} PNG")
+    except ValueError as e:
+        logger.error(f"[{request_id}] Processing failed: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"[{request_id}] Processing failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Processing failed: {e}")
+
+    # Upload to Cloudinary (optional)
+    urls = {}
+    if upload:
+        try:
+            logger.info(f"[{request_id}] Uploading to Cloudinary: {cloud_folder}")
+            up = await run_in_threadpool(upload_png, png_bytes, cloud_folder, public_id)
+            urls["processed_png"] = up.get("url")
+            urls["public_id"] = up.get("public_id")
+            logger.info(f"[{request_id}] Upload successful: {urls['processed_png']}")
+        except Exception as e:
+            # Fallback to base64 if upload fails
+            logger.warning(f"[{request_id}] Upload failed, returning base64: {e}")
+            b64 = base64.b64encode(png_bytes).decode("ascii")
+            urls["processed_png_base64"] = f"data:image/png;base64,{b64}"
+            urls["upload_error"] = str(e)
+    else:
+        # No upload requested - return base64
+        logger.info(f"[{request_id}] Skipping upload, returning base64")
+        b64 = base64.b64encode(png_bytes).decode("ascii")
+        urls["processed_png_base64"] = f"data:image/png;base64,{b64}"
+
+    payload = {"status": "ok", "meta": meta, "urls": urls}
+    logger.info(f"[{request_id}] process_garment_top completed successfully")
+    return JSONResponse(content=payload, status_code=200)
 
 
 # -------------------- Global Exception Handler --------------------
