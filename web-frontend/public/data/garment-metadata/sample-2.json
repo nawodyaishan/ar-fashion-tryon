@@ -1,0 +1,16 @@
+{
+  "id": "sample-2",
+  "version": 1,
+  "displayName": "Black Hoodie",
+  "width": 512,
+  "height": 512,
+  "anchors": {
+    "collar_left": [0.28, 0.15],
+    "collar_right": [0.72, 0.15],
+    "hem_center": [0.50, 0.92]
+  },
+  "body_offsets": {
+    "neck_drop_ratio": 0.08,
+    "torso_length_ratio": 1.10
+  }
+}

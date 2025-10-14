@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Garment, Transform, PoseConfidence, Status } from './types';
+import type { Garment, Transform, PoseConfidence, Status, GarmentMetadata, UiMode, PoseConfidenceData } from './types';
 
 interface TryonState {
   // Mode
@@ -10,18 +10,36 @@ interface TryonState {
   garments: Garment[];
   selectedGarmentId: string | null;
 
-  // Transform
+  // OLD: Single transform (kept for backward compatibility)
   transform: Transform;
   baselineTransform: Transform;
+
+  // NEW: Dual transform system
+  tracked: Transform;      // From pose detection (filtered)
+  userDelta: Transform;    // From user edits (hands/mouse/keys)
+  final: Transform;        // Composition result (what gets rendered)
+
+  // NEW: UI mode
+  mode: UiMode;
 
   // AR Settings
   mediaPipeEnabled: boolean;
   landmarksVisible: boolean;
   snapToShoulders: boolean;
-  poseConfidence: PoseConfidence;
+  poseConfidence: PoseConfidence; // Legacy (kept for compatibility)
+
+  // NEW: Enhanced confidence with hysteresis
+  poseConfidenceData: PoseConfidenceData;
+
   continuousTracking: boolean;
   autoAlignInProgress: boolean;
   lastAutoAlignTime: number;
+
+  // NEW: Metadata
+  garmentMetadata: Map<string, GarmentMetadata>;
+
+  // NEW: Filter state
+  filterEnabled: boolean;
 
   // Status
   status: Status;
@@ -40,11 +58,22 @@ interface TryonState {
   selectGarment: (id: string | null) => void;
   addGarment: (garment: Garment) => void;
   removeGarment: (id: string) => void;
+
+  // OLD: Transform actions (kept for backward compatibility)
   setTransform: (transform: Partial<Transform>) => void;
   setOpacity: (opacity: number) => void;
   toggleLockAspect: () => void;
   autoAlign: () => void;
   resetToBaseline: () => void;
+
+  // NEW: Dual transform actions
+  setTracked: (transform: Partial<Transform>) => void;
+  setUserDelta: (transform: Partial<Transform>) => void;
+  composeFinal: () => void;  // tracked ⊕ userDelta → final
+  setUiMode: (mode: UiMode) => void;
+  resetUserDelta: () => void;
+  rebaseTransforms: () => void;  // For smooth resume
+
   toggleMediaPipe: () => void;
   toggleLandmarks: () => void;
   setLandmarksVisible: (visible: boolean) => void;
@@ -72,6 +101,38 @@ const defaultTransform: Transform = {
   opacity: 90,  // 0-100 range
   lockAspect: true,
 };
+
+// Helper: Identity transform (no change)
+const identityTransform = (): Transform => ({
+  x: 0,
+  y: 0,
+  scale: 1.0,
+  rotation: 0,
+  opacity: 90,
+  lockAspect: true
+});
+
+// Helper: Default tracked transform (centered)
+const defaultTracked = (): Transform => ({
+  x: 320,
+  y: 180,
+  scale: 1.0,
+  rotation: 0,
+  opacity: 90,
+  lockAspect: true
+});
+
+// Helper: Compose transforms (tracked + delta → final)
+function composeTransforms(tracked: Transform, delta: Transform): Transform {
+  return {
+    x: tracked.x + delta.x,
+    y: tracked.y + delta.y,
+    scale: tracked.scale * delta.scale,
+    rotation: tracked.rotation + delta.rotation,
+    opacity: Math.min(100, tracked.opacity + (delta.opacity - 90)), // 90 is neutral
+    lockAspect: tracked.lockAspect || delta.lockAspect
+  };
+}
 
 // Sample garments for demo
 const sampleGarments: Garment[] = [
@@ -111,15 +172,39 @@ export const useTryonStore = create<TryonState>()(
       activeMode: 'ar',
       garments: sampleGarments,
       selectedGarmentId: null,
+
+      // OLD: Single transform (kept for backward compatibility)
       transform: { ...defaultTransform },
       baselineTransform: { ...defaultTransform },
+
+      // NEW: Dual transform initialization
+      tracked: defaultTracked(),
+      userDelta: identityTransform(),
+      final: defaultTracked(),
+
+      // NEW: UI mode
+      mode: 'AutoTrack',
+
       mediaPipeEnabled: false,
       landmarksVisible: false,
       snapToShoulders: true,
-      poseConfidence: 'Okay',
+      poseConfidence: 'Okay', // Legacy
+
+      // NEW: Enhanced confidence data
+      poseConfidenceData: {
+        value: 0,
+        level: 'Low',
+        tracking: false
+      },
+
       continuousTracking: false,
       autoAlignInProgress: false,
       lastAutoAlignTime: 0,
+
+      // NEW: Metadata and filter state
+      garmentMetadata: new Map(),
+      filterEnabled: true,
+
       status: {},
       bodyPhoto: null,
       garmentPhoto: null,
@@ -143,15 +228,79 @@ export const useTryonStore = create<TryonState>()(
           selectedGarmentId: state.selectedGarmentId === id ? null : state.selectedGarmentId,
         })),
 
+      // OLD: setTransform (kept for backward compatibility, now updates userDelta)
       setTransform: (partial) =>
-        set((state) => ({
-          transform: { ...state.transform, ...partial },
-        })),
+        set((state) => {
+          // Update both legacy transform and userDelta for backward compatibility
+          const newTransform = { ...state.transform, ...partial };
+          const newUserDelta = { ...state.userDelta, ...partial };
+          const newFinal = composeTransforms(state.tracked, newUserDelta);
+
+          return {
+            transform: newTransform,
+            userDelta: newUserDelta,
+            final: newFinal
+          };
+        }),
 
       setOpacity: (opacity) =>
-        set((state) => ({
-          transform: { ...state.transform, opacity },
-        })),
+        set((state) => {
+          const newTransform = { ...state.transform, opacity };
+          const newUserDelta = { ...state.userDelta, opacity };
+          const newFinal = composeTransforms(state.tracked, newUserDelta);
+
+          return {
+            transform: newTransform,
+            userDelta: newUserDelta,
+            final: newFinal
+          };
+        }),
+
+      // NEW: Set tracked transform (from pose detection)
+      setTracked: (transform) => set((state) => {
+        const newTracked = { ...state.tracked, ...transform };
+        return {
+          tracked: newTracked,
+          // Auto-compose whenever tracked changes (if in AutoTrack mode)
+          ...(state.mode === 'AutoTrack' && { final: composeTransforms(newTracked, state.userDelta) })
+        };
+      }),
+
+      // NEW: Set user delta (from manual edits)
+      setUserDelta: (transform) => set((state) => {
+        const newDelta = { ...state.userDelta, ...transform };
+        const newFinal = composeTransforms(state.tracked, newDelta);
+        return {
+          userDelta: newDelta,
+          final: newFinal
+        };
+      }),
+
+      // NEW: Force composition (tracked ⊕ userDelta → final)
+      composeFinal: () => set((state) => ({
+        final: composeTransforms(state.tracked, state.userDelta)
+      })),
+
+      // NEW: Set UI mode
+      setUiMode: (mode) => set({ mode }),
+
+      // NEW: Reset user delta to identity
+      resetUserDelta: () => set((state) => ({
+        userDelta: identityTransform(),
+        final: state.tracked
+      })),
+
+      // NEW: Rebase (smooth transition when resuming tracking)
+      rebaseTransforms: () => {
+        const state = get();
+
+        // Set tracked = final, userDelta = identity
+        set({
+          tracked: { ...state.final },
+          userDelta: identityTransform(),
+          final: { ...state.final }
+        });
+      },
 
       toggleLockAspect: () =>
         set((state) => ({
@@ -207,17 +356,30 @@ export const useTryonStore = create<TryonState>()(
         })),
 
       autoAlignGarment: (x, y, scale, rotation) =>
-        set((state) => ({
-          transform: {
-            ...state.transform,
+        set((state) => {
+          // Update tracked transform with new position
+          const newTracked = {
+            ...state.tracked,
             x: Math.round(x),
             y: Math.round(y),
             scale: Math.max(0.3, Math.min(3.0, scale)), // Clamp scale: 0.3 to 3.0
             rotation: Math.max(-45, Math.min(45, Math.round(rotation))) // Clamp rotation: -45° to +45°
-          },
-          autoAlignInProgress: false,
-          lastAutoAlignTime: Date.now()
-        })),
+          };
+
+          // Also update legacy transform for backward compatibility
+          const newTransform = { ...newTracked };
+
+          // Compose with current userDelta
+          const newFinal = composeTransforms(newTracked, state.userDelta);
+
+          return {
+            transform: newTransform,
+            tracked: newTracked,
+            final: newFinal,
+            autoAlignInProgress: false,
+            lastAutoAlignTime: Date.now()
+          };
+        }),
 
       setStatus: (status) =>
         set((state) => ({
@@ -253,12 +415,13 @@ export const useTryonStore = create<TryonState>()(
         }),
     }),
     {
-      name: 'tryon-store-v2',
+      name: 'tryon-store-v3', // Updated version for new dual transform system
       partialize: (state) => ({
         // Only persist garments and settings, not transient state
         garments: state.garments,
         snapToShoulders: state.snapToShoulders,
         activeMode: state.activeMode,
+        filterEnabled: state.filterEnabled,
       }),
     },
   ),

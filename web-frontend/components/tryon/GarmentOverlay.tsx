@@ -5,17 +5,20 @@ import { useRef, useEffect, useState } from 'react';
 import { Rnd } from 'react-rnd';
 import { useTryonStore } from '@/lib/tryon-store';
 import type { DraggableData, ResizableDelta } from 'react-rnd';
+import type { Transform } from '@/lib/types';
 
 interface GarmentOverlayProps {
   containerWidth: number;
   containerHeight: number;
+  transform: Transform; // NEW: Accept transform as prop (will be `final`)
 }
 
 export function GarmentOverlay({
   containerWidth, // Reserved for future bounds calculation
   containerHeight, // Reserved for future bounds calculation
+  transform, // NEW: Render the composition result
 }: GarmentOverlayProps) {
-  const { selectedGarmentId, garments, transform, setTransform } = useTryonStore();
+  const { selectedGarmentId, garments, setUserDelta, mode, setUiMode, tracked } = useTryonStore();
 
   // Suppress unused variable warnings - these are reserved for future use
   void containerWidth;
@@ -44,53 +47,66 @@ export function GarmentOverlay({
     };
   }, [selectedGarment, transform.scale]);
 
-  // Keyboard shortcuts
+  // Keyboard shortcuts - now updates userDelta instead of transform
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
       if (!selectedGarment) return;
+
+      // Switch to GestureEdit mode if in AutoTrack
+      if (mode === 'AutoTrack') {
+        setUiMode('GestureEdit');
+      }
 
       const step = e.shiftKey ? 10 : 1;
 
       switch (e.key) {
         case 'ArrowUp':
           e.preventDefault();
-          setTransform({ y: transform.y - step });
+          setUserDelta({ y: transform.y - tracked.y - step });
           break;
         case 'ArrowDown':
           e.preventDefault();
-          setTransform({ y: transform.y + step });
+          setUserDelta({ y: transform.y - tracked.y + step });
           break;
         case 'ArrowLeft':
           e.preventDefault();
-          setTransform({ x: transform.x - step });
+          setUserDelta({ x: transform.x - tracked.x - step });
           break;
         case 'ArrowRight':
           e.preventDefault();
-          setTransform({ x: transform.x + step });
+          setUserDelta({ x: transform.x - tracked.x + step });
           break;
         case '+':
         case '=':
           e.preventDefault();
-          setTransform({ scale: Math.min(3.0, transform.scale + 0.05) });
+          setUserDelta({ scale: Math.min(3.0, transform.scale / tracked.scale + 0.05) });
           break;
         case '-':
           e.preventDefault();
-          setTransform({ scale: Math.max(0.3, transform.scale - 0.05) });
+          setUserDelta({ scale: Math.max(0.3, transform.scale / tracked.scale - 0.05) });
           break;
       }
     };
 
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [selectedGarment, transform, setTransform]);
+  }, [selectedGarment, transform, tracked, mode, setUserDelta, setUiMode]);
 
   if (!selectedGarment) return null;
 
+  // NEW: On drag/resize start, switch to GestureEdit mode
+  const handleDragStart = () => {
+    if (mode === 'AutoTrack') {
+      setUiMode('GestureEdit'); // Pause tracking
+    }
+  };
+
   const handleDragStop = (_e: unknown, d: DraggableData) => {
-    setTransform({
-      x: d.x,
-      y: d.y
-    });
+    // Calculate delta from tracked position
+    const deltaX = d.x - tracked.x;
+    const deltaY = d.y - tracked.y;
+
+    setUserDelta({ x: deltaX, y: deltaY });
   };
 
   const handleResizeStop = (
@@ -103,11 +119,12 @@ export function GarmentOverlay({
     const newWidth = parseInt(ref.style.width);
     const newScale = newWidth / 200; // Calculate scale based on base width
 
-    setTransform({
-      x: position.x,
-      y: position.y,
-      scale: newScale
-    });
+    // Calculate deltas from tracked position
+    const deltaScale = newScale / tracked.scale;
+    const deltaX = position.x - tracked.x;
+    const deltaY = position.y - tracked.y;
+
+    setUserDelta({ x: deltaX, y: deltaY, scale: deltaScale });
 
     setGarmentDimensions({
       width: newWidth,
@@ -125,7 +142,9 @@ export function GarmentOverlay({
         x: transform.x,
         y: transform.y
       }}
+      onDragStart={handleDragStart}
       onDragStop={handleDragStop}
+      onResizeStart={handleDragStart}
       onResizeStop={handleResizeStop}
       lockAspectRatio={transform.lockAspect}
       bounds="parent"

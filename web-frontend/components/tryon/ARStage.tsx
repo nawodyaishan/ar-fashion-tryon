@@ -8,15 +8,23 @@ import { PoseLandmarks } from './PoseLandmarks';
 import { ConfidenceIndicator } from './ConfidenceIndicator';
 import { AutoAlignButton } from './AutoAlignButton';
 import { ContinuousTracker } from './ContinuousTracker';
+import { StatusPill } from './StatusPill';
+import { GestureEditor } from './GestureEditor';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Target, X } from 'lucide-react';
+import { Target, X, Hand } from 'lucide-react';
 import { useTryonStore } from '@/lib/tryon-store';
 import { usePoseDetection } from '@/lib/hooks/usePoseDetection';
+import { TransformFilter, HysteresisGate } from '@/lib/filtering';
+import { calculateShoulderPosition, calculateGarmentPosition, calculateAnchorBasedPosition } from '@/lib/pose-utils';
+import { loadGarmentMetadata, loadLocalMetadata } from '@/lib/services/metadata';
+import type { GarmentMetadata } from '@/lib/types';
 
 export default function ARStage() {
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [dimensions, setDimensions] = useState({ width: 640, height: 480 });
+  const [currentMetadata, setCurrentMetadata] = useState<GarmentMetadata | null>(null);
+  const [handsEnabled, setHandsEnabled] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -26,10 +34,21 @@ export default function ARStage() {
     mediaPipeEnabled,
     landmarksVisible,
     toggleLandmarks,
-    setPoseConfidence
+    setPoseConfidence,
+    // NEW: Dual transform state and actions
+    tracked,
+    userDelta,
+    final,
+    mode,
+    setTracked,
+    filterEnabled
   } = useTryonStore();
 
   const selectedGarment = garments.find((g) => g.id === selectedGarmentId);
+
+  // NEW: Persistent filters (across renders)
+  const transformFilterRef = useRef<TransformFilter>(new TransformFilter(0.15, 0.10, 0.10));
+  const hysteresisGateRef = useRef<HysteresisGate>(new HysteresisGate(0.70, 0.55));
 
   // MediaPipe pose detection
   const {
@@ -53,6 +72,57 @@ export default function ARStage() {
       setPoseConfidence(confidence);
     }
   }, [confidence, mediaPipeEnabled, setPoseConfidence]);
+
+  // NEW: Load metadata when garment changes
+  useEffect(() => {
+    if (!selectedGarmentId) {
+      setCurrentMetadata(null);
+      return;
+    }
+
+    // Try local storage first, then fetch from server
+    const localMeta = loadLocalMetadata(selectedGarmentId);
+    if (localMeta) {
+      setCurrentMetadata(localMeta);
+      return;
+    }
+
+    // Load from server
+    loadGarmentMetadata(selectedGarmentId).then(setCurrentMetadata);
+  }, [selectedGarmentId]);
+
+  // NEW: Update tracked transform when pose changes
+  useEffect(() => {
+    if (mode !== 'AutoTrack' || !landmarks || !mediaPipeEnabled) return;
+
+    // Check hysteresis gate
+    const shouldTrack = hysteresisGateRef.current.update(confidence);
+    if (!shouldTrack) return;
+
+    // Calculate raw shoulder position
+    const shoulderPos = calculateShoulderPosition(landmarks, dimensions.width, dimensions.height);
+    if (!shoulderPos) return;
+
+    // Calculate raw garment position
+    // NEW: Use anchor-based calculation if metadata available, otherwise fall back to legacy
+    const rawGarmentPos = currentMetadata
+      ? calculateAnchorBasedPosition(shoulderPos, currentMetadata, dimensions.width, dimensions.height)
+      : calculateGarmentPosition(shoulderPos);
+
+    // Apply filter if enabled
+    const filteredPos = filterEnabled
+      ? transformFilterRef.current.filter({
+          x: rawGarmentPos.x,
+          y: rawGarmentPos.y,
+          scale: rawGarmentPos.scale,
+          rotation: rawGarmentPos.rotation
+        })
+      : rawGarmentPos;
+
+    // Update tracked transform (composition happens automatically in store)
+    setTracked(filteredPos);
+
+  }, [landmarks, confidence, mode, dimensions, filterEnabled, setTracked, mediaPipeEnabled, currentMetadata]);
 
   // Get container dimensions
   useEffect(() => {
@@ -102,6 +172,16 @@ export default function ARStage() {
           />
         )}
 
+        {/* NEW: Gesture Editor */}
+        {handsEnabled && stream && (
+          <GestureEditor
+            videoElement={videoRef.current}
+            containerWidth={dimensions.width}
+            containerHeight={dimensions.height}
+            enabled={handsEnabled}
+          />
+        )}
+
         {/* Garment Overlay (positioned absolutely over video) */}
         {stream && (
           <div className="absolute inset-0 pointer-events-none">
@@ -109,6 +189,7 @@ export default function ARStage() {
               <GarmentOverlay
                 containerWidth={dimensions.width}
                 containerHeight={dimensions.height}
+                transform={final}
               />
             </div>
           </div>
@@ -148,6 +229,20 @@ export default function ARStage() {
                 )}
               </Button>
             )}
+
+            {/* NEW: Hands Detection Toggle */}
+            <Button
+              size="sm"
+              variant={handsEnabled ? 'default' : 'secondary'}
+              onClick={() => setHandsEnabled(!handsEnabled)}
+              className={handsEnabled
+                ? 'backdrop-blur-sm bg-blue-600 hover:bg-blue-700'
+                : 'backdrop-blur-sm bg-black/30 hover:bg-black/50'
+              }
+            >
+              <Hand className="mr-2 h-4 w-4" />
+              {handsEnabled ? 'Hands ON' : 'Hands OFF'}
+            </Button>
           </div>
         )}
 
@@ -163,6 +258,11 @@ export default function ARStage() {
             <div className="text-xs text-white/70 bg-black/30 backdrop-blur-sm px-2 py-1 rounded">
               👕 {selectedGarment.name}
             </div>
+          )}
+
+          {/* NEW: Status Pill - shows current mode */}
+          {mediaPipeEnabled && !mediaPipeLoading && !mediaPipeError && (
+            <StatusPill mode={mode} confidence={confidence} fps={fps} />
           )}
 
           {/* MediaPipe Status */}
