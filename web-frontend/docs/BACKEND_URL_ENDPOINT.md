@@ -1,10 +1,12 @@
 # Backend URL-Based Processing Endpoint
 
-This document describes the `/classify_garment_by_url` endpoint that needs to be implemented in the FastAPI garment extraction backend to support Cloudinary-first pipeline.
+This document describes the `/classify_garment_by_url` endpoint that needs to be implemented in the FastAPI garment
+extraction backend to support Cloudinary-first pipeline.
 
 ## Overview
 
-The URL-based endpoint allows the backend to fetch and process images from public URLs (like Cloudinary) instead of receiving direct file uploads. This approach:
+The URL-based endpoint allows the backend to fetch and process images from public URLs (like Cloudinary) instead of
+receiving direct file uploads. This approach:
 
 - ✅ Reduces server bandwidth (no large uploads)
 - ✅ Eliminates CORS issues (Cloudinary has proper CORS)
@@ -22,6 +24,7 @@ Processes a garment image from a publicly accessible URL.
 **Content-Type:** `application/json`
 
 **Body:**
+
 ```json
 {
   "source_url": "https://res.cloudinary.com/your-cloud/image/upload/v123/garments/originals/file.jpg"
@@ -29,14 +32,16 @@ Processes a garment image from a publicly accessible URL.
 ```
 
 **Parameters:**
+
 - `source_url` (string, required): Publicly accessible URL to the garment image
-  - Must be a valid HTTP/HTTPS URL
-  - Should point to PNG or JPEG image
-  - Maximum recommended size: 10MB
+    - Must be a valid HTTP/HTTPS URL
+    - Should point to PNG or JPEG image
+    - Maximum recommended size: 10MB
 
 #### Response
 
 **Success (200 OK):**
+
 ```json
 {
   "label": "TSHIRT",
@@ -48,6 +53,7 @@ Processes a garment image from a publicly accessible URL.
 ```
 
 **Error (4xx/5xx):**
+
 ```json
 {
   "error": "Failed to fetch image from URL",
@@ -247,7 +253,7 @@ print(response.json())
 The frontend will call this automatically when using the Cloudinary pipeline:
 
 ```typescript
-import { extractViaCloudinaryPipeline } from '@/lib/services/garmentApi';
+import {extractViaCloudinaryPipeline} from '@/lib/services/garmentApi';
 
 // User selects a file
 const result = await extractViaCloudinaryPipeline(file);
@@ -262,43 +268,43 @@ console.log('Extracted File:', result.extractedFile);
 The endpoint should handle these error cases:
 
 1. **Invalid URL** (400 Bad Request)
-   - Malformed URL
-   - Non-HTTP/HTTPS protocol
+    - Malformed URL
+    - Non-HTTP/HTTPS protocol
 
 2. **Fetch Failure** (502 Bad Gateway)
-   - Network timeout
-   - DNS resolution failed
-   - Connection refused
-   - HTTP 4xx/5xx from source
+    - Network timeout
+    - DNS resolution failed
+    - Connection refused
+    - HTTP 4xx/5xx from source
 
 3. **Invalid Image** (400 Bad Request)
-   - Not an image (wrong content-type)
-   - Unsupported format (not PNG/JPEG)
-   - Corrupted file
+    - Not an image (wrong content-type)
+    - Unsupported format (not PNG/JPEG)
+    - Corrupted file
 
 4. **Processing Failure** (500 Internal Server Error)
-   - Classification model error
-   - Background removal failed
-   - File system error
+    - Classification model error
+    - Background removal failed
+    - File system error
 
 ## Security Considerations
 
 1. **URL Validation**
-   - Validate URL format before fetching
-   - Consider allowlist for trusted domains (Cloudinary only)
-   - Prevent SSRF attacks (don't allow localhost, private IPs)
+    - Validate URL format before fetching
+    - Consider allowlist for trusted domains (Cloudinary only)
+    - Prevent SSRF attacks (don't allow localhost, private IPs)
 
 2. **Size Limits**
-   - Set `max_content_length` in requests (10MB recommended)
-   - Check image dimensions after loading
+    - Set `max_content_length` in requests (10MB recommended)
+    - Check image dimensions after loading
 
 3. **Timeout**
-   - Set reasonable timeout (30 seconds)
-   - Prevent hanging connections
+    - Set reasonable timeout (30 seconds)
+    - Prevent hanging connections
 
 4. **Rate Limiting**
-   - Add rate limiting to prevent abuse
-   - Consider per-IP or per-user limits
+    - Add rate limiting to prevent abuse
+    - Consider per-IP or per-user limits
 
 ## Example: Restrict to Cloudinary Only
 
@@ -369,12 +375,14 @@ async def classify_garment_by_url(request: GarmentUrlRequest):
 ## Performance Comparison
 
 ### Direct Upload (Current)
+
 - **Upload time**: 2-5s (10MB image to Railway)
 - **Processing time**: 3-8s (classification + rembg)
 - **Download time**: 1-2s (cutout from Railway)
 - **Total**: ~6-15s
 
 ### Cloudinary Pipeline (New)
+
 - **Upload time**: 1-3s (10MB to Cloudinary CDN)
 - **Backend fetch**: 0.5-1s (Cloudinary → Railway)
 - **Processing time**: 3-8s (same)
@@ -392,6 +400,6 @@ async def classify_garment_by_url(request: GarmentUrlRequest):
 ## Related Documentation
 
 - [Cloudinary Upload API](https://cloudinary.com/documentation/upload_images#unsigned_upload)
-- [garmentApi.ts Frontend Implementation](./lib/services/garmentApi.ts)
-- [CORS Fix Documentation](./CORS_FIX.md)
-- [Gradio Integration](./GRADIO_INTEGRATION.md)
+- [garmentApi.ts Frontend Implementation](../lib/services/garmentApi.ts)
+- [CORS Fix Documentation](CORS_FIX.md)
+- [Gradio Integration](GRADIO_INTEGRATION.md)

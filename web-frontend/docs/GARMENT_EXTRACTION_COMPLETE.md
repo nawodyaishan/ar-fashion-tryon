@@ -1,10 +1,12 @@
 # Garment Extraction Integration - Complete Guide
 
-This document provides a comprehensive overview of the garment extraction system, including both direct upload and Cloudinary-first pipelines.
+This document provides a comprehensive overview of the garment extraction system, including both direct upload and
+Cloudinary-first pipelines.
 
 ## Overview
 
 The AR Fashion Try-On app uses a sophisticated garment extraction pipeline that:
+
 1. **Classifies** garment type (T-shirt, Trousers, etc.) using ML
 2. **Removes background** using rembg or similar technology
 3. **Prepares** the extracted garment for virtual try-on
@@ -13,10 +15,10 @@ The system now supports **two pipeline modes** with automatic fallback:
 
 ### Pipeline Modes
 
-| Mode | When Used | Performance | Recommended For |
-|------|-----------|------------|-----------------|
-| **Cloudinary** | When Cloudinary env vars are set | ⚡ Faster (CDN) | Production |
-| **Direct Upload** | Fallback when Cloudinary not configured | 🐢 Slower | Development |
+| Mode              | When Used                               | Performance    | Recommended For |
+|-------------------|-----------------------------------------|----------------|-----------------|
+| **Cloudinary**    | When Cloudinary env vars are set        | ⚡ Faster (CDN) | Production      |
+| **Direct Upload** | Fallback when Cloudinary not configured | 🐢 Slower      | Development     |
 
 ## Architecture
 
@@ -49,6 +51,7 @@ The system now supports **two pipeline modes** with automatic fallback:
 ```
 
 **Benefits:**
+
 - ✅ Faster uploads (CDN network)
 - ✅ No CORS issues
 - ✅ Reduced backend bandwidth
@@ -75,6 +78,7 @@ The system now supports **two pipeline modes** with automatic fallback:
 ```
 
 **Benefits:**
+
 - ✅ Simple setup (no external dependencies)
 - ✅ Works immediately (no config needed)
 - ✅ Good for local development
@@ -89,30 +93,32 @@ Smart wrapper that automatically chooses the best pipeline.
 
 ```typescript
 async function extractGarmentSmart(
-  file: File,
-  signal?: AbortSignal,
-  forceMethod?: 'cloudinary' | 'direct'
+    file: File,
+    signal?: AbortSignal,
+    forceMethod?: 'cloudinary' | 'direct'
 ): Promise<{
-  result: GarmentProcessResponse;
-  extractedFile: File | null;
-  cloudinaryUrl?: string;
-  method: 'cloudinary' | 'direct';
+    result: GarmentProcessResponse;
+    extractedFile: File | null;
+    cloudinaryUrl?: string;
+    method: 'cloudinary' | 'direct';
 }>
 ```
 
 **Usage:**
+
 ```typescript
 // Automatic selection (recommended)
-const { result, extractedFile, method } = await extractGarmentSmart(file);
+const {result, extractedFile, method} = await extractGarmentSmart(file);
 
 // Force Cloudinary
-const { result, extractedFile } = await extractGarmentSmart(file, signal, 'cloudinary');
+const {result, extractedFile} = await extractGarmentSmart(file, signal, 'cloudinary');
 
 // Force direct upload
-const { result, extractedFile } = await extractGarmentSmart(file, signal, 'direct');
+const {result, extractedFile} = await extractGarmentSmart(file, signal, 'direct');
 ```
 
 **Console Output:**
+
 - Cloudinary: `🌩️ Using Cloudinary pipeline (production mode)`
 - Direct: `📤 Using direct upload pipeline (fallback mode)`
 
@@ -138,7 +144,7 @@ Your app will use direct upload mode automatically.
 
 For better performance, add Cloudinary:
 
-1. **Get Cloudinary credentials** (see [CLOUDINARY_SETUP.md](./CLOUDINARY_SETUP.md))
+1. **Get Cloudinary credentials** (see [CLOUDINARY_SETUP.md](CLOUDINARY_SETUP.md))
 
 2. **Add to `.env.local`:**
    ```bash
@@ -146,7 +152,7 @@ For better performance, add Cloudinary:
    NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET=ar_fashion_unsigned
    ```
 
-3. **Implement backend endpoint** (see [BACKEND_URL_ENDPOINT.md](./BACKEND_URL_ENDPOINT.md))
+3. **Implement backend endpoint** (see [BACKEND_URL_ENDPOINT.md](BACKEND_URL_ENDPOINT.md))
 
 4. **Restart and test:**
    ```bash
@@ -163,15 +169,16 @@ The app uses a smart wrapper that automatically detects configuration:
 
 ```typescript
 // In your components (ARPanel.tsx, useVtonStore.ts)
-import { extractGarmentSmart } from '@/lib/services/garmentApi';
+import {extractGarmentSmart} from '@/lib/services/garmentApi';
 
 // This automatically chooses the best method
-const { result, extractedFile, method } = await extractGarmentSmart(file);
+const {result, extractedFile, method} = await extractGarmentSmart(file);
 
 console.log(`Used ${method} pipeline`); // "cloudinary" or "direct"
 ```
 
 **Decision Logic:**
+
 ```
 If CLOUDINARY_CLOUD_NAME && CLOUDINARY_UPLOAD_PRESET are set:
   → Use Cloudinary pipeline
@@ -184,16 +191,16 @@ Else:
 Both pipelines use the same core components:
 
 1. **Classification API** (`/classify_garment` or `/classify_garment_by_url`)
-   - Determines garment type (TSHIRT, TROUSERS, etc.)
-   - Returns confidence score (0.0 to 1.0)
+    - Determines garment type (TSHIRT, TROUSERS, etc.)
+    - Returns confidence score (0.0 to 1.0)
 
 2. **Background Removal**
-   - Removes background using rembg/u2net
-   - Returns transparent PNG cutout
+    - Removes background using rembg/u2net
+    - Returns transparent PNG cutout
 
 3. **File Download**
-   - Downloads extracted cutout as Blob
-   - Converts to File object for VTON
+    - Downloads extracted cutout as Blob
+    - Converts to File object for VTON
 
 ## UI Integration
 
@@ -202,47 +209,51 @@ Both pipelines use the same core components:
 Both AR mode and Photo mode use the smart pipeline:
 
 #### AR Panel (components/tryon/ARPanel.tsx)
+
 ```typescript
 const handleFileUpload = async (file: File) => {
-  const { result, extractedFile, method, cloudinaryUrl } =
-    await extractGarmentSmart(file);
+    const {result, extractedFile, method, cloudinaryUrl} =
+        await extractGarmentSmart(file);
 
-  // Store garment with metadata
-  const newGarment = {
-    id: `custom-${Date.now()}`,
-    src: extractedSrc,
-    cloudinaryUrl: cloudinaryUrl,  // Available if Cloudinary was used
-    classification: result.classification,
-    // ... other props
-  };
+    // Store garment with metadata
+    const newGarment = {
+        id: `custom-${Date.now()}`,
+        src: extractedSrc,
+        cloudinaryUrl: cloudinaryUrl,  // Available if Cloudinary was used
+        classification: result.classification,
+        // ... other props
+    };
 };
 ```
 
 #### Photo Wizard (lib/store/useVtonStore.ts)
+
 ```typescript
 const setGarmentFile = async (file: File) => {
-  const { result, extractedFile, method } = await extractGarmentSmart(file);
+    const {result, extractedFile, method} = await extractGarmentSmart(file);
 
-  if (result.success && extractedFile) {
-    set({
-      garment: {
-        file: extractedFile,
-        extracted: true,
-        extractionResult: result,
-      },
-      status: 'valid',
-    });
-  }
+    if (result.success && extractedFile) {
+        set({
+            garment: {
+                file: extractedFile,
+                extracted: true,
+                extractionResult: result,
+            },
+            status: 'valid',
+        });
+    }
 };
 ```
 
 ### User Experience
 
 **With Cloudinary:**
+
 - Toast: `🌩️ Garment extracted via Cloudinary: TSHIRT (95% confidence)`
 - Console: `🌩️ Using Cloudinary pipeline (production mode)`
 
 **Without Cloudinary:**
+
 - Toast: `📤 Garment extracted direct upload: TSHIRT (95% confidence)`
 - Console: `📤 Using direct upload pipeline (fallback mode)`
 
@@ -262,11 +273,13 @@ NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET=ar_fashion_unsigned
 ### Backend Requirements
 
 #### Required Endpoint: `/classify_garment`
+
 - Accepts `multipart/form-data`
 - Field name: `garment`
 - Returns classification + cutout URL
 
 #### Optional Endpoint: `/classify_garment_by_url`
+
 - Required for Cloudinary pipeline
 - Accepts JSON with `source_url`
 - Backend fetches from URL and processes
@@ -274,6 +287,7 @@ NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET=ar_fashion_unsigned
 ## Performance Comparison
 
 ### Direct Upload
+
 ```
 Upload (10MB → Backend):     2-5s
 Processing:                  3-8s
@@ -283,6 +297,7 @@ Total:                       6-15s
 ```
 
 ### Cloudinary Pipeline
+
 ```
 Upload (10MB → Cloudinary):  1-3s   ← CDN
 Backend fetch (CDN):         0.5-1s ← Fast
@@ -297,10 +312,12 @@ Total:                       5-13s + Better reliability
 ### Issue: Using direct upload instead of Cloudinary
 
 **Symptoms:**
+
 - Console shows: `📤 Using direct upload pipeline (fallback mode)`
 - Toast says "direct upload" instead of "via Cloudinary"
 
 **Solution:**
+
 1. Check `.env.local` has both Cloudinary variables
 2. Verify variable names (must start with `NEXT_PUBLIC_`)
 3. Restart dev server: `pnpm dev`
@@ -309,9 +326,11 @@ Total:                       5-13s + Better reliability
 ### Issue: Backend endpoint not found
 
 **Symptoms:**
+
 - Error: `POST /classify_garment_by_url 404`
 
 **Solution:**
+
 1. Verify backend has the endpoint implemented
 2. Check backend is running on correct port
 3. Test endpoint directly with cURL
@@ -319,12 +338,14 @@ Total:                       5-13s + Better reliability
 ### Issue: CORS errors
 
 **Symptoms:**
+
 - "CORS policy blocked" errors in console
 
 **Solution:**
+
 - With Cloudinary: Should NOT happen (proper CORS)
 - With direct upload: Check backend CORS config
-- See [CORS_FIX.md](./CORS_FIX.md) for details
+- See [CORS_FIX.md](CORS_FIX.md) for details
 
 ## Testing
 
@@ -382,10 +403,10 @@ App automatically falls back to direct upload.
 
 ## Related Documentation
 
-- **[CLOUDINARY_SETUP.md](./CLOUDINARY_SETUP.md)** - Complete Cloudinary setup guide
-- **[BACKEND_URL_ENDPOINT.md](./BACKEND_URL_ENDPOINT.md)** - Backend implementation
-- **[CORS_FIX.md](./CORS_FIX.md)** - CORS troubleshooting
-- **[GRADIO_INTEGRATION.md](./GRADIO_INTEGRATION.md)** - Virtual try-on API
+- **[CLOUDINARY_SETUP.md](CLOUDINARY_SETUP.md)** - Complete Cloudinary setup guide
+- **[BACKEND_URL_ENDPOINT.md](BACKEND_URL_ENDPOINT.md)** - Backend implementation
+- **[CORS_FIX.md](CORS_FIX.md)** - CORS troubleshooting
+- **[GRADIO_INTEGRATION.md](GRADIO_INTEGRATION.md)** - Virtual try-on API
 
 ## Summary
 
@@ -400,6 +421,7 @@ App automatically falls back to direct upload.
 ---
 
 **Quick Links:**
-- Setup: [CLOUDINARY_SETUP.md](./CLOUDINARY_SETUP.md)
-- Backend: [BACKEND_URL_ENDPOINT.md](./BACKEND_URL_ENDPOINT.md)
-- API: [lib/services/garmentApi.ts](./lib/services/garmentApi.ts)
+
+- Setup: [CLOUDINARY_SETUP.md](CLOUDINARY_SETUP.md)
+- Backend: [BACKEND_URL_ENDPOINT.md](BACKEND_URL_ENDPOINT.md)
+- API: [lib/services/garmentApi.ts](../lib/services/garmentApi.ts)

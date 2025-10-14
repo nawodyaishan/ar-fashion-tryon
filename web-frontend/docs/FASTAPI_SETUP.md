@@ -40,6 +40,7 @@ CLOUDINARY_FOLDER=garments
 ```
 
 **Start the backend:**
+
 ```bash
 python app.py
 # Should start on http://localhost:5000
@@ -65,6 +66,7 @@ NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET=ar_fashion_unsigned
 ```
 
 **Start the frontend:**
+
 ```bash
 pnpm dev
 # Should start on http://localhost:3000
@@ -76,11 +78,12 @@ pnpm dev
 2. Switch to **"Photo Try-On (HD)"** tab
 3. Upload a body photo (BODY step)
 4. Upload a garment image (GARMENT step)
-   - Garment will be automatically extracted
+    - Garment will be automatically extracted
 5. Click **"Generate Try-On"** (GENERATE step)
 6. View result (RESULT step)
 
 **Expected console output:**
+
 ```
 🎨 Starting virtual try-on via FastAPI...
 🚀 Virtual Try-On Request: {
@@ -128,15 +131,18 @@ pnpm dev
 ### API Endpoints Used
 
 **Frontend → FastAPI:**
+
 - `POST /virtual_tryon` - Complete try-on workflow
 
 **FastAPI → Cloudinary:**
+
 - Upload person image
 - Upload garment image
 - Upload cutout image (if processed)
 - Upload result image
 
 **FastAPI → Gradio:**
+
 - `POST /submit_function` - Virtual try-on inference
 
 ## Code Changes
@@ -147,9 +153,9 @@ pnpm dev
 
 ```typescript
 export async function virtualTryOn(
-  payload: ProcessImagesPayload,
-  processGarment: boolean = true,
-  signal?: AbortSignal,
+    payload: ProcessImagesPayload,
+    processGarment: boolean = true,
+    signal?: AbortSignal,
 ): Promise<VirtualTryonResponse>
 ```
 
@@ -159,11 +165,13 @@ export async function virtualTryOn(
 
 ```typescript
 // Before (direct Gradio)
-import { processWithGradio } from '@/lib/services/gradioApi';
+import {processWithGradio} from '@/lib/services/gradioApi';
+
 const resultDataUrl = await processWithGradio(...);
 
 // After (FastAPI)
-import { virtualTryOn } from '@/lib/services/vtonApi';
+import {virtualTryOn} from '@/lib/services/vtonApi';
+
 const response = await virtualTryOn(...);
 const resultUrl = response.result_url; // Cloudinary URL
 ```
@@ -174,23 +182,23 @@ const resultUrl = response.result_url; // Cloudinary URL
 
 ```typescript
 export interface VirtualTryonResponse {
-  success: boolean;
-  person_url: string;
-  garment_url: string;
-  cutout_url?: string;
-  result_url: string;
-  result_public_id: string;
-  cloth_type: ClothType;
-  parameters: {
-    num_inference_steps: number;
-    guidance_scale: number;
-    seed: number;
-    show_type: string;
-  };
-  garment_classification?: {
-    label: string;
-    confidence: number;
-  };
+    success: boolean;
+    person_url: string;
+    garment_url: string;
+    cutout_url?: string;
+    result_url: string;
+    result_public_id: string;
+    cloth_type: ClothType;
+    parameters: {
+        num_inference_steps: number;
+        guidance_scale: number;
+        seed: number;
+        show_type: string;
+    };
+    garment_classification?: {
+        label: string;
+        confidence: number;
+    };
 }
 ```
 
@@ -201,14 +209,14 @@ export interface VirtualTryonResponse {
 ```typescript
 // Legacy VTON API (deprecated)
 export const http = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_VTON_API_BASE || 'http://127.0.0.1:8000',
-  timeout: 60_000,
+    baseURL: process.env.NEXT_PUBLIC_VTON_API_BASE || 'http://127.0.0.1:8000',
+    timeout: 60_000,
 });
 
 // Garment API with Gradio (recommended)
 export const garmentHttp = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_GARMENT_API_BASE || 'http://127.0.0.1:5000',
-  timeout: 120_000, // 2 minutes for Gradio
+    baseURL: process.env.NEXT_PUBLIC_GARMENT_API_BASE || 'http://127.0.0.1:5000',
+    timeout: 120_000, // 2 minutes for Gradio
 });
 ```
 
@@ -217,16 +225,18 @@ export const garmentHttp = axios.create({
 ### 1. Automatic Retry Logic
 
 **Before:**
+
 ```typescript
 // Manual retry required
 try {
-  return await processWithGradio(...);
+    return await processWithGradio(...);
 } catch (err) {
-  // Retry manually or show error
+    // Retry manually or show error
 }
 ```
 
 **After:**
+
 ```typescript
 // Automatic 3 retries with exponential backoff
 const response = await virtualTryOn(...);
@@ -236,6 +246,7 @@ const response = await virtualTryOn(...);
 ### 2. Cloudinary Storage
 
 **Before:**
+
 ```typescript
 // Result as data URL (large base64 string in memory)
 const resultDataUrl = await processWithGradio(...);
@@ -243,6 +254,7 @@ const resultDataUrl = await processWithGradio(...);
 ```
 
 **After:**
+
 ```typescript
 // Result as Cloudinary URL (CDN-backed)
 const response = await virtualTryOn(...);
@@ -253,12 +265,14 @@ console.log(response.result_url);
 ### 3. Garment Classification
 
 **Before:**
+
 ```typescript
 // No classification metadata
 const resultDataUrl = await processWithGradio(...);
 ```
 
 **After:**
+
 ```typescript
 // Includes garment classification
 const response = await virtualTryOn(...);
@@ -269,20 +283,26 @@ console.log(response.garment_classification);
 ### 4. Better Error Handling
 
 **Before:**
+
 ```typescript
 // Generic error messages
-catch (err) {
-  // "Request failed"
+catch
+(err)
+{
+    // "Request failed"
 }
 ```
 
 **After:**
+
 ```typescript
 // Detailed error messages
-catch (err) {
-  // "Virtual try-on failed after 3 attempts: Connection timeout"
-  // "Invalid person image. Allowed: png, jpg, jpeg"
-  // "Person image too large (>16MB)"
+catch
+(err)
+{
+    // "Virtual try-on failed after 3 attempts: Connection timeout"
+    // "Invalid person image. Allowed: png, jpg, jpeg"
+    // "Person image too large (>16MB)"
 }
 ```
 
@@ -291,13 +311,14 @@ catch (err) {
 ### Issue: "Unable to connect to AI service"
 
 **Check:**
+
 1. Is FastAPI backend running on port 5000?
    ```bash
    curl http://localhost:5000/health
    ```
 
 2. Is Gradio Space online?
-   - Visit: https://huggingface.co/spaces/nawodyaishan/ar-fashion-tryon
+    - Visit: https://huggingface.co/spaces/nawodyaishan/ar-fashion-tryon
 
 3. Are environment variables set?
    ```bash
@@ -308,6 +329,7 @@ catch (err) {
 ### Issue: "Cloudinary upload failed"
 
 **Check:**
+
 1. Are Cloudinary credentials correct?
    ```bash
    echo $CLOUDINARY_CLOUD_NAME
@@ -325,14 +347,15 @@ catch (err) {
 ### Issue: "Virtual try-on failed after 3 attempts"
 
 **Check:**
+
 1. Backend logs:
    ```bash
    tail -f backend.log
    ```
 
 2. Gradio Space status:
-   - Check if Space is in "Building" state
-   - Verify GPU allocation
+    - Check if Space is in "Building" state
+    - Verify GPU allocation
 
 3. Network connectivity:
    ```bash
@@ -388,9 +411,9 @@ NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET=ar_fashion_unsigned
 
 ## Related Documentation
 
-- [FastAPI Gradio Integration (Complete)](./FASTAPI_GRADIO_INTEGRATION.md)
-- [Cloudinary Setup](./CLOUDINARY_SETUP.md)
-- [Garment Extraction](./GARMENT_EXTRACTION_COMPLETE.md)
+- [FastAPI Gradio Integration (Complete)](FASTAPI_GRADIO_INTEGRATION.md)
+- [Cloudinary Setup](CLOUDINARY_SETUP.md)
+- [Garment Extraction](GARMENT_EXTRACTION_COMPLETE.md)
 
 ## Summary
 

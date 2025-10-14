@@ -1,6 +1,7 @@
 # FastAPI Gradio Integration
 
-This document explains the new unified backend architecture that replaces direct Gradio client calls with a FastAPI proxy that integrates Gradio, providing better control, retry logic, and Cloudinary storage.
+This document explains the new unified backend architecture that replaces direct Gradio client calls with a FastAPI
+proxy that integrates Gradio, providing better control, retry logic, and Cloudinary storage.
 
 ## Overview
 
@@ -25,6 +26,7 @@ The virtual try-on system now uses a **FastAPI backend that wraps Gradio API**, 
 ```
 
 **Issues:**
+
 - ❌ No retry logic
 - ❌ No centralized storage
 - ❌ Limited error handling
@@ -46,6 +48,7 @@ The virtual try-on system now uses a **FastAPI backend that wraps Gradio API**, 
 ```
 
 **Benefits:**
+
 - ✅ Automatic retry (3 attempts with exponential backoff)
 - ✅ All images stored in Cloudinary CDN
 - ✅ Comprehensive error handling
@@ -62,14 +65,28 @@ Complete virtual try-on workflow with optional garment processing.
 
 ```typescript
 {
-  person_image: File,        // Required: Body photo
-  garment_image: File,       // Required: Garment photo
-  cloth_type: string,        // "upper" | "lower" | "overall"
-  num_inference_steps: number, // 20-100, default: 50
-  guidance_scale: number,    // 1.0-10.0, default: 2.5
-  seed: number,              // -1 to 999, default: 42
-  show_type: string,         // "result only" | "input & result" | "input & mask & result"
-  process_garment: boolean   // true = classify + cutout, false = use as-is
+    person_image: File,        // Required: Body photo
+        garment_image
+:
+    File,       // Required: Garment photo
+        cloth_type
+:
+    string,        // "upper" | "lower" | "overall"
+        num_inference_steps
+:
+    number, // 20-100, default: 50
+        guidance_scale
+:
+    number,    // 1.0-10.0, default: 2.5
+        seed
+:
+    number,              // -1 to 999, default: 42
+        show_type
+:
+    string,         // "result only" | "input & result" | "input & mask & result"
+        process_garment
+:
+    boolean   // true = classify + cutout, false = use as-is
 }
 ```
 
@@ -102,67 +119,67 @@ Complete virtual try-on workflow with optional garment processing.
 ### API Service (`lib/services/vtonApi.ts`)
 
 ```typescript
-import { garmentHttp } from './http';
-import type { VirtualTryonResponse } from '@/lib/types';
+import {garmentHttp} from './http';
+import type {VirtualTryonResponse} from '@/lib/types';
 
 export async function virtualTryOn(
-  payload: ProcessImagesPayload,
-  processGarment: boolean = true,
-  signal?: AbortSignal,
+    payload: ProcessImagesPayload,
+    processGarment: boolean = true,
+    signal?: AbortSignal,
 ): Promise<VirtualTryonResponse> {
-  const fd = new FormData();
+    const fd = new FormData();
 
-  // Add images
-  fd.append('person_image', payload.bodyFile);
-  fd.append('garment_image', payload.garmentFile);
+    // Add images
+    fd.append('person_image', payload.bodyFile);
+    fd.append('garment_image', payload.garmentFile);
 
-  // Add parameters
-  fd.append('cloth_type', payload.clothType || 'upper');
-  fd.append('num_inference_steps', (payload.options?.numInferenceSteps ?? 50).toString());
-  fd.append('guidance_scale', (payload.options?.guidanceScale ?? 2.5).toString());
-  fd.append('seed', (payload.options?.seed ?? 42).toString());
-  fd.append('process_garment', processGarment.toString());
+    // Add parameters
+    fd.append('cloth_type', payload.clothType || 'upper');
+    fd.append('num_inference_steps', (payload.options?.numInferenceSteps ?? 50).toString());
+    fd.append('guidance_scale', (payload.options?.guidanceScale ?? 2.5).toString());
+    fd.append('seed', (payload.options?.seed ?? 42).toString());
+    fd.append('process_garment', processGarment.toString());
 
-  // Call endpoint
-  const { data } = await garmentHttp.post<VirtualTryonResponse>(
-    '/virtual_tryon',
-    fd,
-    { signal }
-  );
+    // Call endpoint
+    const {data} = await garmentHttp.post<VirtualTryonResponse>(
+        '/virtual_tryon',
+        fd,
+        {signal}
+    );
 
-  return data;
+    return data;
 }
 ```
 
 ### Store Integration (`lib/store/useVtonStore.ts`)
 
 ```typescript
-import { virtualTryOn } from '@/lib/services/vtonApi';
+import {virtualTryOn} from '@/lib/services/vtonApi';
 
 const tryOn = async () => {
-  const { body, garment, options } = get();
+    const {body, garment, options} = get();
 
-  // Call unified endpoint
-  const response = await virtualTryOn(
-    {
-      bodyFile: body.file,
-      garmentFile: garment.extractedFile || garment.file,
-      clothType: options.clothType || 'upper',
-      options: {
-        numInferenceSteps: options.numInferenceSteps ?? 50,
-        guidanceScale: options.guidanceScale ?? 2.5,
-        seed: options.seed ?? 42,
-      },
-    },
-    false, // process_garment = false (already extracted)
-  );
+    // Call unified endpoint
+    const response = await virtualTryOn(
+        {
+            bodyFile: body.file,
+            garmentFile: garment.extractedFile || garment.file,
+            clothType: options.clothType || 'upper',
+            options: {
+                numInferenceSteps: options.numInferenceSteps ?? 50,
+                guidanceScale: options.guidanceScale ?? 2.5,
+                seed: options.seed ?? 42,
+            },
+        },
+        false, // process_garment = false (already extracted)
+    );
 
-  // Use Cloudinary URL
-  set({
-    status: 'done',
-    resultUrl: response.result_url,
-    step: 'RESULT'
-  });
+    // Use Cloudinary URL
+    set({
+        status: 'done',
+        resultUrl: response.result_url,
+        step: 'RESULT'
+    });
 };
 ```
 
@@ -350,18 +367,18 @@ CLOUDINARY_FOLDER=garments
 
 ```typescript
 try {
-  const response = await virtualTryOn(payload);
-  set({ resultUrl: response.result_url, status: 'done' });
+    const response = await virtualTryOn(payload);
+    set({resultUrl: response.result_url, status: 'done'});
 } catch (err) {
-  const error = err as Error;
-  let msg = error.message || 'Processing failed';
+    const error = err as Error;
+    let msg = error.message || 'Processing failed';
 
-  // Handle specific errors
-  if (/exceeded.*gpu.*quota/i.test(msg)) {
-    msg = 'Daily GPU quota reached. Please retry later.';
-  }
+    // Handle specific errors
+    if (/exceeded.*gpu.*quota/i.test(msg)) {
+        msg = 'Daily GPU quota reached. Please retry later.';
+    }
 
-  set({ status: 'error', error: msg });
+    set({status: 'error', error: msg});
 }
 ```
 
@@ -500,33 +517,35 @@ pnpm dev  # Port 3000
 ### Migrating from Direct Gradio Client
 
 **Before:**
+
 ```typescript
-import { processWithGradio } from '@/lib/services/gradioApi';
+import {processWithGradio} from '@/lib/services/gradioApi';
 
 const resultDataUrl = await processWithGradio(
-  bodyFile,
-  garmentFile,
-  'upper',
-  50,
-  2.5,
-  42,
-  { token: HF_TOKEN }
+    bodyFile,
+    garmentFile,
+    'upper',
+    50,
+    2.5,
+    42,
+    {token: HF_TOKEN}
 );
 ```
 
 **After:**
+
 ```typescript
-import { virtualTryOn } from '@/lib/services/vtonApi';
+import {virtualTryOn} from '@/lib/services/vtonApi';
 
 const response = await virtualTryOn({
-  bodyFile,
-  garmentFile,
-  clothType: 'upper',
-  options: {
-    numInferenceSteps: 50,
-    guidanceScale: 2.5,
-    seed: 42
-  }
+    bodyFile,
+    garmentFile,
+    clothType: 'upper',
+    options: {
+        numInferenceSteps: 50,
+        guidanceScale: 2.5,
+        seed: 42
+    }
 });
 
 const resultUrl = response.result_url; // Cloudinary URL
@@ -547,6 +566,7 @@ const resultUrl = response.result_url; // Cloudinary URL
 **Cause:** Gradio Space is offline or starting
 
 **Solution:**
+
 1. Check Space status: https://huggingface.co/spaces/{GRADIO_SPACE}
 2. Wait for Space to start (automatic retry after 2s, 4s, 8s)
 3. Verify HF_TOKEN if using private Space
@@ -556,6 +576,7 @@ const resultUrl = response.result_url; // Cloudinary URL
 **Cause:** Gradio API timeout or error
 
 **Solution:**
+
 1. Check backend logs for detailed error
 2. Verify image formats (PNG/JPEG only)
 3. Check file sizes (max 16MB)
@@ -566,19 +587,20 @@ const resultUrl = response.result_url; // Cloudinary URL
 **Cause:** Invalid Cloudinary credentials
 
 **Solution:**
+
 1. Verify environment variables:
-   - `CLOUDINARY_CLOUD_NAME`
-   - `CLOUDINARY_API_KEY`
-   - `CLOUDINARY_API_SECRET`
+    - `CLOUDINARY_CLOUD_NAME`
+    - `CLOUDINARY_API_KEY`
+    - `CLOUDINARY_API_SECRET`
 2. Check Cloudinary dashboard for errors
 3. Verify folder permissions
 
 ## Related Documentation
 
-- [Garment Extraction Integration](./GARMENT_EXTRACTION_INTEGRATION.md)
-- [Cloudinary Setup](./CLOUDINARY_SETUP.md)
-- [Backend URL Endpoint](./BACKEND_URL_ENDPOINT.md)
-- [Gradio Integration (Legacy)](./GRADIO_INTEGRATION.md)
+- [Garment Extraction Integration](GARMENT_EXTRACTION_INTEGRATION.md)
+- [Cloudinary Setup](CLOUDINARY_SETUP.md)
+- [Backend URL Endpoint](BACKEND_URL_ENDPOINT.md)
+- [Gradio Integration (Legacy)](GRADIO_INTEGRATION.md)
 
 ## Summary
 
@@ -589,4 +611,5 @@ const resultUrl = response.result_url; // Cloudinary URL
 ✅ **Production Ready** - CORS, timeouts, monitoring
 ✅ **Easy Migration** - Drop-in replacement for direct Gradio
 
-The FastAPI Gradio integration provides a robust, scalable solution for virtual try-on with enterprise-grade reliability! 🚀
+The FastAPI Gradio integration provides a robust, scalable solution for virtual try-on with enterprise-grade
+reliability! 🚀

@@ -7,21 +7,25 @@ This guide walks you through setting up Cloudinary for the AR Fashion Try-On gar
 The Cloudinary-first approach offers several benefits over direct backend uploads:
 
 ✅ **Better Performance**
+
 - CDN-backed image delivery (faster downloads)
 - Distributed global network
 - Optimized image serving
 
 ✅ **Reduced Server Load**
+
 - No large file uploads to backend
 - Backend only fetches from Cloudinary URLs
 - Reduced bandwidth costs
 
 ✅ **No CORS Issues**
+
 - Cloudinary has proper CORS configuration
 - No preflight request complications
 - Browser-friendly direct uploads
 
 ✅ **Scalability**
+
 - CDN handles traffic spikes
 - Backend processing remains lightweight
 - Better horizontal scaling
@@ -81,12 +85,13 @@ The Cloudinary-first approach offers several benefits over direct backend upload
 
 ## Step 3: Create Unsigned Upload Preset
 
-**Why unsigned?** Browser-based uploads need to be "unsigned" (no authentication required) for security. This prevents exposing your API secret in client-side code.
+**Why unsigned?** Browser-based uploads need to be "unsigned" (no authentication required) for security. This prevents
+exposing your API secret in client-side code.
 
 ### Option A: Via Console UI (Recommended)
 
 1. Go to **Settings** → **Upload** → **Upload presets**
-   - Direct link: https://console.cloudinary.com/settings/upload
+    - Direct link: https://console.cloudinary.com/settings/upload
 
 2. Click **Add upload preset**
 
@@ -144,6 +149,7 @@ NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET=ar_fashion_unsigned
 ```
 
 **Example:**
+
 ```bash
 NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=demo-cloud
 NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET=ar_fashion_unsigned
@@ -157,7 +163,8 @@ pnpm dev
 
 ## Step 5: Implement Backend Endpoint
 
-Your FastAPI backend needs to support URL-based processing. See [BACKEND_URL_ENDPOINT.md](./BACKEND_URL_ENDPOINT.md) for complete implementation guide.
+Your FastAPI backend needs to support URL-based processing. See [BACKEND_URL_ENDPOINT.md](BACKEND_URL_ENDPOINT.md) for
+complete implementation guide.
 
 **Quick implementation:**
 
@@ -235,17 +242,17 @@ Open browser console and check:
 ```
 
 5. Check toast notification:
-   - ✅ Success: "🌩️ Garment extracted via Cloudinary: TSHIRT (95% confidence)"
-   - ❌ Error: Check console for details
+    - ✅ Success: "🌩️ Garment extracted via Cloudinary: TSHIRT (95% confidence)"
+    - ❌ Error: Check console for details
 
 ### Test 3: Verify Cloudinary Storage
 
 1. Go to [Cloudinary Media Library](https://console.cloudinary.com/console/media_library)
 2. Navigate to **garments/originals** folder
 3. You should see your uploaded images with:
-   - Unique filenames
-   - Public URLs
-   - Image metadata (dimensions, format, size)
+    - Unique filenames
+    - Public URLs
+    - Image metadata (dimensions, format, size)
 
 ### Test 4: Test Backend Endpoint Directly
 
@@ -259,6 +266,7 @@ curl -X POST "http://localhost:5000/classify_garment_by_url" \
 ```
 
 Expected response:
+
 ```json
 {
   "label": "TSHIRT",
@@ -276,12 +284,12 @@ Expected response:
 The app now uses `extractGarmentSmart()` which automatically chooses:
 
 1. **If Cloudinary is configured** (both env vars set):
-   - Uses Cloudinary pipeline
-   - Logs: "🌩️ Using Cloudinary pipeline (production mode)"
+    - Uses Cloudinary pipeline
+    - Logs: "🌩️ Using Cloudinary pipeline (production mode)"
 
 2. **If Cloudinary is NOT configured**:
-   - Falls back to direct upload
-   - Logs: "📤 Using direct upload pipeline (fallback mode)"
+    - Falls back to direct upload
+    - Logs: "📤 Using direct upload pipeline (fallback mode)"
 
 ### Code Example
 
@@ -289,9 +297,9 @@ The UI components automatically use the smart pipeline:
 
 ```typescript
 // components/tryon/ARPanel.tsx
-import { extractGarmentSmart } from '@/lib/services/garmentApi';
+import {extractGarmentSmart} from '@/lib/services/garmentApi';
 
-const { result, extractedFile, method, cloudinaryUrl } = await extractGarmentSmart(file);
+const {result, extractedFile, method, cloudinaryUrl} = await extractGarmentSmart(file);
 
 // method will be 'cloudinary' or 'direct'
 console.log(`Extraction method: ${method}`);
@@ -340,7 +348,9 @@ Restrict uploads to your domain:
 ```json
 {
   "unsigned": true,
-  "allowed_origins": ["https://yourapp.vercel.app"]
+  "allowed_origins": [
+    "https://yourapp.vercel.app"
+  ]
 }
 ```
 
@@ -370,12 +380,13 @@ Track your Cloudinary usage:
 1. Go to [Cloudinary Dashboard](https://console.cloudinary.com/console)
 2. Check **Analytics** → **Usage**
 3. Monitor:
-   - Storage (GB)
-   - Transformations
-   - Bandwidth
-   - API requests
+    - Storage (GB)
+    - Transformations
+    - Bandwidth
+    - API requests
 
 Free tier limits:
+
 - 25 GB storage
 - 25 GB bandwidth/month
 - 25,000 transformations/month
@@ -387,11 +398,13 @@ Free tier limits:
 **Symptom:** App uses direct upload instead of Cloudinary
 
 **Causes:**
+
 - Missing environment variables
 - Incorrect variable names (must start with `NEXT_PUBLIC_`)
 - Dev server not restarted after .env.local changes
 
 **Fix:**
+
 1. Verify `.env.local` has both variables
 2. Check variable names (case-sensitive)
 3. Restart dev server: `pnpm dev`
@@ -402,11 +415,13 @@ Free tier limits:
 **Symptom:** Cloudinary upload returns 400/401 error
 
 **Causes:**
+
 - Upload preset doesn't exist
 - Upload preset is not unsigned
 - Cloud name is incorrect
 
 **Fix:**
+
 1. Go to Cloudinary Console → Upload Presets
 2. Verify preset exists and is "Unsigned"
 3. Check Cloud name matches `.env.local`
@@ -416,11 +431,13 @@ Free tier limits:
 **Symptom:** Backend returns "Failed to fetch image from URL"
 
 **Causes:**
+
 - Backend has no internet access
 - Firewall blocking Cloudinary domain
 - Invalid URL format
 
 **Fix:**
+
 1. Test backend connectivity:
    ```bash
    curl https://res.cloudinary.com/demo/image/upload/sample.jpg
@@ -433,10 +450,12 @@ Free tier limits:
 **Symptom:** Upload succeeds but images not in dashboard
 
 **Causes:**
+
 - Wrong folder path
 - Images in different environment (e.g., sub-account)
 
 **Fix:**
+
 1. Check response `public_id` in browser console
 2. Search by public_id in Media Library
 3. Verify you're in the correct Cloudinary account
@@ -448,11 +467,13 @@ Free tier limits:
 **This should NOT happen with Cloudinary** - proper CORS is their default.
 
 **Possible causes:**
+
 - Using wrong Cloudinary API endpoint
 - Custom domain misconfiguration
 - Browser extension blocking requests
 
 **Fix:**
+
 1. Verify you're using `https://api.cloudinary.com/v1_1/{cloud_name}/image/upload`
 2. Disable browser extensions and retry
 3. Check Network tab for actual error response
@@ -466,12 +487,13 @@ Cloudinary supports on-the-fly transformations. You can request optimized versio
 ```typescript
 // In uploadToCloudinary function, add transformations
 formData.append('transformation', JSON.stringify([
-  { width: 1024, height: 1024, crop: 'limit' },
-  { quality: 'auto', fetch_format: 'auto' }
+    {width: 1024, height: 1024, crop: 'limit'},
+    {quality: 'auto', fetch_format: 'auto'}
 ]));
 ```
 
 Or use URLs directly:
+
 ```
 https://res.cloudinary.com/demo/image/upload/w_1024,h_1024,c_limit/garment.jpg
 ```
@@ -519,6 +541,7 @@ If you're currently using direct upload:
 ## Performance Comparison
 
 ### Direct Upload (Before)
+
 ```
 Upload (10MB image → Railway):     2-5s
 Processing (classification + bg):  3-8s
@@ -528,6 +551,7 @@ Total:                             6-15s
 ```
 
 ### Cloudinary Pipeline (After)
+
 ```
 Upload (10MB image → Cloudinary):  1-3s   ← CDN network
 Backend fetch (CDN → Railway):     0.5-1s ← Optimized fetch
@@ -540,12 +564,14 @@ Total:                             5-13s + Better reliability
 ## Cost Estimation
 
 ### Free Tier (Default)
+
 - Storage: 25 GB
 - Bandwidth: 25 GB/month
 - Transformations: 25,000/month
 - **Cost:** $0
 
 **Capacity:**
+
 - ~2,500 garment uploads (avg 10MB each)
 - ~25,000 downloads (avg 1MB cutout each)
 
@@ -562,9 +588,9 @@ If you exceed free tier:
 
 - [Cloudinary Upload API](https://cloudinary.com/documentation/upload_images)
 - [Unsigned Uploads](https://cloudinary.com/documentation/upload_images#unsigned_upload)
-- [Backend URL Endpoint](./BACKEND_URL_ENDPOINT.md)
-- [CORS Fix](./CORS_FIX.md)
-- [Garment API Service](./lib/services/garmentApi.ts)
+- [Backend URL Endpoint](BACKEND_URL_ENDPOINT.md)
+- [CORS Fix](CORS_FIX.md)
+- [Garment API Service](../lib/services/garmentApi.ts)
 
 ## Support
 
@@ -575,7 +601,7 @@ If you exceed free tier:
 ## Next Steps
 
 1. ✅ Configure Cloudinary (this guide)
-2. ✅ Implement backend endpoint ([BACKEND_URL_ENDPOINT.md](./BACKEND_URL_ENDPOINT.md))
+2. ✅ Implement backend endpoint ([BACKEND_URL_ENDPOINT.md](BACKEND_URL_ENDPOINT.md))
 3. ✅ Test locally with dev server
 4. ✅ Deploy to production
 5. ✅ Monitor usage in Cloudinary dashboard
