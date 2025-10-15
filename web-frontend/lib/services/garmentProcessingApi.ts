@@ -1,9 +1,10 @@
 /**
  * Garment Processing API Service
  * Integrates with /process/garment/top endpoint for AR-ready garment preparation
+ * Uses image-extraction-backend (port 5000)
  */
 
-import { http } from './http';
+import { garmentHttp } from './http';
 
 export interface GarmentAnchorsResponse {
   collar_left: [number, number];
@@ -93,7 +94,7 @@ export async function processGarment(
   const startTime = Date.now();
 
   try {
-    const { data } = await http.post<ProcessGarmentResponse>(
+    const { data } = await garmentHttp.post<ProcessGarmentResponse>(
       '/process/garment/top',
       formData,
       {
@@ -169,7 +170,7 @@ export async function processGarmentFromUrl(
   const startTime = Date.now();
 
   try {
-    const { data } = await http.post<ProcessGarmentResponse>(
+    const { data } = await garmentHttp.post<ProcessGarmentResponse>(
       '/process/garment/top',
       formData,
       {
