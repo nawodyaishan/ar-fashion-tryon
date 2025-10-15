@@ -10,6 +10,8 @@ from pathlib import Path
 import base64
 import json
 from typing import Optional, Dict
+from contextlib import asynccontextmanager
+import asyncio
 
 import requests
 from fastapi import FastAPI, File, UploadFile, Request, HTTPException, Form
@@ -34,6 +36,8 @@ from services.gradio_service import get_gradio_client, call_gradio_api
 from services.image_processing import remove_background, image_to_png_bytes, ensure_png_format, construct_outfit_image, process_shirt_top_png
 from services.garment_processor import get_processor
 from services.fit_solver import get_solver
+from services.ws_fit_session import get_session_manager
+from routers import ws_fit
 
 # -------------------- Logging Setup --------------------
 logging.basicConfig(
@@ -43,13 +47,52 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# -------------------- FastAPI App --------------------
-app = FastAPI(title="Garment Extraction API", version="2.0.0")
-
 # -------------------- GSM Cache --------------------
 # Simple in-memory cache for GSM data (for fit solver)
 # In production, use Redis or similar
 _gsm_cache: Dict[str, Dict] = {}
+
+
+# -------------------- Lifespan Manager --------------------
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan context manager for startup/shutdown tasks."""
+    # Startup
+    logger.info("Starting up application...")
+
+    # Load classification model
+    load_model_and_config()
+
+    # Make GSM cache accessible to WebSocket session manager
+    session_manager = get_session_manager()
+    session_manager.gsm_cache = _gsm_cache
+
+    # Start background cleanup task
+    cleanup_task = asyncio.create_task(ws_fit.cleanup_idle_sessions())
+
+    # Note: Gradio client will connect on first use (lazy loading)
+    # This prevents startup failures if Gradio space is temporarily unavailable
+
+    logger.info("Application startup complete")
+
+    yield
+
+    # Shutdown
+    logger.info("Shutting down application...")
+    cleanup_task.cancel()
+    try:
+        await cleanup_task
+    except asyncio.CancelledError:
+        pass
+    logger.info("Application shutdown complete")
+
+
+# -------------------- FastAPI App --------------------
+app = FastAPI(
+    title="Garment Extraction API",
+    version="2.0.0",
+    lifespan=lifespan
+)
 
 # Add middlewares (order matters - first added is outermost)
 app.add_middleware(RequestIDMiddleware)
@@ -62,20 +105,8 @@ app.add_middleware(
 )
 app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
 
-
-# -------------------- Startup/Shutdown --------------------
-@app.on_event("startup")
-async def startup_load():
-    """Initialize services on startup."""
-    logger.info("Starting up application...")
-
-    # Load classification model
-    load_model_and_config()
-
-    # Note: Gradio client will connect on first use (lazy loading)
-    # This prevents startup failures if Gradio space is temporarily unavailable
-
-    logger.info("Application startup complete")
+# Include WebSocket router
+app.include_router(ws_fit.router, tags=["WebSocket Fit"])
 
 
 # -------------------- Helper Functions --------------------
