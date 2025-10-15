@@ -470,10 +470,10 @@ export const useTryonStore = create<TryonState>()(
         }),
     }),
     {
-      name: 'tryon-store-v3', // Updated version for new dual transform system
+      name: 'tryon-store-v4', // Updated: Don't persist garments to avoid localStorage quota
       partialize: (state) => ({
-        // Only persist garments and settings, not transient state
-        garments: state.garments,
+        // Only persist settings, NOT garments (to avoid localStorage quota)
+        // Custom garments with large image data URLs will exceed browser limits
         snapToShoulders: state.snapToShoulders,
         activeMode: state.activeMode,
         filterEnabled: state.filterEnabled,

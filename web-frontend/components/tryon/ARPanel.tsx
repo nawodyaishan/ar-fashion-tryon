@@ -10,8 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useTryonStore } from '@/lib/tryon-store';
 import { loadImageFromFile, getImageDimensions, getFileSizeKB } from '@/lib/canvas';
 import { extractGarmentSmart } from '@/lib/services/garmentApi';
-import { processGarment, validateGarmentFile, convertToFrontendMetadata } from '@/lib/services/garmentProcessingApi';
-import { saveLocalMetadata } from '@/lib/services/metadata';
+import { processGarment, validateGarmentFile } from '@/lib/services/garmentProcessingApi';
 import { TransformControls } from './TransformControls';
 import { MediaPipeTestPanel } from './MediaPipeTestPanel';
 import { Plus, Trash2, Sparkles, Activity } from 'lucide-react';
@@ -87,98 +86,56 @@ export default function ARPanel() {
         useDefaults: true // Use default anchors
       });
 
-      if (processedResult.status !== 'ok') {
-        toast.error('AR processing failed, using extracted version', { id: 'processing' });
-
-        // Fallback: Use extracted version without AR metadata
-        const extractedSrc = await loadImageFromFile(extractedFile);
-        const dimensions = await getImageDimensions(extractedSrc);
-
-        const fallbackGarment = {
-          id: garmentId,
-          name: garmentName,
-          src: extractedSrc,
-          width: dimensions.width,
-          height: dimensions.height,
-          sizeKb: getFileSizeKB(extractedFile),
-          category: 'misc' as const,
-          extracted: true,
-          extractedUrl: result.extraction?.cutout_url,
-          cloudinaryUrl,
-          classification: result.classification ? {
-            label: result.classification.label as 'tshirt' | 'trousers' | 'unknown',
-            confidence: result.classification.confidence
-          } : undefined
-        };
-
-        addGarment(fallbackGarment);
-        selectGarment(garmentId);
-        return;
+      // Check for upload error
+      if (processedResult.upload_error) {
+        console.warn('Upload error (using base64):', processedResult.upload_error);
       }
 
-      // Step 3: Use AR-processed PNG (with neck cut and transparent background)
-      const processedPng = processedResult.urls.processed_png ||
-        processedResult.urls.processed_png_base64;
+      // Step 3: Use AR-processed PNG from backend
+      const processedPng = processedResult.image.url;
 
       if (!processedPng) {
         throw new Error('No processed PNG returned from AR processing');
       }
 
-      // Step 4: Load processed image
-      const processedSrc = processedPng.startsWith('data:')
-        ? processedPng
-        : processedPng; // Already a URL
-
-      const dimensions = {
-        width: processedResult.meta.w,
-        height: processedResult.meta.h
-      };
-
-      // Step 5: Create garment with AR metadata
+      // Step 4: Create garment with AR metadata including GSM ID
       const newGarment = {
         id: garmentId,
         name: garmentName,
-        src: processedSrc,
-        width: dimensions.width,
-        height: dimensions.height,
+        src: processedPng,
+        width: processedResult.image.w,
+        height: processedResult.image.h,
         sizeKb: 0, // Will be calculated later if needed
-        category: (processedResult.meta.category === 'tshirt' ? 'tops' : 'tops') as 'tops' | 'jackets' | 'misc',
+        category: 'tops' as 'tops' | 'jackets' | 'misc',
         extracted: true,
-        processed: true, // NEW: Mark as AR-processed
         extractedUrl: result.extraction?.cutout_url,
-        cloudinaryUrl: processedResult.urls.processed_png,
-        publicId: processedResult.urls.public_id,
+        cloudinaryUrl,
         classification: result.classification ? {
           label: result.classification.label as 'tshirt' | 'trousers' | 'unknown',
           confidence: result.classification.confidence
         } : undefined,
-        processingTime: result.processing_time_ms
+        processingTime: result.processing_time_ms,
+        // NEW: Store GSM ID for WebSocket fit solver
+        gsmId: processedResult.gsm_id
       };
 
-      // Step 6: Save AR metadata to local storage
-      const metadata = convertToFrontendMetadata(
-        garmentId,
-        garmentName,
-        processedResult.meta
-      );
-      saveLocalMetadata(metadata);
-
-      // Step 7: Add garment to store
+      // Step 5: Add garment to store
       addGarment(newGarment);
       selectGarment(garmentId);
 
       // Success notification
       const methodEmoji = method === 'cloudinary' ? '🌩️' : '📤';
       toast.success(
-        `${methodEmoji} AR-ready garment processed! ${result.classification?.label.toUpperCase()} detected with anchors`,
+        `${methodEmoji} AR-ready garment processed! GSM ID: ${processedResult.gsm_id}`,
         { id: 'processing' },
       );
 
-      console.log('✅ Garment added with metadata:', {
+      console.log('✅ Garment added with GSM:', {
         garmentId,
-        dimensions,
-        anchors: processedResult.meta.anchors,
-        category: processedResult.meta.category
+        gsmId: processedResult.gsm_id,
+        dimensions: `${processedResult.image.w}x${processedResult.image.h}`,
+        anchorSource: processedResult.anchor_source,
+        confidence: processedResult.anchor_confidence
       });
 
     } catch (err) {
