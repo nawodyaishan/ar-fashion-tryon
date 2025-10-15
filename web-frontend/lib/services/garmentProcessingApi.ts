@@ -241,18 +241,21 @@ export function validateGarmentFile(file: File): {
 
 /**
  * Convert backend metadata format to frontend GarmentMetadata format
+ *
+ * @deprecated This function is no longer used. Backend GSM format is used directly.
+ * Kept for backward compatibility but may be removed in future versions.
  */
 export function convertToFrontendMetadata(
   garmentId: string,
   displayName: string,
-  backendMeta: GarmentMetadataResponse
+  backendMeta: ProcessGarmentResponse
 ) {
   return {
     id: garmentId,
-    version: backendMeta.version,
+    version: 1,
     displayName,
-    width: backendMeta.w,
-    height: backendMeta.h,
+    width: backendMeta.image.w,
+    height: backendMeta.image.h,
     anchors: {
       collar_left: backendMeta.anchors.collar_left,
       collar_right: backendMeta.anchors.collar_right,
