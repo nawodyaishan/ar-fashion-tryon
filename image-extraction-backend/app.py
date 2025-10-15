@@ -9,7 +9,7 @@ import tempfile
 from pathlib import Path
 import base64
 import json
-from typing import Optional
+from typing import Optional, Dict
 
 import requests
 from fastapi import FastAPI, File, UploadFile, Request, HTTPException, Form
