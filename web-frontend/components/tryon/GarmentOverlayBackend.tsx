@@ -63,7 +63,7 @@ export function GarmentOverlayBackend({
     ctx.save();
 
     // Apply base similarity transform from backend
-    ctx.translate(transform.tx || 0, transform.ty || 0);
+    ctx.translate(transform.x || 0, transform.y || 0);
     ctx.rotate(transform.rotation || 0);
     ctx.scale(transform.scale || 1, transform.scale || 1);
 
@@ -141,7 +141,7 @@ export function GarmentOverlayBackend({
 
   const applyNeckClip = (
     ctx: CanvasRenderingContext2D,
-    neckClip: { center: [number, number]; rx: number; ry: number }
+    neckClip: { center: [number, number]; radius_x: number; radius_y: number }
   ) => {
     // Create elliptical clipping mask to hide back neck area
     ctx.save();
@@ -152,8 +152,8 @@ export function GarmentOverlayBackend({
     ctx.ellipse(
       neckClip.center[0],
       neckClip.center[1],
-      neckClip.rx,
-      neckClip.ry,
+      neckClip.radius_x,
+      neckClip.radius_y,
       0,
       0,
       2 * Math.PI

@@ -1,5 +1,11 @@
 import { Badge } from '@/components/ui/badge';
-import { Camera, Activity, Target, Loader2, Wifi } from 'lucide-react';
+import { Camera, Activity, Target, Loader2, Wifi, WifiOff, Server } from 'lucide-react';
+
+interface QoSMetrics {
+  proc_ms: number;
+  frame_count: number;
+  drop_rate: number;
+}
 
 interface StatusFooterProps {
   cameraActive: boolean;
@@ -7,6 +13,8 @@ interface StatusFooterProps {
   fitting: boolean;           // tracking vs searching
   confidence: number;         // 0-1
   fps: number;
+  wsConnected?: boolean;      // WebSocket connection status
+  qos?: QoSMetrics;           // Quality of Service metrics
 }
 
 export function StatusFooter({
@@ -14,7 +22,9 @@ export function StatusFooter({
   mediaPipeActive,
   fitting,
   confidence,
-  fps
+  fps,
+  wsConnected,
+  qos
 }: StatusFooterProps) {
   const getConfidenceColor = () => {
     if (confidence >= 0.7) return 'bg-green-500/80';
@@ -82,6 +92,30 @@ export function StatusFooter({
         >
           <Wifi className="mr-1 h-3 w-3" />
           {getConfidenceLabel()}: {(confidence * 100).toFixed(0)}%
+        </Badge>
+      )}
+
+      {/* WebSocket Status (NEW) */}
+      {mediaPipeActive && wsConnected !== undefined && (
+        <Badge
+          variant="secondary"
+          className={`backdrop-blur-sm ${
+            wsConnected ? 'bg-blue-500/80' : 'bg-gray-500/80'
+          } text-white border-white/20`}
+        >
+          {wsConnected ? <Wifi className="mr-1 h-3 w-3" /> : <WifiOff className="mr-1 h-3 w-3" />}
+          WS: {wsConnected ? 'ON' : 'OFF'}
+        </Badge>
+      )}
+
+      {/* QoS Metrics (NEW) */}
+      {qos && wsConnected && (
+        <Badge
+          variant="secondary"
+          className="backdrop-blur-sm bg-black/30 text-white border-white/20 text-xs"
+        >
+          <Server className="mr-1 h-3 w-3" />
+          {qos.proc_ms.toFixed(1)}ms | {qos.frame_count}f | {(qos.drop_rate * 100).toFixed(1)}% drop
         </Badge>
       )}
     </div>
