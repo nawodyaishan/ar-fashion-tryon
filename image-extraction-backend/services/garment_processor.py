@@ -100,14 +100,14 @@ class GarmentProcessor:
         # Generate mesh (triangulation)
         mesh = self._generate_mesh(cropped_mask, anchors, keypoints)
 
-        # Prepare output
+        # Prepare output (convert all numpy types to native Python types)
         gsm = {
             "image": {
-                "w": crop_w,
-                "h": crop_h
+                "w": int(crop_w),
+                "h": int(crop_h)
             },
             "anchors": anchors,
-            "anchor_confidence": round(confidence, 3),
+            "anchor_confidence": float(round(confidence, 3)),
             "keypoints": keypoints,
             "mesh": mesh,
             "body_offsets": {
