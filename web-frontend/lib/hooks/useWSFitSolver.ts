@@ -32,6 +32,7 @@ export function useWSFitSolver({
     if (!enabled || !gsmId) {
       // Disconnect if disabled
       if (clientRef.current) {
+        console.log('🔌 Disconnecting WebSocket:', !enabled ? 'disabled' : 'no GSM ID');
         clientRef.current.disconnect();
         clientRef.current = null;
         setIsConnected(false);
@@ -39,6 +40,16 @@ export function useWSFitSolver({
       }
       return;
     }
+
+    // Validate GSM ID format (backend format: gsm_{hexstring})
+    if (!gsmId.startsWith('gsm_')) {
+      const errorMsg = `Invalid GSM ID format: "${gsmId}". Expected format: gsm_<hash>. Upload a garment to get a valid GSM ID.`;
+      console.error('❌', errorMsg);
+      setError(errorMsg);
+      return;
+    }
+
+    console.log('🔌 Initializing WebSocket with GSM ID:', gsmId);
 
     // Create client
     const client = new WSFitClient(wsUrl, gsmId);

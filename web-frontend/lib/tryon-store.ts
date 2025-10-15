@@ -478,6 +478,21 @@ export const useTryonStore = create<TryonState>()(
         activeMode: state.activeMode,
         filterEnabled: state.filterEnabled,
       }),
+      // Add storage error handler to prevent quota errors from breaking the app
+      onRehydrateStorage: () => (state, error) => {
+        if (error) {
+          console.error('⚠️ Failed to rehydrate storage:', error);
+          // Clear corrupted storage
+          try {
+            localStorage.removeItem('tryon-store-v4');
+            console.log('🗑️ Cleared corrupted localStorage');
+          } catch (e) {
+            console.error('Failed to clear localStorage:', e);
+          }
+        } else if (state) {
+          console.log('✅ Store rehydrated successfully');
+        }
+      },
     },
   ),
 );

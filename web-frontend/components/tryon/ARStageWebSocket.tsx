@@ -37,7 +37,8 @@ export default function ARStageWebSocket() {
 
   // Get selected garment
   const selectedGarment = garments.find(g => g.id === selectedGarmentId);
-  const gsmId = selectedGarment?.gsmId || selectedGarment?.id || null;
+  // CRITICAL: Only use backend-generated GSM ID (NOT frontend custom ID)
+  const gsmId = selectedGarment?.gsmId || null;
 
   // MediaPipe Pose Detection
   const { landmarks, confidence, fps, isLoading, error: poseError } = usePoseDetection(
