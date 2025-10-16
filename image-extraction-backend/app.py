@@ -14,7 +14,6 @@ from typing import Optional, Dict
 import requests
 from fastapi import FastAPI, File, UploadFile, Request, HTTPException, Form
 from fastapi.responses import JSONResponse
-from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 from PIL import Image
@@ -929,7 +928,7 @@ async def process_garment_top(
     _gsm_cache[gsm_id] = gsm
 
     logger.info(f"[{request_id}] process_garment_top completed, GSM cached with ID: {gsm_id}")
-    return JSONResponse(content=jsonable_encoder(gsm))
+    return JSONResponse(gsm)
 
 
 @app.post("/fit/garment/top")
