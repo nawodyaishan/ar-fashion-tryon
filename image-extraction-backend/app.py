@@ -915,78 +915,70 @@ async def process_garment_top(
         logger.error(f"[{request_id}] GSM processing failed: {e}")
         raise HTTPException(status_code=500, detail=f"Processing failed: {e}")
 
-    # Generate GSM ID and cache full GSM
+    # Upload processed image to Cloudinary
     token = secrets.token_hex(8)
     gsm_id = f"gsm_{token}"
-    gsm['gsm_id'] = gsm_id
 
-    # CRITICAL: Cache full GSM in memory for WebSocket (no persistence needed)
-    _gsm_cache[gsm_id] = gsm
-    logger.info(f"[{request_id}] GSM cached with ID: {gsm_id}")
+    try:
+        # Convert to bytes
+        img_buffer = io.BytesIO()
+        cropped_img.save(img_buffer, format="PNG")
+        img_bytes = img_buffer.getvalue()
 
-    # Convert image to bytes
-    img_buffer = io.BytesIO()
-    cropped_img.save(img_buffer, format="PNG")
-    img_bytes = img_buffer.getvalue()
-
-    # Build response with metadata
-    response_data = {
-        "status": "ok",
-        "gsm_id": gsm_id,  # ← CRITICAL: Return this
-        "meta": {
-            "version": "2.0",
-            "category": category,
-            "w": gsm["image"]["w"],
-            "h": gsm["image"]["h"],
-            "anchors": gsm.get("anchors"),
-            "body_offsets": gsm.get("body_offsets")
-        },
-        "anchor_source": "custom" if custom_anchors else ("auto" if auto_anchor else "default"),
-        "anchor_confidence": gsm.get("anchor_confidence", 0.0),
-        "urls": {}
-    }
-
-    # Upload to Cloudinary if requested
-    if upload:
-        try:
-            # CRITICAL: Store ONLY minimal context (no full GSM mesh)
-            # Cloudinary has 1024 char context limit
-            minimal_context = {
+        # Upload
+        if upload:
+            # CRITICAL: Store GSM data in Cloudinary context metadata
+            gsm_metadata = {
                 "gsm_id": gsm_id,
                 "category": category,
-                "anchor_source": "auto" if auto_anchor else "manual",
-                "anchor_confidence": str(round(gsm.get("anchor_confidence", 0.0), 2))
+                "anchor_confidence": str(gsm.get("anchor_confidence", 0.0)),
+                "anchor_source": "auto" if auto_anchor else "default",
+                # Store full GSM as JSON string (compact, no whitespace)
+                "gsm_data": orjson.dumps({
+                    "anchors": gsm.get("anchors"),
+                    "keypoints": gsm.get("keypoints"),
+                    "mesh": gsm.get("mesh"),
+                    "body_offsets": gsm.get("body_offsets"),
+                    "image": {"w": gsm["image"]["w"], "h": gsm["image"]["h"]}
+                }).decode()
             }
 
-            # Upload with minimal context
             upload_result = await run_in_threadpool(
                 upload_bytes,
                 img_bytes,
                 public_id or gsm_id,
                 cloud_folder,
                 "png",
-                context=minimal_context
+                gsm_metadata  # ← ADD THIS
             )
 
-            response_data["urls"]["processed_png"] = upload_result["url"]
-            response_data["urls"]["public_id"] = upload_result["public_id"]
+            gsm["image"]["url"] = upload_result["secure_url"]
+            gsm["gsm_id"] = gsm_id
+            gsm["anchor_source"] = "custom" if custom_anchors else ("auto" if auto_anchor else "default")
 
-            logger.info(f"[{request_id}] GSM uploaded: {upload_result['url']}")
+            logger.info(f"[{request_id}] GSM uploaded with metadata: {gsm['image']['url']}")
+        else:
+            # Return base64
+            b64 = base64.b64encode(img_bytes).decode("ascii")
+            gsm["image"]["url"] = f"data:image/png;base64,{b64}"
+            gsm["gsm_id"] = gsm_id
+            gsm["anchor_source"] = "custom" if custom_anchors else ("auto" if auto_anchor else "default")
+            logger.info(f"[{request_id}] Skipping upload, returning base64")
 
-        except Exception as e:
-            # Don't fail entire request if upload fails
-            logger.error(f"[{request_id}] Upload failed: {e}", exc_info=True)
-            response_data["upload_error"] = str(e)
-            # But still return GSM data
-
-    else:
-        # Return base64
+    except Exception as e:
+        logger.error(f"[{request_id}] Upload failed: {e}")
+        # Fallback to base64
         b64 = base64.b64encode(img_bytes).decode("ascii")
-        response_data["urls"]["processed_png"] = f"data:image/png;base64,{b64}"
-        logger.info(f"[{request_id}] Skipping upload, returning base64")
+        gsm["image"]["url"] = f"data:image/png;base64,{b64}"
+        gsm["gsm_id"] = gsm_id
+        gsm["anchor_source"] = "custom" if custom_anchors else ("auto" if auto_anchor else "default")
+        gsm["upload_error"] = str(e)
+
+    # Store GSM in cache for fit solver
+    _gsm_cache[gsm_id] = gsm
 
     logger.info(f"[{request_id}] process_garment_top completed, GSM cached with ID: {gsm_id}")
-    return JSONResponse(response_data)
+    return JSONResponse(content=jsonable_encoder(gsm))
 
 
 @app.post("/fit/garment/top")

@@ -75,15 +75,7 @@ export function useWSFitSolver({
 
     client.onError((err) => {
       console.error('❌ Fit solver error:', err);
-
-      // Handle specific error cases with helpful messages
-      if (err.toLowerCase().includes('gsm') && (err.toLowerCase().includes('not found') || err.toLowerCase().includes('cache miss'))) {
-        const helpfulMsg = 'Garment data lost (server restarted). Please re-upload garment.';
-        console.warn('⚠️', helpfulMsg);
-        setError(helpfulMsg);
-      } else {
-        setError(err);
-      }
+      setError(err);
     });
 
     // Connect

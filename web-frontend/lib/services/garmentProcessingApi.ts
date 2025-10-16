@@ -106,49 +106,22 @@ export async function processGarment(
 
     const duration = Date.now() - startTime;
 
-    // Validate response has required fields
-    if (!data.gsm_id) {
-      console.error('⚠️ Backend response missing gsm_id:', data);
-      throw new Error('Backend did not return gsm_id');
-    }
-
-    if (!data.image?.url) {
-      console.error('⚠️ Backend response missing image.url:', data);
-      throw new Error('Backend did not return processed image URL');
-    }
-
     console.log('✅ Garment processing succeeded:', {
       duration: `${(duration / 1000).toFixed(2)}s`,
       gsmId: data.gsm_id,
       dimensions: `${data.image.w}x${data.image.h}`,
       anchorSource: data.anchor_source,
-      confidence: data.anchor_confidence?.toFixed(2),
-      uploadError: data.upload_error || 'none'
+      confidence: data.anchor_confidence?.toFixed(2)
     });
-
-    // Warn if upload failed (but processing succeeded)
-    if (data.upload_error) {
-      console.warn('⚠️ Upload warning:', data.upload_error);
-    }
 
     return data;
   } catch (error) {
     const duration = Date.now() - startTime;
 
-    // Enhanced error logging with status code if available
-    if (error && typeof error === 'object' && 'response' in error) {
-      const axiosError = error as { response?: { status?: number; data?: { detail?: string; message?: string } } };
-      console.error('❌ Garment processing failed:', {
-        duration: `${(duration / 1000).toFixed(2)}s`,
-        status: axiosError.response?.status,
-        error: axiosError.response?.data?.detail || axiosError.response?.data?.message || 'Unknown error'
-      });
-    } else {
-      console.error('❌ Garment processing failed:', {
-        duration: `${(duration / 1000).toFixed(2)}s`,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
-    }
+    console.error('❌ Garment processing failed:', {
+      duration: `${(duration / 1000).toFixed(2)}s`,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
 
     throw error;
   }

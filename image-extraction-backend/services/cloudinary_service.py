@@ -29,83 +29,44 @@ def upload_bytes(
     Upload bytes to Cloudinary with automatic compression and optional context metadata.
 
     Compresses images to stay under Cloudinary's 10MB free tier limit.
-
-    IMPORTANT: Cloudinary context has 1024 character limit.
-    Store only minimal reference data, not full GSM.
+    Context metadata allows storing custom data (like GSM) with the image.
 
     Args:
         data: Image bytes to upload
         public_id: Public ID for the image
         folder: Cloudinary folder path
         fmt: Optional format (e.g., "png", "jpg")
-        context: Optional dict of minimal metadata (e.g., {"gsm_id": "...", "category": "shirt"})
+        context: Optional dict of custom metadata (e.g., {"gsm_data": "...", "category": "shirt"})
 
     Returns:
-        Dict with 'url', 'public_id', 'width', 'height', 'format', 'bytes'
+        Cloudinary upload response dict with 'secure_url'
     """
-    # Check file size
-    file_size = len(data)
-    logger.info(f"Preparing upload: {file_size} bytes")
-
     # Compress image if needed (targets 9.5MB to stay under 10MB limit)
-    if file_size > 10_000_000:
-        logger.info(f"Image size {file_size} bytes exceeds 10MB, compressing...")
-        compressed_data = compress_image_for_upload(data, max_size_mb=9.5)
-        logger.info(f"Compressed to {len(compressed_data)} bytes")
-    else:
-        logger.info(f"Image already under 10MB limit: {file_size} bytes")
-        compressed_data = data
-
-    # Build full public_id (avoid duplication)
-    full_public_id = f"{folder}/{public_id}" if not public_id.startswith(folder) else public_id
+    logger.info(f"Preparing upload: {len(data)} bytes")
+    compressed_data = compress_image_for_upload(data, max_size_mb=9.5)
 
     kwargs = {
-        "public_id": full_public_id,
         "folder": folder,
+        "public_id": public_id,
         "resource_type": "image",
         "overwrite": True,
-        "invalidate": True,
     }
 
     if fmt:
         kwargs["format"] = fmt
 
-    # Add context metadata if provided (with size limit)
+    # Add context metadata if provided
     if context:
-        # CRITICAL: Cloudinary context limit is 1024 characters
-        # Store ONLY minimal reference data (no full GSM mesh)
-        minimal_context = {
-            "gsm_id": context.get("gsm_id", ""),
-            "category": context.get("category", ""),
-            "anchor_source": context.get("anchor_source", "auto"),
-            "confidence": context.get("anchor_confidence", "0.0")
-        }
-
         # Cloudinary context format: "key1=value1|key2=value2"
-        context_str = "|".join([f"{k}={v}" for k, v in minimal_context.items()])
-
-        # Verify length (1024 char limit)
-        if len(context_str) > 1000:
-            logger.warning(f"Context too long ({len(context_str)} chars), truncating")
-            context_str = context_str[:1000]
-
+        context_str = "|".join([f"{k}={v}" for k, v in context.items()])
         kwargs["context"] = context_str
-        logger.info(f"Adding context metadata: {len(minimal_context)} keys, {len(context_str)} chars")
+        logger.info(f"Adding context metadata: {len(context)} keys")
 
-    logger.info(f"Uploading to Cloudinary: {len(compressed_data)} bytes → {full_public_id}")
+    logger.info(f"Uploading to Cloudinary: {len(compressed_data)} bytes → {folder}/{public_id}")
     result = cloudinary.uploader.upload(io.BytesIO(compressed_data), **kwargs)
+    logger.info(f"Upload successful: {result.get('secure_url')}")
 
-    url = result.get("secure_url")
-    logger.info(f"Upload successful: {url}")
-
-    return {
-        "url": url,
-        "public_id": result.get("public_id"),
-        "width": result.get("width"),
-        "height": result.get("height"),
-        "format": result.get("format"),
-        "bytes": result.get("bytes")
-    }
+    return result
 
 
 def download_url_bytes(url: str, max_bytes: int = MAX_CONTENT_BYTES) -> bytes:
