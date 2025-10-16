@@ -89,12 +89,11 @@ export default function ARPanel() {
 
       // Check for upload error
       if (processedResult.upload_error) {
-        console.warn('Upload error (using base64 fallback):', processedResult.upload_error);
+        console.warn('Upload error (using base64):', processedResult.upload_error);
       }
 
-      // Step 3: Use AR-processed PNG from backend (Cloudinary URL or base64)
-      const processedPng = processedResult.urls.processed_png ||
-                          processedResult.urls.processed_png_base64;
+      // Step 3: Use AR-processed PNG from backend
+      const processedPng = processedResult.image.url;
 
       if (!processedPng) {
         throw new Error('No processed PNG returned from AR processing');
@@ -105,19 +104,19 @@ export default function ARPanel() {
         id: garmentId,
         name: garmentName,
         src: processedPng,
-        width: processedResult.meta.w,
-        height: processedResult.meta.h,
+        width: processedResult.image.w,
+        height: processedResult.image.h,
         sizeKb: 0, // Will be calculated later if needed
         category: 'tops' as 'tops' | 'jackets' | 'misc',
         extracted: true,
         extractedUrl: result.extraction?.cutout_url,
-        cloudinaryUrl: processedResult.urls.processed_png || cloudinaryUrl,
+        cloudinaryUrl,
         classification: result.classification ? {
           label: result.classification.label as 'tshirt' | 'trousers' | 'unknown',
           confidence: result.classification.confidence
         } : undefined,
         processingTime: result.processing_time_ms,
-        // CRITICAL: Store GSM ID for WebSocket fit solver
+        // NEW: Store GSM ID for WebSocket fit solver
         gsmId: processedResult.gsm_id
       };
 
@@ -126,20 +125,18 @@ export default function ARPanel() {
       selectGarment(garmentId);
 
       // Success notification
-      const imageSource = processedResult.urls.processed_png ? 'Cloudinary' : 'Local';
       const methodEmoji = method === 'cloudinary' ? '🌩️' : '📤';
       toast.success(
-        `${methodEmoji} AR-ready garment processed! (${imageSource}) GSM ID: ${processedResult.gsm_id}`,
+        `${methodEmoji} AR-ready garment processed! GSM ID: ${processedResult.gsm_id}`,
         { id: 'processing' },
       );
 
       console.log('✅ Garment added with GSM:', {
         garmentId,
         gsmId: processedResult.gsm_id,
-        dimensions: `${processedResult.meta.w}x${processedResult.meta.h}`,
-        anchorSource: processedResult.meta.anchor_source,
-        confidence: processedResult.meta.anchor_confidence,
-        imageSource
+        dimensions: `${processedResult.image.w}x${processedResult.image.h}`,
+        anchorSource: processedResult.anchor_source,
+        confidence: processedResult.anchor_confidence
       });
 
     } catch (err) {
