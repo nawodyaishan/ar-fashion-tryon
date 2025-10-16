@@ -24,11 +24,3 @@ class VirtualTryonRequest(BaseModel):
     guidance_scale: float = 2.5
     seed: int = 42
     show_type: str = "result only"  # result only, input & result, input & mask & result
-
-
-class FitRequest(BaseModel):
-    """Request model for /fit/garment/top endpoint."""
-    gsm_id: str
-    pose: Dict[str, list]  # {"L_shoulder": [x, y, visibility], ...}
-    prev_state: Optional[Dict] = None
-    session_id: Optional[str] = "default"

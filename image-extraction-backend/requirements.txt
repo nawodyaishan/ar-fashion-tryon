@@ -19,8 +19,3 @@ gradio-client>=1.4.0
 
 # TensorFlow for garment classification
 tensorflow-cpu
-
-# NEW: GSM and Fit Solver dependencies
-scipy>=1.12.0
-scikit-image>=0.22.0
-shapely>=2.0.0

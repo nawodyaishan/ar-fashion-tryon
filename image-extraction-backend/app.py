@@ -25,14 +25,12 @@ from config import (
     CORS_ALLOW_ORIGINS, CORS_ALLOW_CREDENTIALS,
     FOLDER_ORIG, FOLDER_CUT, FOLDER_TRYON
 )
-from models import HealthOut, UrlIn, FitRequest
+from models import HealthOut, UrlIn
 from middleware import RequestIDMiddleware
 from services.classifier import load_model_and_config, classify_image
 from services.cloudinary_service import upload_bytes, download_url_bytes, upload_png
 from services.gradio_service import get_gradio_client, call_gradio_api
 from services.image_processing import remove_background, image_to_png_bytes, ensure_png_format, construct_outfit_image, process_shirt_top_png
-from services.garment_processor import get_processor
-from services.fit_solver import get_solver
 
 # -------------------- Logging Setup --------------------
 logging.basicConfig(
@@ -44,11 +42,6 @@ logger = logging.getLogger(__name__)
 
 # -------------------- FastAPI App --------------------
 app = FastAPI(title="Garment Extraction API", version="2.0.0")
-
-# -------------------- GSM Cache --------------------
-# Simple in-memory cache for GSM data (for fit solver)
-# In production, use Redis or similar
-_gsm_cache: Dict[str, Dict] = {}
 
 # Add middlewares (order matters - first added is outermost)
 app.add_middleware(RequestIDMiddleware)
@@ -740,22 +733,21 @@ async def process_garment_top(
     file: Optional[UploadFile] = File(default=None),
     image_url: Optional[str] = Form(default=None),
     category: str = Form(default="shirt"),
-    auto_anchor: bool = Form(default=True),
-    custom_anchors_json: Optional[str] = Form(default=None),
+    anchors_json: Optional[str] = Form(default=None),
+    use_defaults: bool = Form(default=True),
     upload: bool = Form(default=True),
     cloud_folder: str = Form(default="garments/processed"),
     public_id: Optional[str] = Form(default=None),
 ):
     """
-    NEW: Prepare garment for AR with GSM (Garment Shape Model).
+    Prepare shirt/tshirt PNG for AR (remove background + cut collar).
 
     This endpoint processes garment images for AR applications by:
     1. Removing background → RGBA
-    2. Auto-detecting or using custom anchor points (collar, neck apex)
-    3. Extracting keypoints (armpit, side seams, hem)
-    4. Generating triangulated mesh for warping
-    5. Auto-cropping to garment bounds
-    6. Returning GSM data + ready-for-AR PNG
+    2. Computing anchor points (collar left/right, neck apex)
+    3. Cutting back neck region with Bezier curve
+    4. Auto-cropping to garment bounds
+    5. Returning ready-for-AR PNG + metadata
 
     Scoped to tops (shirt/t-shirt) only.
 
@@ -763,33 +755,26 @@ async def process_garment_top(
         file: Image file (PNG, JPG, JPEG) - mutually exclusive with image_url
         image_url: Image URL to download - mutually exclusive with file
         category: "shirt" or "tshirt" (default: "shirt")
-        auto_anchor: Whether to auto-detect anchors (default: True)
-        custom_anchors_json: Optional custom anchors as JSON string
-                             Format: {"collar_left":[x,y], "collar_right":[x,y], "neck_apex":[x,y]}
-                             Coordinates are normalized (0..1)
+        anchors_json: Optional custom anchors as JSON string
+                      Format: {"collar_left":[x,y], "collar_right":[x,y], "neck_apex":[x,y]}
+                      Coordinates are normalized (0..1)
+        use_defaults: Whether to use default anchors for category (default: True)
         upload: Whether to upload result to Cloudinary (default: True)
         cloud_folder: Cloudinary folder path (default: "garments/processed")
         public_id: Optional custom public ID for Cloudinary upload
 
     Returns:
         JSON with:
-        {
-          "gsm_id": "gsm_abc123",
-          "image": {"w": 748, "h": 1010, "url": "..."},
-          "anchors": {"collar_left": [0.312, 0.128], ...},
-          "anchor_confidence": 0.85,
-          "anchor_source": "auto|custom|default",
-          "keypoints": {"armpit_left": [...], ...},
-          "mesh": {"verts": [[x,y],...], "tris": [[i,j,k],...]},
-          "body_offsets": {"neck_drop_ratio": 0.06, ...}
-        }
+        - status: "ok"
+        - meta: {version, category, w, h, anchors, body_offsets}
+        - urls: {processed_png (URL or base64), public_id (if uploaded)}
     """
     request_id = getattr(request.state, "request_id", "unknown")
-    logger.info(f"[{request_id}] process_garment_top started: category={category}, auto_anchor={auto_anchor}")
+    logger.info(f"[{request_id}] process_garment_top started: category={category}")
 
     # Validate input
     if file is None and not image_url:
-        raise HTTPException(status_code=400, detail="Provide either file or image_url")
+        raise HTTPException(status_code=400, detail="Provide either a file or image_url")
 
     if file is not None and image_url:
         raise HTTPException(status_code=400, detail="Provide only one of file or image_url, not both")
@@ -846,151 +831,55 @@ async def process_garment_top(
         raise HTTPException(status_code=400, detail=f"Failed to read image: {e}")
 
     # Parse custom anchors if provided
-    custom_anchors = None
-    if custom_anchors_json:
+    anchors = None
+    if anchors_json:
         try:
-            custom_anchors = json.loads(custom_anchors_json)
-            logger.info(f"[{request_id}] Using custom anchors: {custom_anchors}")
+            anchors = json.loads(anchors_json)
+            logger.info(f"[{request_id}] Using custom anchors: {anchors}")
         except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Invalid custom_anchors_json: {e}")
+            raise HTTPException(status_code=400, detail=f"Invalid anchors_json: {e}")
 
-    # Remove background first
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp:
-        tmp.write(image_bytes)
-        tmp_path = Path(tmp.name)
-
+    # Run AR processing pipeline
     try:
-        rgba_image = await run_in_threadpool(remove_background, tmp_path)
-    finally:
-        tmp_path.unlink(missing_ok=True)
-
-    # Process into GSM
-    try:
-        processor = get_processor()
-        cropped_img, gsm = await run_in_threadpool(
-            processor.process,
-            rgba_image,
+        png_bytes, meta = await run_in_threadpool(
+            process_shirt_top_png,
+            image_bytes=image_bytes,
             category=category,
-            custom_anchors=custom_anchors,
-            auto_detect_anchors=auto_anchor
+            anchors_norm=anchors,
+            use_defaults=use_defaults,
         )
-        logger.info(f"[{request_id}] GSM generated: {gsm['image']['w']}x{gsm['image']['h']}")
+        logger.info(f"[{request_id}] Processing complete: {meta['w']}x{meta['h']} PNG")
     except ValueError as e:
-        logger.error(f"[{request_id}] GSM processing failed: {e}")
+        logger.error(f"[{request_id}] Processing failed: {e}")
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        logger.error(f"[{request_id}] GSM processing failed: {e}")
+        logger.error(f"[{request_id}] Processing failed: {e}")
         raise HTTPException(status_code=500, detail=f"Processing failed: {e}")
 
-    # Upload processed image to Cloudinary
-    token = secrets.token_hex(8)
-    gsm_id = f"gsm_{token}"
+    # Upload to Cloudinary (optional)
+    urls = {}
+    if upload:
+        try:
+            logger.info(f"[{request_id}] Uploading to Cloudinary: {cloud_folder}")
+            up = await run_in_threadpool(upload_png, png_bytes, cloud_folder, public_id)
+            urls["processed_png"] = up.get("url")
+            urls["public_id"] = up.get("public_id")
+            logger.info(f"[{request_id}] Upload successful: {urls['processed_png']}")
+        except Exception as e:
+            # Fallback to base64 if upload fails
+            logger.warning(f"[{request_id}] Upload failed, returning base64: {e}")
+            b64 = base64.b64encode(png_bytes).decode("ascii")
+            urls["processed_png_base64"] = f"data:image/png;base64,{b64}"
+            urls["upload_error"] = str(e)
+    else:
+        # No upload requested - return base64
+        logger.info(f"[{request_id}] Skipping upload, returning base64")
+        b64 = base64.b64encode(png_bytes).decode("ascii")
+        urls["processed_png_base64"] = f"data:image/png;base64,{b64}"
 
-    try:
-        # Convert to bytes
-        img_buffer = io.BytesIO()
-        cropped_img.save(img_buffer, format="PNG")
-        img_bytes = img_buffer.getvalue()
-
-        # Upload
-        if upload:
-            upload_result = await run_in_threadpool(
-                upload_bytes,
-                img_bytes,
-                public_id or gsm_id,
-                cloud_folder,
-                "png"
-            )
-
-            gsm["image"]["url"] = upload_result["secure_url"]
-            gsm["gsm_id"] = gsm_id
-            gsm["anchor_source"] = "custom" if custom_anchors else ("auto" if auto_anchor else "default")
-
-            logger.info(f"[{request_id}] GSM uploaded: {gsm['image']['url']}")
-        else:
-            # Return base64
-            b64 = base64.b64encode(img_bytes).decode("ascii")
-            gsm["image"]["url"] = f"data:image/png;base64,{b64}"
-            gsm["gsm_id"] = gsm_id
-            gsm["anchor_source"] = "custom" if custom_anchors else ("auto" if auto_anchor else "default")
-            logger.info(f"[{request_id}] Skipping upload, returning base64")
-
-    except Exception as e:
-        logger.error(f"[{request_id}] Upload failed: {e}")
-        # Fallback to base64
-        b64 = base64.b64encode(img_bytes).decode("ascii")
-        gsm["image"]["url"] = f"data:image/png;base64,{b64}"
-        gsm["gsm_id"] = gsm_id
-        gsm["anchor_source"] = "custom" if custom_anchors else ("auto" if auto_anchor else "default")
-        gsm["upload_error"] = str(e)
-
-    # Store GSM in cache for fit solver
-    _gsm_cache[gsm_id] = gsm
-
-    logger.info(f"[{request_id}] process_garment_top completed, GSM cached with ID: {gsm_id}")
-    return JSONResponse(gsm)
-
-
-@app.post("/fit/garment/top")
-async def fit_garment_top(request: Request, payload: FitRequest):
-    """
-    Calculate garment fit from pose landmarks (real-time per-frame endpoint).
-
-    This endpoint is called at 10-15 Hz by the frontend with current pose data.
-    It calculates the garment's position, scale, rotation, and non-rigid warping
-    based on body landmarks.
-
-    Request Body:
-    {
-      "gsm_id": "gsm_abc123",
-      "pose": {
-        "L_shoulder": [x, y, visibility],
-        "R_shoulder": [x, y, visibility],
-        "L_hip": [x, y, visibility],
-        "R_hip": [x, y, visibility]
-      },
-      "prev_state": {...},  // optional, for EMA smoothing
-      "session_id": "user123"  // optional, for tracking state
-    }
-
-    Returns:
-    {
-      "mode": "tracking|paused",
-      "confidence": 0.78,
-      "similarity": {"tx": 320, "ty": 180, "scale": 1.15, "rot": 0.05},
-      "warp": {"type": "tps", "src_ctrl": [...], "dst_ctrl": [...]},
-      "occlusion": {"neck_clip": {...}}
-    }
-    """
-    request_id = getattr(request.state, "request_id", "unknown")
-    logger.debug(f"[{request_id}] fit_garment_top: gsm_id={payload.gsm_id}, session={payload.session_id}")
-
-    # Fetch GSM from cache
-    gsm = _gsm_cache.get(payload.gsm_id)
-
-    if gsm is None:
-        logger.error(f"[{request_id}] GSM not found in cache: {payload.gsm_id}")
-        raise HTTPException(
-            status_code=404,
-            detail=f"GSM not found: {payload.gsm_id}. Call /process/garment/top first to generate GSM."
-        )
-
-    # Solve fit
-    try:
-        solver = get_solver()
-        result = await run_in_threadpool(
-            solver.solve,
-            gsm,
-            payload.pose,
-            payload.prev_state,
-            payload.session_id or "default"
-        )
-        logger.debug(f"[{request_id}] Fit solved: mode={result['mode']}, confidence={result['confidence']}")
-    except Exception as e:
-        logger.error(f"[{request_id}] Fit solver failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Fit solver failed: {e}")
-
-    return JSONResponse(result)
+    payload = {"status": "ok", "meta": meta, "urls": urls}
+    logger.info(f"[{request_id}] process_garment_top completed successfully")
+    return JSONResponse(content=payload, status_code=200)
 
 
 # -------------------- Global Exception Handler --------------------
