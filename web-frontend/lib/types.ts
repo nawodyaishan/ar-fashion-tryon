@@ -72,9 +72,6 @@ export interface Garment {
   extractedUrl?: string; // URL to extracted/cutout image
   classification?: ClassificationResult;
   processingTime?: number;
-
-  // Backend GSM ID (populated after AR preprocessing)
-  gsmId?: string;
 }
 
 export interface ImageSelection {

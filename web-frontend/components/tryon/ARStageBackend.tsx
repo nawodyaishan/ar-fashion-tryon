@@ -13,7 +13,7 @@ import { usePoseDetection } from '@/lib/hooks/usePoseDetection';
 import { useFitSolver } from '@/lib/hooks/useFitSolver';
 import { VideoPreview } from './VideoPreview';
 import { PoseLandmarks } from './PoseLandmarks';
-import { GarmentOverlayBackend as GarmentOverlay } from './GarmentOverlayBackend';
+import { GarmentOverlay } from './GarmentOverlay';
 import { StatusFooter } from './StatusFooter';
 
 export default function ARStageBackend() {
@@ -64,8 +64,8 @@ export default function ARStageBackend() {
       const { tx, ty, scale, rot } = fitResult.similarity;
 
       setTransform({
-        x: tx,
-        y: ty,
+        tx,
+        ty,
         scale,
         rotation: rot
       });

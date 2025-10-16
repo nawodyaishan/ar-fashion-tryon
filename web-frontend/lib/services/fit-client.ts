@@ -28,8 +28,8 @@ export interface WarpData {
 export interface OcclusionData {
   neck_clip: {
     center: [number, number];
-    radius_x: number;
-    radius_y: number;
+    rx: number;
+    ry: number;
   };
   arm_over_shirt?: {
     left: boolean;
@@ -45,15 +45,10 @@ export interface FitResponse {
   occlusion: OcclusionData | null;
 }
 
-interface PrevState {
-  similarity: SimilarityTransform;
-  warp: WarpData | null;
-}
-
 export class FitClient {
   private apiBaseUrl: string;
   private sessionId: string;
-  private prevState: PrevState | null = null;
+  private prevState: any = null;
   private lastRequestTime: number = 0;
   private throttleMs: number = 100; // 10 Hz (100ms between requests)
   private abortController: AbortController | null = null;
