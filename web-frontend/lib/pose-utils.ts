@@ -1,6 +1,5 @@
 // lib/pose-utils.ts
 import type { PoseLandmark } from './hooks/usePoseDetection';
-import type { GarmentMetadata } from './types';
 
 // MediaPipe landmark indices
 export const POSE_LANDMARKS = {
@@ -122,81 +121,4 @@ export function isConfidentPose(landmarks: PoseLandmark[]): boolean {
   ).length;
 
   return visibleCount >= 3; // At least 3 out of 4 critical points visible
-}
-
-/**
- * NEW: Calculate garment position using anchor metadata
- * This is the core of the "snap-to-shoulders" system
- */
-export function calculateAnchorBasedPosition(
-  shoulderPos: ShoulderPosition,
-  metadata: GarmentMetadata,
-  containerWidth: number,
-  _containerHeight: number // Reserved for future hem-based adjustments
-): GarmentSuggestion {
-  const { anchors, body_offsets, width: garmentWidth, height: garmentHeight } = metadata;
-
-  // 1. Calculate garment collar points in pixels
-  const garmentCollarLeft = {
-    x: anchors.collar_left[0] * garmentWidth,
-    y: anchors.collar_left[1] * garmentHeight
-  };
-
-  const garmentCollarRight = {
-    x: anchors.collar_right[0] * garmentWidth,
-    y: anchors.collar_right[1] * garmentHeight
-  };
-
-  // 2. Garment collar distance
-  const garmentCollarDist = Math.sqrt(
-    Math.pow(garmentCollarRight.x - garmentCollarLeft.x, 2) +
-    Math.pow(garmentCollarRight.y - garmentCollarLeft.y, 2)
-  );
-
-  // 3. Calculate scale: map garment collar to shoulder width (with 110% ease)
-  const shoulderWidth = shoulderPos.width;
-  const targetCollarWidth = shoulderWidth * 1.10;
-  const scale = targetCollarWidth / garmentCollarDist;
-
-  // Clamp scale to reasonable bounds
-  const clampedScale = Math.max(0.35, Math.min(2.8, scale));
-
-  // 4. Calculate rotation from shoulder angle
-  let rotation = shoulderPos.angle;
-
-  // Clamp rotation if low confidence
-  if (shoulderPos.width < containerWidth * 0.15) { // Heuristic for distance
-    rotation = Math.max(-45, Math.min(45, rotation));
-  }
-
-  // 5. Calculate garment collar midpoint
-  const garmentCollarMid = {
-    x: (garmentCollarLeft.x + garmentCollarRight.x) / 2,
-    y: (garmentCollarLeft.y + garmentCollarRight.y) / 2
-  };
-
-  // 6. Calculate where collar midpoint should be (shoulders + neck drop)
-  const neckDrop = body_offsets.neck_drop_ratio * shoulderWidth;
-  const targetCollarY = shoulderPos.center.y + neckDrop;
-
-  // 7. Calculate top-left position of garment image
-  // (We need to place the image such that the collar midpoint lands at targetCollarY)
-  const scaledCollarMid = {
-    x: garmentCollarMid.x * clampedScale,
-    y: garmentCollarMid.y * clampedScale
-  };
-
-  const x = shoulderPos.center.x - scaledCollarMid.x;
-  const y = targetCollarY - scaledCollarMid.y;
-
-  // 8. Optional: Torso length bias (if hem_center provided and hips visible)
-  // TODO: Implement hem adjustment when both shoulders and hips are visible
-  // For now, we just use collar alignment
-
-  return {
-    x: Math.round(x),
-    y: Math.round(y),
-    scale: clampedScale,
-    rotation: Math.round(rotation)
-  };
 }

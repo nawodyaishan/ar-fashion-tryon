@@ -88,38 +88,7 @@ export interface Transform {
   lockAspect: boolean;
 }
 
-// NEW: Garment anchor metadata
-export interface GarmentAnchors {
-  collar_left: [number, number];   // Normalized coords [0-1, 0-1]
-  collar_right: [number, number];
-  hem_center?: [number, number];   // Optional for length adjustment
-}
-
-export interface GarmentMetadata {
-  id: string;
-  version: number;
-  displayName: string;
-  width: number;           // Image width in pixels
-  height: number;          // Image height in pixels
-  anchors: GarmentAnchors;
-  body_offsets: {
-    neck_drop_ratio: number;    // Default: 0.06
-    torso_length_ratio: number; // Default: 1.05
-  };
-}
-
-// NEW: UI mode enum
-export type UiMode = 'AutoTrack' | 'GestureEdit' | 'Paused';
-
-// UPDATED: PoseConfidence with enhanced structure
 export type PoseConfidence = 'Low' | 'Okay' | 'Good';
-
-// NEW: Enhanced confidence with hysteresis
-export interface PoseConfidenceData {
-  value: number;        // 0-1
-  level: 'Low' | 'Okay' | 'Good';
-  tracking: boolean;    // True if above enter threshold
-}
 
 export interface Status {
   fps?: number;
