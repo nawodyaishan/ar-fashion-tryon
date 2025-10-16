@@ -180,10 +180,7 @@ export async function processGarmentFromUrl(
 
     console.log('✅ URL garment processing succeeded:', {
       duration: `${(duration / 1000).toFixed(2)}s`,
-      gsmId: data.gsm_id,
-      dimensions: `${data.image.w}x${data.image.h}`,
-      anchorSource: data.anchor_source,
-      confidence: data.anchor_confidence?.toFixed(2)
+      dimensions: `${data.meta.w}x${data.meta.h}`
     });
 
     return data;
