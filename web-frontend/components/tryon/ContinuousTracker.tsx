@@ -3,62 +3,46 @@
 
 import { useEffect, useRef } from 'react';
 import { useTryonStore } from '@/lib/tryon-store';
-import { calculateShoulderPosition, calculateAnchorBasedPosition, calculateGarmentPosition, isConfidentPose } from '@/lib/pose-utils';
+import { calculateShoulderPosition, calculateGarmentPosition, isConfidentPose } from '@/lib/pose-utils';
 import type { PoseLandmark } from '@/lib/hooks/usePoseDetection';
-import type { GarmentMetadata } from '@/lib/types';
 
 interface ContinuousTrackerProps {
   landmarks: PoseLandmark[] | null;
   containerWidth: number;
   containerHeight: number;
-  metadata: GarmentMetadata | null;
-  enabled: boolean;
 }
 
 export function ContinuousTracker({
   landmarks,
   containerWidth,
-  containerHeight,
-  metadata,
-  enabled
+  containerHeight
 }: ContinuousTrackerProps) {
-  const { mode, setTracked, selectedGarmentId } = useTryonStore();
+  const { continuousTracking, autoAlignGarment, selectedGarmentId } = useTryonStore();
   const lastUpdateRef = useRef(0);
 
   useEffect(() => {
-    // CRITICAL: Only run if enabled, in AutoTrack mode, and have required data
-    if (!enabled || mode !== 'AutoTrack' || !landmarks || !selectedGarmentId) {
-      return;
-    }
+    if (!continuousTracking || !landmarks || !selectedGarmentId) return;
 
-    // Throttle updates to 15 FPS (~67ms intervals)
+    // Throttle updates to 10 FPS (100ms intervals)
     const now = Date.now();
-    if (now - lastUpdateRef.current < 67) return;
+    if (now - lastUpdateRef.current < 100) return;
 
-    // Check for confident pose
-    if (!isConfidentPose(landmarks)) {
-      return;
-    }
+    if (!isConfidentPose(landmarks)) return;
 
-    // Calculate shoulder position
     const shoulderPos = calculateShoulderPosition(landmarks, containerWidth, containerHeight);
     if (!shoulderPos) return;
 
-    // CRITICAL FIX: Use anchor-based positioning if metadata available, else fallback
-    const garmentSuggestion = metadata
-      ? calculateAnchorBasedPosition(shoulderPos, metadata, containerWidth, containerHeight)
-      : calculateGarmentPosition(shoulderPos);
+    const garmentSuggestion = calculateGarmentPosition(shoulderPos);
 
-    // Update tracked transform (part of dual transform system)
-    setTracked({
-      x: garmentSuggestion.x,
-      y: garmentSuggestion.y,
-      scale: garmentSuggestion.scale,
-      rotation: garmentSuggestion.rotation
-    });
+    autoAlignGarment(
+      garmentSuggestion.x,
+      garmentSuggestion.y,
+      garmentSuggestion.scale,
+      garmentSuggestion.rotation
+    );
 
     lastUpdateRef.current = now;
-  }, [landmarks, containerWidth, containerHeight, enabled, mode, selectedGarmentId, metadata, setTracked]);
+  }, [landmarks, containerWidth, containerHeight, continuousTracking, autoAlignGarment, selectedGarmentId]);
 
   return null; // No UI, just side effects
 }

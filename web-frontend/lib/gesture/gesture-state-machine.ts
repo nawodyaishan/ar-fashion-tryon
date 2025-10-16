@@ -4,7 +4,6 @@ import { pinchDistance, pinchAngle, pinchMidpoint } from './pinch-detector';
 export class GestureStateMachine {
   private state: GestureState;
   private resumeTimer: ReturnType<typeof setTimeout> | null = null;
-  private onRebaseNeeded: (() => void) | null = null;
 
   constructor() {
     this.state = {
@@ -13,13 +12,6 @@ export class GestureStateMachine {
       baseTransform: { x: 0, y: 0, scale: 1, rotation: 0 },
       startPinches: []
     };
-  }
-
-  /**
-   * Set callback to be called when rebase is needed (after 800ms timer)
-   */
-  setRebaseCallback(callback: () => void) {
-    this.onRebaseNeeded = callback;
   }
 
   /**
@@ -108,13 +100,8 @@ export class GestureStateMachine {
 
     // Start 800ms resume timer
     this.resumeTimer = setTimeout(() => {
-      console.log('⏰ Resume timer expired, calling rebase callback');
+      console.log('⏰ Resume timer expired, ready to rebase');
       this.resumeTimer = null;
-
-      // CRITICAL: Trigger rebase callback
-      if (this.onRebaseNeeded) {
-        this.onRebaseNeeded();
-      }
     }, 800);
   }
 
