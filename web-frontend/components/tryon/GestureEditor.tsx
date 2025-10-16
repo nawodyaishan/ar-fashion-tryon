@@ -16,7 +16,7 @@ interface GestureEditorProps {
 
 export function GestureEditor({ videoElement, containerWidth, containerHeight, enabled }: GestureEditorProps) {
   const { hands } = useHandsDetection(videoElement, enabled);
-  const { setUserDelta, mode, setUiMode, rebaseTransforms } = useTryonStore();
+  const { userDelta, setUserDelta, mode, setUiMode, rebaseTransforms } = useTryonStore();
 
   const gestureStateMachineRef = useRef(new GestureStateMachine());
 
@@ -26,11 +26,8 @@ export function GestureEditor({ videoElement, containerWidth, containerHeight, e
     // Extract pinches from hands
     const pinches = extractPinches(hands, containerWidth, containerHeight);
 
-    // Get current userDelta from store (fresh read)
-    const currentUserDelta = useTryonStore.getState().userDelta;
-
     // Update state machine
-    const newDelta = gestureStateMachineRef.current.step(pinches, currentUserDelta);
+    const newDelta = gestureStateMachineRef.current.step(pinches, userDelta);
 
     // If gesture is active, switch to GestureEdit mode
     if (gestureStateMachineRef.current.isActive()) {
@@ -52,7 +49,7 @@ export function GestureEditor({ videoElement, containerWidth, containerHeight, e
       gestureStateMachineRef.current.reset();
     }
 
-  }, [hands, containerWidth, containerHeight, mode, enabled, setUserDelta, setUiMode, rebaseTransforms]);
+  }, [hands, containerWidth, containerHeight, userDelta, mode, enabled, setUserDelta, setUiMode, rebaseTransforms]);
 
   // Visual feedback: Draw pinch points
   if (!enabled || !hands) return null;
