@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import type { PoseLandmark } from './usePoseDetection';
-import { type FitData, type PoseLandmarks, WSFitClient } from '@/lib/services/ws-fit-client';
+import { WSFitClient, type FitData, type PoseLandmarks } from '@/lib/services/ws-fit-client';
 
 interface UseWSFitSolverProps {
   gsmId: string | null;
@@ -17,8 +17,7 @@ export function useWSFitSolver({
   gsmId,
   landmarks,
   enabled,
-  wsUrl = process.env.NEXT_PUBLIC_WS_FIT_URL ||
-    'wss://ar-fashion-tryon-production.up.railway.app/ws/fit/top',
+  wsUrl = process.env.NEXT_PUBLIC_WS_FIT_URL || 'ws://localhost:5000/ws/fit/top'
 }: UseWSFitSolverProps) {
   const [fitResult, setFitResult] = useState<FitData | null>(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -91,16 +90,41 @@ export function useWSFitSolver({
     // Extract pose landmarks (MediaPipe indices)
     // 11=L_shoulder, 12=R_shoulder, 23=L_hip, 24=R_hip, 13=L_elbow, 15=R_elbow
     const pose: PoseLandmarks = {
-      L_shoulder: [landmarks[11].x, landmarks[11].y, landmarks[11].visibility || 0],
-      R_shoulder: [landmarks[12].x, landmarks[12].y, landmarks[12].visibility || 0],
-      L_hip: [landmarks[23].x, landmarks[23].y, landmarks[23].visibility || 0],
-      R_hip: [landmarks[24].x, landmarks[24].y, landmarks[24].visibility || 0],
-      L_elbow: [landmarks[13].x, landmarks[13].y, landmarks[13].visibility || 0],
-      R_elbow: [landmarks[15].x, landmarks[15].y, landmarks[15].visibility || 0],
+      L_shoulder: [
+        landmarks[11].x,
+        landmarks[11].y,
+        landmarks[11].visibility || 0
+      ],
+      R_shoulder: [
+        landmarks[12].x,
+        landmarks[12].y,
+        landmarks[12].visibility || 0
+      ],
+      L_hip: [
+        landmarks[23].x,
+        landmarks[23].y,
+        landmarks[23].visibility || 0
+      ],
+      R_hip: [
+        landmarks[24].x,
+        landmarks[24].y,
+        landmarks[24].visibility || 0
+      ],
+      L_elbow: [
+        landmarks[13].x,
+        landmarks[13].y,
+        landmarks[13].visibility || 0
+      ],
+      R_elbow: [
+        landmarks[15].x,
+        landmarks[15].y,
+        landmarks[15].visibility || 0
+      ]
     };
 
     // Update pose (client handles throttling/coalescing at 12 Hz)
     clientRef.current.updatePose(pose);
+
   }, [enabled, landmarks, isConnected]);
 
   // Manual disconnect
@@ -123,6 +147,6 @@ export function useWSFitSolver({
     error,
     sessionId,
     disconnect,
-    setSendHz,
+    setSendHz
   };
 }
