@@ -17,24 +17,31 @@ export interface GarmentBodyOffsets {
   torso_length_ratio: number;
 }
 
-// Backend returns GSM object directly from /process/garment/top
+// Backend returns structured response from /process/garment/top
 export interface ProcessGarmentResponse {
+  status: 'ok' | 'error';
   gsm_id: string;
-  image: {
+  meta: {
+    version?: string;
+    category: string;
     w: number;
     h: number;
-    url: string;
+    anchors: GarmentAnchorsResponse;
+    anchor_confidence?: number;
+    anchor_source: 'auto' | 'custom' | 'default';
+    keypoints?: Record<string, [number, number]>;
+    mesh?: {
+      verts: [number, number][];
+      tris: [number, number, number][];
+    };
+    body_offsets: GarmentBodyOffsets;
   };
-  anchors: GarmentAnchorsResponse;
-  anchor_confidence?: number;
-  anchor_source: 'auto' | 'custom' | 'default';
-  keypoints?: Record<string, [number, number]>;
-  mesh?: {
-    verts: [number, number][];
-    tris: [number, number, number][];
+  urls: {
+    processed_png?: string;      // Cloudinary URL (if upload succeeded)
+    processed_png_base64?: string; // Base64 fallback (if upload failed)
+    public_id?: string;            // Cloudinary public_id
   };
-  body_offsets: GarmentBodyOffsets;
-  upload_error?: string;
+  upload_error?: string; // Present if Cloudinary upload failed
 }
 
 export interface ProcessGarmentOptions {
@@ -107,28 +114,34 @@ export async function processGarment(
     const duration = Date.now() - startTime;
 
     // Validate response has required fields
+    if (data.status !== 'ok') {
+      console.error('⚠️ Backend returned error status:', data);
+      throw new Error('Backend processing failed');
+    }
+
     if (!data.gsm_id) {
       console.error('⚠️ Backend response missing gsm_id:', data);
       throw new Error('Backend did not return gsm_id');
     }
 
-    if (!data.image?.url) {
-      console.error('⚠️ Backend response missing image.url:', data);
-      throw new Error('Backend did not return processed image URL');
+    if (!data.urls?.processed_png && !data.urls?.processed_png_base64) {
+      console.error('⚠️ Backend response missing processed image:', data);
+      throw new Error('Backend did not return processed image URL or base64');
     }
 
     console.log('✅ Garment processing succeeded:', {
       duration: `${(duration / 1000).toFixed(2)}s`,
       gsmId: data.gsm_id,
-      dimensions: `${data.image.w}x${data.image.h}`,
-      anchorSource: data.anchor_source,
-      confidence: data.anchor_confidence?.toFixed(2),
-      uploadError: data.upload_error || 'none'
+      dimensions: `${data.meta.w}x${data.meta.h}`,
+      anchorSource: data.meta.anchor_source,
+      confidence: data.meta.anchor_confidence?.toFixed(2),
+      uploadError: data.upload_error || 'none',
+      imageSource: data.urls.processed_png ? 'cloudinary' : 'base64'
     });
 
-    // Warn if upload failed (but processing succeeded)
+    // Warn if upload failed (but processing succeeded with base64 fallback)
     if (data.upload_error) {
-      console.warn('⚠️ Upload warning:', data.upload_error);
+      console.warn('⚠️ Upload warning (using base64 fallback):', data.upload_error);
     }
 
     return data;
@@ -205,12 +218,17 @@ export async function processGarmentFromUrl(
 
     const duration = Date.now() - startTime;
 
+    // Validate response
+    if (data.status !== 'ok' || !data.gsm_id) {
+      throw new Error('Backend processing failed');
+    }
+
     console.log('✅ URL garment processing succeeded:', {
       duration: `${(duration / 1000).toFixed(2)}s`,
       gsmId: data.gsm_id,
-      dimensions: `${data.image.w}x${data.image.h}`,
-      anchorSource: data.anchor_source,
-      confidence: data.anchor_confidence?.toFixed(2)
+      dimensions: `${data.meta.w}x${data.meta.h}`,
+      anchorSource: data.meta.anchor_source,
+      confidence: data.meta.anchor_confidence?.toFixed(2)
     });
 
     return data;
@@ -279,16 +297,16 @@ export function convertToFrontendMetadata(
 ) {
   return {
     id: garmentId,
-    version: 1,
+    version: backendMeta.meta.version ? parseInt(backendMeta.meta.version) : 1,
     displayName,
-    width: backendMeta.image.w,
-    height: backendMeta.image.h,
+    width: backendMeta.meta.w,
+    height: backendMeta.meta.h,
     anchors: {
-      collar_left: backendMeta.anchors.collar_left,
-      collar_right: backendMeta.anchors.collar_right,
+      collar_left: backendMeta.meta.anchors.collar_left,
+      collar_right: backendMeta.meta.anchors.collar_right,
       hem_center: [0.5, 0.88] as [number, number], // Default hem position
-      neck_apex: backendMeta.anchors.neck_apex
+      neck_apex: backendMeta.meta.anchors.neck_apex
     },
-    body_offsets: backendMeta.body_offsets
+    body_offsets: backendMeta.meta.body_offsets
   };
 }
