@@ -64,15 +64,6 @@ The API runs on **http://localhost:5000** (or `$PORT` in production).
 5. **`POST /construct_outfit`** - Merge upper + lower garments into full outfit
 6. **`POST /virtual_tryon`** - AI-powered virtual try-on
 
-### AR Try-On Endpoints (NEW)
-
-7. **`POST /process/garment/top`** - Generate GSM (Garment Shape Model) for AR try-on
-8. **`POST /fit/garment/top`** - Real-time fit solver (HTTP, 10-15 Hz)
-9. **`WS /ws/fit/top`** - Real-time fit solver (WebSocket, 25-30 Hz, **recommended**)
-10. **`GET /ws/stats`** - WebSocket session statistics
-
-**See `BACKEND_AR_IMPLEMENTATION.md` for AR API details and `WEBSOCKET_API.md` for WebSocket guide.**
-
 ### Example: Classify Garment
 
 ```bash
@@ -171,28 +162,21 @@ The codebase uses a **modular architecture** with clear separation of concerns:
 
 ```
 image-extraction-backend/
-├── app.py                       # FastAPI endpoints & routing with WebSocket support
+├── app.py                       # FastAPI endpoints & routing (727 lines)
 ├── config.py                    # Configuration & environment variables
 ├── models.py                    # Pydantic request/response models
 ├── middleware.py                # Request ID tracking middleware
-├── routers/                     # API routers (NEW)
-│   └── ws_fit.py                # WebSocket fit solver router
 ├── services/                    # Business logic services
 │   ├── classifier.py            # TensorFlow model loading & classification
 │   ├── cloudinary_service.py   # Cloudinary upload/download utilities
 │   ├── gradio_service.py        # Gradio API client & virtual try-on
-│   ├── image_processing.py     # Background removal & format conversion
-│   ├── garment_processor.py    # GSM (Garment Shape Model) generation (NEW)
-│   ├── fit_solver.py            # Real-time pose-based fitting (NEW)
-│   └── ws_fit_session.py        # WebSocket session management (NEW)
+│   └── image_processing.py     # Background removal & format conversion
 ├── models/                      # ML model files
 │   ├── best_clothing_model.h5   # Production model (152MB)
 │   ├── clothing_model_final.h5  # Alternative model for evaluation
 │   ├── class_labels.json        # Label mappings
 │   ├── model_config.json        # Model configuration
 │   └── rejection_threshold.json # Confidence threshold (tau=0.75)
-├── BACKEND_AR_IMPLEMENTATION.md # AR API documentation (NEW)
-├── WEBSOCKET_API.md             # WebSocket API documentation (NEW)
 └── evaluate_model_thesis_colab.ipynb  # Evaluation notebook for thesis
 ```
 
@@ -411,12 +395,6 @@ HF_TOKEN = os.getenv("HF_TOKEN")  # Optional, for private spaces
 - `gradio-client>=0.10.0` - Gradio API client
 - `pillow` - Image processing
 - `numpy` - Array operations
-- `scipy>=1.12.0` - Scientific computing for GSM generation (NEW)
-- `scikit-image>=0.22.0` - Image processing for contour detection (NEW)
-- `shapely>=2.0.0` - Geometric operations (NEW)
-- `websockets>=12.0` - WebSocket server support (NEW)
-- `orjson>=3.9.0` - Fast JSON serialization (NEW)
-- `msgpack>=1.0.7` - Binary serialization (NEW)
 
 **Python Version:** 3.9+ (TensorFlow requirement)
 
@@ -481,38 +459,7 @@ print(cloudinary.api.ping())  # Should return {'status': 'ok'}
 
 ## Recent Updates & Bug Fixes
 
-### Recent Changes (2025-10-15)
-
-**WebSocket API for Real-Time AR Try-On (NEW):**
-- Added WebSocket endpoint `/ws/fit/top` for real-time garment fitting
-- **2-3x lower latency**: 20-40ms (vs 50-100ms HTTP)
-- **12x lower bandwidth**: 8-12 KB/s (vs 96 KB/s HTTP)
-- Stateful sessions with EMA smoothing and hysteresis tracking
-- Automatic frame coalescing (latest wins) for high-frequency pose updates
-- Background cleanup task for idle sessions (30s timeout)
-- Added `/ws/stats` endpoint for session monitoring
-- See `WEBSOCKET_API.md` for complete guide
-
-**AR Try-On Backend Implementation (NEW):**
-- Added `/process/garment/top` endpoint for GSM (Garment Shape Model) generation
-- Auto-detects collar anchors using contour analysis (collar_left, collar_right, neck_apex)
-- Extracts keypoints (armpit, side seams, hem) for fit calculations
-- Generates Delaunay triangulated mesh for TPS warping
-- Added `/fit/garment/top` endpoint for HTTP-based fit solver (10-15 Hz)
-- Real-time similarity transform + TPS warping from pose landmarks
-- EMA smoothing (α=0.15 for transforms, α=0.10 for warp)
-- Hysteresis tracking (enter: 0.70, exit: 0.55 confidence)
-- See `BACKEND_AR_IMPLEMENTATION.md` for algorithm details
-
-**Architecture Updates:**
-- Added `routers/` directory with `ws_fit.py` for WebSocket routing
-- Added `services/garment_processor.py` for GSM generation
-- Added `services/fit_solver.py` for pose-based fitting
-- Added `services/ws_fit_session.py` for WebSocket session management
-- Updated `app.py` with lifespan manager for background tasks
-- GSM cache shared between HTTP and WebSocket endpoints
-
-### Previous Changes (2025-10-12)
+### Recent Changes (2025-10-12)
 
 **Outfit Construction Enhancement:**
 - `/construct_outfit` now removes backgrounds from BOTH garments before merging
@@ -579,5 +526,5 @@ This microservice is part of the larger AR Fashion Try-On system:
 
 ---
 
-**Last Updated:** 2025-10-15
-**API Version:** 2.1.0 (WebSocket + AR Try-On)
+**Last Updated:** 2025-10-12
+**API Version:** 2.0.0
