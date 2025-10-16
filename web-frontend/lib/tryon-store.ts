@@ -218,9 +218,32 @@ export const useTryonStore = create<TryonState>()(
       selectGarment: (id) => set({ selectedGarmentId: id }),
 
       addGarment: (garment) =>
-        set((state) => ({
-          garments: [...state.garments, garment],
-        })),
+        set((state) => {
+          // Validate GSM ID
+          if (!garment.gsmId) {
+            console.error('⚠️ Garment missing gsmId:', garment);
+            throw new Error('Garment must have gsmId from backend');
+          }
+
+          // Limit to 10 garments to prevent storage issues
+          const MAX_GARMENTS = 10;
+          let newGarments = [...state.garments];
+
+          if (newGarments.length >= MAX_GARMENTS) {
+            console.warn(`⚠️ Removing oldest garment (limit: ${MAX_GARMENTS})`);
+            newGarments = newGarments.slice(-(MAX_GARMENTS - 1));
+          }
+
+          newGarments.push(garment);
+
+          console.log('📦 Adding garment:', {
+            id: garment.id,
+            gsmId: garment.gsmId,
+            totalGarments: newGarments.length
+          });
+
+          return { garments: newGarments };
+        }),
 
       removeGarment: (id) =>
         set((state) => ({
@@ -470,27 +493,47 @@ export const useTryonStore = create<TryonState>()(
         }),
     }),
     {
-      name: 'tryon-store-v4', // Updated: Don't persist garments to avoid localStorage quota
+      name: 'tryon-store-v5', // v5: Persist minimal garment data with GSM IDs
+      version: 1,
       partialize: (state) => ({
-        // Only persist settings, NOT garments (to avoid localStorage quota)
-        // Custom garments with large image data URLs will exceed browser limits
+        // Persist minimal garment data (URLs only, no large metadata)
+        garments: state.garments.map(g => ({
+          id: g.id,
+          name: g.name,
+          src: g.src, // URLs only (not base64)
+          width: g.width,
+          height: g.height,
+          sizeKb: g.sizeKb,
+          category: g.category,
+          gsmId: g.gsmId, // CRITICAL: Must persist for WebSocket connection
+          extracted: g.extracted,
+          extractedUrl: g.extractedUrl,
+          classification: g.classification,
+          // Do NOT persist large metadata objects
+        })),
+        selectedGarmentId: state.selectedGarmentId,
         snapToShoulders: state.snapToShoulders,
         activeMode: state.activeMode,
         filterEnabled: state.filterEnabled,
       }),
-      // Add storage error handler to prevent quota errors from breaking the app
+      // Storage error handler to prevent quota errors from breaking the app
       onRehydrateStorage: () => (state, error) => {
         if (error) {
-          console.error('⚠️ Failed to rehydrate storage:', error);
+          console.error('⚠️ Storage rehydration failed:', error);
           // Clear corrupted storage
           try {
-            localStorage.removeItem('tryon-store-v4');
-            console.log('🗑️ Cleared corrupted localStorage');
+            ['tryon-store-v5', 'tryon-store-v4', 'tryon-store-v3', 'tryon-store-v2', 'tryon-store-v1'].forEach(key => {
+              localStorage.removeItem(key);
+            });
+            console.log('✅ Cleared all corrupted storage versions');
           } catch (e) {
-            console.error('Failed to clear localStorage:', e);
+            console.error('Failed to clear storage:', e);
           }
         } else if (state) {
-          console.log('✅ Store rehydrated successfully');
+          console.log('✅ Storage rehydrated:', {
+            garments: state.garments?.length || 0,
+            mode: state.activeMode
+          });
         }
       },
     },

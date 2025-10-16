@@ -10,40 +10,12 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException, Qu
 from fastapi.responses import JSONResponse
 from starlette.websockets import WebSocketState
 import orjson
-import cloudinary.api
 
 from services.ws_fit_session import get_session_manager
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-
-
-async def fetch_gsm_from_cloudinary(gsm_id: str) -> Optional[Dict]:
-    """
-    Fetch GSM from Cloudinary public_id metadata.
-    Cloudinary stores custom metadata with images.
-    """
-    try:
-        # Try to fetch from Cloudinary using public_id
-        public_id = f"garments/processed/{gsm_id}"
-
-        resource = cloudinary.api.resource(public_id, context=True)
-
-        if 'context' in resource and 'custom' in resource['context']:
-            # GSM data stored in context metadata
-            gsm_json = resource['context']['custom'].get('gsm_data')
-            if gsm_json:
-                gsm_data = orjson.loads(gsm_json)
-                logger.info(f"✅ Fetched GSM {gsm_id} from Cloudinary metadata")
-                return gsm_data
-
-        logger.warning(f"No GSM metadata found for {gsm_id}")
-        return None
-
-    except Exception as e:
-        logger.error(f"Failed to fetch GSM from Cloudinary: {e}")
-        return None
 
 
 @router.websocket("/ws/fit/top")
@@ -74,26 +46,21 @@ async def websocket_fit_top(
     await websocket.accept()
 
     try:
-        # Get GSM from cache OR fetch from Cloudinary storage
+        # Get GSM from memory cache only (no Cloudinary fetch)
         gsm = session_manager.gsm_cache.get(gsm_id)
 
         if not gsm:
-            logger.info(f"GSM {gsm_id} not in cache, attempting to fetch from Cloudinary...")
-            gsm = await fetch_gsm_from_cloudinary(gsm_id)
+            # GSM not in cache - this is expected after server restart
+            logger.warning(f"GSM {gsm_id} not in cache")
 
-            if gsm:
-                # Cache it for future use
-                session_manager.gsm_cache[gsm_id] = gsm
-                logger.info(f"✅ Fetched GSM {gsm_id} from Cloudinary and cached")
-            else:
-                # GSM not found anywhere
-                error_msg = {
-                    "type": "error",
-                    "message": f"GSM not found: GSM {gsm_id} not found in cache. Call /process/garment/top first."
-                }
-                await websocket.send_text(orjson.dumps(error_msg).decode())
-                await websocket.close(code=1000)
-                return
+            error_msg = {
+                "type": "error",
+                "message": f"GSM {gsm_id} not found. Please re-upload garment.",
+                "code": "GSM_NOT_FOUND"
+            }
+            await websocket.send_text(orjson.dumps(error_msg).decode())
+            await websocket.close(code=1000, reason="GSM not found")
+            return
 
         # Create session with GSM
         session = session_manager.create_session(gsm_id, gsm)
