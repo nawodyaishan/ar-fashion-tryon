@@ -8,8 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useTryonStore } from '@/lib/tryon-store';
-// Unused canvas utilities - may be needed for future features
-// import { loadImageFromFile, getImageDimensions, getFileSizeKB } from '@/lib/canvas';
+import { loadImageFromFile, getImageDimensions, getFileSizeKB } from '@/lib/canvas';
 import { extractGarmentSmart } from '@/lib/services/garmentApi';
 import { processGarment, validateGarmentFile } from '@/lib/services/garmentProcessingApi';
 import { TransformControls } from './TransformControls';
