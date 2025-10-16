@@ -10,11 +10,32 @@ const Toaster = ({ ...props }: ToasterProps) => {
     <Sonner
       theme={theme as ToasterProps['theme']}
       className="toaster group"
+      position="bottom-right"
+      toastOptions={{
+        classNames: {
+          toast: 'group toast group-[.toaster]:bg-card group-[.toaster]:text-card-foreground group-[.toaster]:border-border group-[.toaster]:shadow-xl group-[.toaster]:backdrop-blur-xl',
+          description: 'group-[.toast]:text-muted-foreground',
+          actionButton: 'group-[.toast]:bg-primary group-[.toast]:text-primary-foreground',
+          cancelButton: 'group-[.toast]:bg-muted group-[.toast]:text-muted-foreground',
+          success: 'group-[.toaster]:!bg-success/10 group-[.toaster]:!text-success group-[.toaster]:!border-success/20',
+          error: 'group-[.toaster]:!bg-destructive/10 group-[.toaster]:!text-destructive group-[.toaster]:!border-destructive/20',
+          warning: 'group-[.toaster]:!bg-warning/10 group-[.toaster]:!text-warning group-[.toaster]:!border-warning/20',
+          info: 'group-[.toaster]:!bg-info/10 group-[.toaster]:!text-info group-[.toaster]:!border-info/20',
+        },
+      }}
       style={
         {
-          '--normal-bg': 'var(--popover)',
-          '--normal-text': 'var(--popover-foreground)',
+          '--normal-bg': 'var(--card)',
+          '--normal-text': 'var(--card-foreground)',
           '--normal-border': 'var(--border)',
+          '--success-bg': 'var(--success)',
+          '--success-text': 'var(--success-foreground)',
+          '--error-bg': 'var(--destructive)',
+          '--error-text': 'var(--destructive-foreground)',
+          '--warning-bg': 'var(--warning)',
+          '--warning-text': 'var(--warning-foreground)',
+          '--info-bg': 'var(--info)',
+          '--info-text': 'var(--info-foreground)',
         } as React.CSSProperties
       }
       {...props}

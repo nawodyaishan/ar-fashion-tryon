@@ -23,6 +23,12 @@ interface TryonState {
   autoAlignInProgress: boolean;
   lastAutoAlignTime: number;
 
+  // New Positioning Features
+  positionHistory: Transform[];
+  historyIndex: number;
+  fineTuneMode: boolean;
+  showAlignmentGuides: boolean;
+
   // Status
   status: Status;
 
@@ -34,15 +40,27 @@ interface TryonState {
   // Modals
   helpModalOpen: boolean;
   aboutModalOpen: boolean;
+  arOnboardingOpen: boolean;
+  photoOnboardingOpen: boolean;
 
   // Actions
   setMode: (mode: 'ar' | 'photo') => void;
   selectGarment: (id: string | null) => void;
   addGarment: (garment: Garment) => void;
   removeGarment: (id: string) => void;
-  setTransform: (transform: Partial<Transform>) => void;
+  setTransform: (transform: Partial<Transform>, addToHistory?: boolean) => void;
   setOpacity: (opacity: number) => void;
   toggleLockAspect: () => void;
+  undo: () => void;
+  redo: () => void;
+  canUndo: () => boolean;
+  canRedo: () => boolean;
+  toggleFineTuneMode: () => void;
+  toggleAlignmentGuides: () => void;
+  applyPreset: (preset: 'chest' | 'waist' | 'shoulders', containerWidth: number, containerHeight: number) => void;
+  centerGarment: (containerWidth: number, containerHeight: number, garmentWidth: number) => void;
+  saveGarmentPosition: (garmentId: string) => void;
+  loadGarmentPosition: (garmentId: string) => void;
   autoAlign: () => void;
   resetToBaseline: () => void;
   toggleMediaPipe: () => void;
@@ -60,6 +78,10 @@ interface TryonState {
   closeHelp: () => void;
   openAbout: () => void;
   closeAbout: () => void;
+  openAROnboarding: () => void;
+  closeAROnboarding: () => void;
+  openPhotoOnboarding: () => void;
+  closePhotoOnboarding: () => void;
   clearAll: () => void;
   resetPhotoMode: () => void;
 }
@@ -120,12 +142,18 @@ export const useTryonStore = create<TryonState>()(
       continuousTracking: false,
       autoAlignInProgress: false,
       lastAutoAlignTime: 0,
+      positionHistory: [{ ...defaultTransform }],
+      historyIndex: 0,
+      fineTuneMode: false,
+      showAlignmentGuides: false,
       status: {},
       bodyPhoto: null,
       garmentPhoto: null,
       resultPhoto: null,
       helpModalOpen: false,
       aboutModalOpen: false,
+      arOnboardingOpen: false,
+      photoOnboardingOpen: false,
 
       // Actions
       setMode: (mode) => set({ activeMode: mode }),
@@ -143,10 +171,112 @@ export const useTryonStore = create<TryonState>()(
           selectedGarmentId: state.selectedGarmentId === id ? null : state.selectedGarmentId,
         })),
 
-      setTransform: (partial) =>
+      setTransform: (partial, addToHistory = true) =>
+        set((state) => {
+          const newTransform = { ...state.transform, ...partial };
+
+          if (addToHistory) {
+            // Add to history and truncate any forward history
+            const newHistory = [...state.positionHistory.slice(0, state.historyIndex + 1), newTransform];
+            // Keep max 50 history items
+            const trimmedHistory = newHistory.slice(-50);
+
+            return {
+              transform: newTransform,
+              positionHistory: trimmedHistory,
+              historyIndex: trimmedHistory.length - 1,
+            };
+          }
+
+          return { transform: newTransform };
+        }),
+
+      undo: () =>
+        set((state) => {
+          if (state.historyIndex > 0) {
+            const newIndex = state.historyIndex - 1;
+            return {
+              transform: state.positionHistory[newIndex],
+              historyIndex: newIndex,
+            };
+          }
+          return state;
+        }),
+
+      redo: () =>
+        set((state) => {
+          if (state.historyIndex < state.positionHistory.length - 1) {
+            const newIndex = state.historyIndex + 1;
+            return {
+              transform: state.positionHistory[newIndex],
+              historyIndex: newIndex,
+            };
+          }
+          return state;
+        }),
+
+      canUndo: () => get().historyIndex > 0,
+      canRedo: () => get().historyIndex < get().positionHistory.length - 1,
+
+      toggleFineTuneMode: () =>
         set((state) => ({
-          transform: { ...state.transform, ...partial },
+          fineTuneMode: !state.fineTuneMode,
         })),
+
+      toggleAlignmentGuides: () =>
+        set((state) => ({
+          showAlignmentGuides: !state.showAlignmentGuides,
+        })),
+
+      applyPreset: (preset, containerWidth, containerHeight) => {
+        const presets = {
+          chest: {
+            x: containerWidth / 2 - 100,
+            y: containerHeight * 0.25,
+            scale: 1.0,
+          },
+          waist: {
+            x: containerWidth / 2 - 100,
+            y: containerHeight * 0.45,
+            scale: 0.8,
+          },
+          shoulders: {
+            x: containerWidth / 2 - 120,
+            y: containerHeight * 0.2,
+            scale: 1.2,
+          },
+        };
+
+        const position = presets[preset];
+        get().setTransform(position, true);
+      },
+
+      centerGarment: (containerWidth, containerHeight, garmentWidth) => {
+        const centerX = (containerWidth - garmentWidth) / 2;
+        const centerY = containerHeight * 0.3;
+        get().setTransform({ x: centerX, y: centerY }, true);
+      },
+
+      saveGarmentPosition: (garmentId) => {
+        const { transform } = get();
+        try {
+          localStorage.setItem(`garment-position-${garmentId}`, JSON.stringify(transform));
+        } catch (error) {
+          console.warn('Failed to save garment position:', error);
+        }
+      },
+
+      loadGarmentPosition: (garmentId) => {
+        try {
+          const saved = localStorage.getItem(`garment-position-${garmentId}`);
+          if (saved) {
+            const transform = JSON.parse(saved);
+            get().setTransform(transform, false); // Don't add to history on load
+          }
+        } catch (error) {
+          console.warn('Failed to load garment position:', error);
+        }
+      },
 
       setOpacity: (opacity) =>
         set((state) => ({
@@ -235,6 +365,12 @@ export const useTryonStore = create<TryonState>()(
 
       openAbout: () => set({ aboutModalOpen: true }),
       closeAbout: () => set({ aboutModalOpen: false }),
+
+      openAROnboarding: () => set({ arOnboardingOpen: true }),
+      closeAROnboarding: () => set({ arOnboardingOpen: false }),
+
+      openPhotoOnboarding: () => set({ photoOnboardingOpen: true }),
+      closePhotoOnboarding: () => set({ photoOnboardingOpen: false }),
 
       clearAll: () =>
         set({

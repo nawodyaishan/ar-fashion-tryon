@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Progress } from '@/components/ui/progress';
+import { LoadingDots } from '@/components/ui/loading-spinner';
 import {
   Accordion,
   AccordionContent,
@@ -14,6 +15,7 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion';
 import { useVtonStore } from '@/lib/store/useVtonStore';
+import { useTryonStore } from '@/lib/tryon-store';
 import {
   AlertCircle,
   Camera,
@@ -21,9 +23,9 @@ import {
   ChevronLeft,
   ChevronRight,
   Download,
+  HelpCircle,
   Image as ImageIcon,
   Layers,
-  Loader2,
   RefreshCw,
   Shirt,
   Sparkles,
@@ -39,6 +41,8 @@ import QualityTipsCard from './QualityTipsCard';
 import ClassificationChip from './ClassificationChip';
 import ClothTypeSelector from './ClothTypeSelector';
 import ScrollIndicator from '@/components/ui/scroll-indicator';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ProcessingOverlay } from './ProcessingOverlay';
 
 export default function PhotoWizard() {
   const bodyFileInputRef = useRef<HTMLInputElement>(null);
@@ -50,6 +54,9 @@ export default function PhotoWizard() {
   const garmentVideoRef = useRef<HTMLVideoElement>(null);
   const garmentCanvasRef = useRef<HTMLCanvasElement>(null);
   const contentScrollRef = useRef<HTMLDivElement>(null);
+
+  // Tryon Store (for onboarding)
+  const { openPhotoOnboarding } = useTryonStore();
 
   // VTON Store
   const {
@@ -358,16 +365,45 @@ export default function PhotoWizard() {
                       : '5'}
             </Badge>
           </div>
-          {(status === 'classifying' || status === 'constructing' || status === 'processing') && (
-            <div className="space-y-1">
-              <Progress value={progress} className="h-1.5" />
-              <p className="text-xs text-muted-foreground text-center">
-                {status === 'classifying' && 'Analyzing garment...'}
-                {status === 'constructing' && 'Building outfit...'}
-                {status === 'processing' && 'Generating try-on...'}
-              </p>
-            </div>
-          )}
+          <AnimatePresence mode="wait">
+            {(status === 'classifying' || status === 'constructing' || status === 'processing') && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.3 }}
+                className="space-y-1"
+              >
+                <Progress value={progress} className="h-1.5" />
+                <motion.p
+                  key={status}
+                  initial={{ opacity: 0, y: -5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="text-xs text-muted-foreground text-center flex items-center justify-center gap-1.5"
+                >
+                  <motion.span
+                    animate={{
+                      scale: [1, 1.2, 1],
+                      opacity: [0.5, 1, 0.5],
+                    }}
+                    transition={{
+                      duration: 1.5,
+                      repeat: Infinity,
+                      ease: 'easeInOut',
+                    }}
+                  >
+                    {status === 'classifying' && '🔍'}
+                    {status === 'constructing' && '🎨'}
+                    {status === 'processing' && '✨'}
+                  </motion.span>
+                  {status === 'classifying' && 'Analyzing garment...'}
+                  {status === 'constructing' && 'Building outfit...'}
+                  {status === 'processing' && 'Generating try-on...'}
+                </motion.p>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       )}
 
@@ -382,6 +418,16 @@ export default function PhotoWizard() {
                 Select how you want to try on garments
               </p>
             </div>
+
+            {/* Quick Tour Button */}
+            <Button
+              variant="outline"
+              onClick={openPhotoOnboarding}
+              className="w-full gap-2"
+            >
+              <HelpCircle className="h-4 w-4" />
+              Take a Quick Tour
+            </Button>
 
             <div className="grid gap-3 sm:gap-4">
               {/* NORMAL Path */}
@@ -728,8 +774,8 @@ export default function PhotoWizard() {
 
                 {status === 'classifying' && (
                   <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    <span>Analyzing...</span>
+                    <LoadingDots size="md" variant="primary" />
+                    <span>Analyzing</span>
                   </div>
                 )}
 
@@ -979,8 +1025,13 @@ export default function PhotoWizard() {
                 />
 
                 {/* Previews */}
-                <div className="grid grid-cols-2 gap-3">
-                  <Card className="p-2 space-y-1">
+                <ProcessingOverlay
+                  isProcessing={status === 'processing' || status === 'classifying' || status === 'constructing'}
+                  lockMessage="Preview locked"
+                  showPulse={false}
+                >
+                  <div className="grid grid-cols-2 gap-3">
+                    <Card className="p-2 space-y-1">
                     <p className="text-[10px] font-medium text-muted-foreground">Body</p>
                     {body.previewUrl && (
                       <div className="relative aspect-[3/4] rounded-md overflow-hidden border">
@@ -1003,40 +1054,107 @@ export default function PhotoWizard() {
                       </div>
                     )}
                   </Card>
-                </div>
+                  </div>
+                </ProcessingOverlay>
 
                 {/* Generate Button */}
                 <Button
                   size="lg"
                   onClick={handleGenerate}
-                  disabled={!canProceedToGenerate() || status === 'processing'}
+                  disabled={!canProceedToGenerate()}
+                  loading={status === 'processing'}
+                  loadingText={`Processing ${progress}%`}
                   className="w-full"
                 >
-                  {status === 'processing' ? (
-                    <>
-                      <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                      Processing {progress}%
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="h-5 w-5 mr-2" />
-                      Generate Try-On
-                    </>
-                  )}
+                  <Sparkles className="h-5 w-5 mr-2" />
+                  Generate Try-On
                 </Button>
 
                 {/* Progress Bar - Mobile */}
-                {status === 'processing' && (
-                  <Card className="p-3 space-y-2">
-                    <Progress value={progress} className="h-1.5" />
-                    <p className="text-xs text-muted-foreground text-center">
-                      This may take 30-60 seconds...
-                    </p>
-                  </Card>
-                )}
+                <AnimatePresence mode="wait">
+                  {status === 'processing' && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      transition={{ duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] as const }}
+                    >
+                      <Card className="p-4 space-y-3 relative overflow-hidden">
+                        {/* Animated background gradient */}
+                        <motion.div
+                          className="absolute inset-0 bg-gradient-to-r from-primary/5 via-accent/10 to-primary/5"
+                          animate={{
+                            x: ['-100%', '100%'],
+                          }}
+                          transition={{
+                            duration: 2,
+                            repeat: Infinity,
+                            ease: 'linear',
+                          }}
+                        />
+
+                        <div className="relative space-y-3">
+                          {/* Processing header with animated dots */}
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <motion.div
+                                animate={{
+                                  scale: [1, 1.2, 1],
+                                  opacity: [0.5, 1, 0.5],
+                                }}
+                                transition={{
+                                  duration: 1.5,
+                                  repeat: Infinity,
+                                  ease: 'easeInOut',
+                                }}
+                                className="h-2 w-2 rounded-full bg-primary"
+                              />
+                              <span className="text-sm font-medium">Processing</span>
+                            </div>
+                            <motion.span
+                              key={progress}
+                              initial={{ scale: 1.2, opacity: 0 }}
+                              animate={{ scale: 1, opacity: 1 }}
+                              transition={{ duration: 0.2 }}
+                              className="text-sm font-bold text-primary"
+                            >
+                              {progress}%
+                            </motion.span>
+                          </div>
+
+                          {/* Progress bar */}
+                          <div className="space-y-1">
+                            <Progress value={progress} className="h-2" />
+                          </div>
+
+                          {/* Info text with pulsing icon */}
+                          <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                            <motion.div
+                              animate={{
+                                opacity: [0.3, 1, 0.3],
+                              }}
+                              transition={{
+                                duration: 2,
+                                repeat: Infinity,
+                                ease: 'easeInOut',
+                              }}
+                            >
+                              <Sparkles className="h-3 w-3" />
+                            </motion.div>
+                            <span>This may take 30-60 seconds...</span>
+                          </div>
+                        </div>
+                      </Card>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
 
                 {/* Advanced - Collapsed on Mobile */}
-                <Accordion type="single" collapsible className="w-full">
+                <ProcessingOverlay
+                  isProcessing={status === 'processing' || status === 'classifying' || status === 'constructing'}
+                  lockMessage="Settings locked"
+                >
+                  <Accordion type="single" collapsible className="w-full">
                   <AccordionItem value="options">
                     <AccordionTrigger className="text-sm">Advanced Settings</AccordionTrigger>
                     <AccordionContent className="space-y-3 pt-3">
@@ -1072,7 +1190,8 @@ export default function PhotoWizard() {
                       </div>
                     </AccordionContent>
                   </AccordionItem>
-                </Accordion>
+                  </Accordion>
+                </ProcessingOverlay>
 
                 {error && (
                   <Alert variant="destructive">
@@ -1086,8 +1205,12 @@ export default function PhotoWizard() {
               <div className="hidden xl:grid xl:grid-cols-12 xl:gap-6">
                 {/* LEFT RAIL - Controls (3 cols, sticky) */}
                 <div className="col-span-3 space-y-4 sticky top-20 self-start">
-                  <Card className="p-4 space-y-4">
-                    <h3 className="text-lg font-semibold">Garment Options</h3>
+                  <ProcessingOverlay
+                    isProcessing={status === 'processing' || status === 'classifying' || status === 'constructing'}
+                    lockMessage="Options locked during processing"
+                  >
+                    <Card className="p-4 space-y-4">
+                      <h3 className="text-lg font-semibold">Garment Options</h3>
 
                     {/* Inline Detection + Cloth Type */}
                     {garment.classification && tryOnPath === 'NORMAL' && (
@@ -1174,14 +1297,20 @@ export default function PhotoWizard() {
                         </div>
                       );
                     })()}
-                  </Card>
+                    </Card>
+                  </ProcessingOverlay>
                 </div>
 
                 {/* CENTER RAIL - Preview Stage (6 cols) */}
                 <div className="col-span-6">
-                  <div className="grid grid-cols-2 gap-4">
-                    {/* Body Preview Frame */}
-                    <Card className="p-3 space-y-2">
+                  <ProcessingOverlay
+                    isProcessing={status === 'processing' || status === 'classifying' || status === 'constructing'}
+                    lockMessage="Preview locked during processing"
+                    showPulse={false}
+                  >
+                    <div className="grid grid-cols-2 gap-4">
+                      {/* Body Preview Frame */}
+                      <Card className="p-3 space-y-2">
                       <div className="flex items-center justify-between">
                         <p className="text-sm font-medium">Body Photo</p>
                         {body.quality && (
@@ -1232,7 +1361,8 @@ export default function PhotoWizard() {
                         </div>
                       )}
                     </Card>
-                  </div>
+                    </div>
+                  </ProcessingOverlay>
                 </div>
 
                 {/* RIGHT RAIL - Actions (3 cols, sticky) */}
@@ -1242,35 +1372,90 @@ export default function PhotoWizard() {
                     <Button
                       size="lg"
                       onClick={handleGenerate}
-                      disabled={!canProceedToGenerate() || status === 'processing'}
+                      disabled={!canProceedToGenerate()}
+                      loading={status === 'processing'}
+                      loadingText="Generating..."
                       className="w-full"
                     >
-                      {status === 'processing' ? (
-                        <>
-                          <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                          Generating...
-                        </>
-                      ) : (
-                        <>
-                          <Sparkles className="h-5 w-5 mr-2" />
-                          Generate Try-On
-                        </>
-                      )}
+                      <Sparkles className="h-5 w-5 mr-2" />
+                      Generate Try-On
                     </Button>
 
                     {/* Inline Progress */}
-                    {status === 'processing' && (
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="font-medium">Processing</span>
-                          <span className="text-muted-foreground">{progress}%</span>
-                        </div>
-                        <Progress value={progress} className="h-1.5" />
-                        <p className="text-xs text-muted-foreground">
-                          This may take 30-60 seconds...
-                        </p>
-                      </div>
-                    )}
+                    <AnimatePresence mode="wait">
+                      {status === 'processing' && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }}
+                          transition={{ duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] as const }}
+                          className="relative overflow-hidden rounded-lg border border-primary/20 bg-primary/5 p-3"
+                        >
+                          {/* Animated shimmer effect */}
+                          <motion.div
+                            className="absolute inset-0 bg-gradient-to-r from-transparent via-primary/10 to-transparent"
+                            animate={{
+                              x: ['-200%', '200%'],
+                            }}
+                            transition={{
+                              duration: 1.5,
+                              repeat: Infinity,
+                              ease: 'linear',
+                            }}
+                          />
+
+                          <div className="relative space-y-2">
+                            {/* Processing header */}
+                            <div className="flex items-center justify-between text-xs">
+                              <div className="flex items-center gap-2">
+                                <motion.div
+                                  animate={{
+                                    scale: [1, 1.3, 1],
+                                    opacity: [0.4, 1, 0.4],
+                                  }}
+                                  transition={{
+                                    duration: 1.5,
+                                    repeat: Infinity,
+                                    ease: 'easeInOut',
+                                  }}
+                                  className="h-1.5 w-1.5 rounded-full bg-primary"
+                                />
+                                <span className="font-medium">Processing</span>
+                              </div>
+                              <motion.span
+                                key={progress}
+                                initial={{ scale: 1.1, opacity: 0 }}
+                                animate={{ scale: 1, opacity: 1 }}
+                                transition={{ duration: 0.2 }}
+                                className="font-bold text-primary"
+                              >
+                                {progress}%
+                              </motion.span>
+                            </div>
+
+                            {/* Progress bar */}
+                            <Progress value={progress} className="h-1.5" />
+
+                            {/* Info text */}
+                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                              <motion.div
+                                animate={{
+                                  rotate: [0, 360],
+                                }}
+                                transition={{
+                                  duration: 2,
+                                  repeat: Infinity,
+                                  ease: 'linear',
+                                }}
+                              >
+                                <Sparkles className="h-3 w-3" />
+                              </motion.div>
+                              <span>This may take 30-60 seconds...</span>
+                            </div>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
 
                     {error && (
                       <Alert variant="destructive" className="py-2">
@@ -1280,7 +1465,11 @@ export default function PhotoWizard() {
                     )}
 
                     {/* Advanced Settings */}
-                    <Accordion type="single" collapsible className="w-full">
+                    <ProcessingOverlay
+                      isProcessing={status === 'processing' || status === 'classifying' || status === 'constructing'}
+                      lockMessage="Settings locked during processing"
+                    >
+                      <Accordion type="single" collapsible className="w-full">
                       <AccordionItem value="advanced" className="border-none">
                         <AccordionTrigger className="text-sm py-2">
                           Advanced Settings
@@ -1323,7 +1512,8 @@ export default function PhotoWizard() {
                           </div>
                         </AccordionContent>
                       </AccordionItem>
-                    </Accordion>
+                      </Accordion>
+                    </ProcessingOverlay>
 
                     {/* Info Box */}
                     <div className="p-3 rounded-lg bg-muted/30 text-xs text-muted-foreground">

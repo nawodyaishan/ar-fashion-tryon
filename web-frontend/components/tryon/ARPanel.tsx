@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
@@ -12,7 +12,8 @@ import { loadImageFromFile, getImageDimensions, getFileSizeKB } from '@/lib/canv
 import { extractGarmentSmart } from '@/lib/services/garmentApi';
 import { TransformControls } from './TransformControls';
 import { MediaPipeTestPanel } from './MediaPipeTestPanel';
-import { Plus, Trash2, Sparkles, Activity } from 'lucide-react';
+import { PresetPositions } from './PresetPositions';
+import { Plus, Trash2, Sparkles, Activity, HelpCircle, Save } from 'lucide-react';
 import { toast } from 'sonner';
 import Image from 'next/image';
 
@@ -33,7 +34,30 @@ export default function ARPanel() {
     setSnapToShoulders,
     poseConfidence,
     clearAll,
+    openAROnboarding,
+    loadGarmentPosition,
+    saveGarmentPosition,
   } = useTryonStore();
+
+  const [containerDimensions, setContainerDimensions] = useState({ width: 640, height: 480 });
+
+  // Load saved position when garment is selected
+  useEffect(() => {
+    if (selectedGarmentId) {
+      loadGarmentPosition(selectedGarmentId);
+    }
+  }, [selectedGarmentId, loadGarmentPosition]);
+
+  // Get container dimensions from parent
+  useEffect(() => {
+    const updateDimensions = () => {
+      // Approximate AR stage dimensions
+      setContainerDimensions({ width: 640, height: 480 });
+    };
+    updateDimensions();
+    window.addEventListener('resize', updateDimensions);
+    return () => window.removeEventListener('resize', updateDimensions);
+  }, []);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -122,6 +146,18 @@ export default function ARPanel() {
 
   return (
     <div className="w-full h-full p-4 space-y-6 overflow-y-auto">
+      {/* Quick Tour Button */}
+      <Button
+        variant="outline"
+        onClick={openAROnboarding}
+        className="w-full gap-2"
+      >
+        <HelpCircle className="h-4 w-4" />
+        Take a Quick Tour
+      </Button>
+
+      <Separator />
+
       {/* MediaPipe Controls - NEW SECTION */}
       <Card>
         <CardHeader>
@@ -275,8 +311,32 @@ export default function ARPanel() {
 
       <Separator />
 
+      {/* Preset Positions */}
+      <PresetPositions
+        containerWidth={containerDimensions.width}
+        containerHeight={containerDimensions.height}
+      />
+
+      <Separator />
+
       {/* Transform Controls */}
       <TransformControls />
+
+      {/* Save Position Button */}
+      {selectedGarmentId && (
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => {
+            saveGarmentPosition(selectedGarmentId);
+            toast.success('Position saved for this garment');
+          }}
+          className="w-full gap-2"
+        >
+          <Save className="h-4 w-4" />
+          Save Position
+        </Button>
+      )}
 
       <Separator />
 

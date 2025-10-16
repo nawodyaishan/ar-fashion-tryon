@@ -15,7 +15,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Sparkles, Settings, HelpCircle, Info, Smartphone, MoreVertical, Moon, Sun, Github, Shield, Mail, FileText } from 'lucide-react';
+import { Sparkles, Settings, HelpCircle, Info, Smartphone, MoreVertical, Moon, Sun, Github, Shield, Mail } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { navigationItems } from '@/lib/constants';
 import { useTryonStore } from '@/lib/tryon-store';

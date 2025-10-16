@@ -7,11 +7,13 @@ import ARPanel from '@/components/tryon/ARPanel';
 import PhotoWizard from '@/components/tryon/PhotoWizard';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { PageTransition } from '@/components/ui/page-transition';
 import { Smartphone, Sparkles } from 'lucide-react';
 import { isMobile } from '@/lib/utils/device';
+import { hasSeenAROnboarding, hasSeenPhotoOnboarding } from '@/lib/utils/onboarding';
 
 export default function TryOnPage() {
-  const { activeMode, setMode } = useTryonStore();
+  const { activeMode, setMode, openAROnboarding, openPhotoOnboarding } = useTryonStore();
   const [isMobileDevice, setIsMobileDevice] = useState(false);
 
   useEffect(() => {
@@ -38,8 +40,23 @@ export default function TryOnPage() {
     return () => window.removeEventListener('resize', handleResize);
   }, [activeMode, setMode]);
 
+  // Auto-open onboarding on first visit
+  useEffect(() => {
+    // Small delay to ensure components are mounted
+    const timer = setTimeout(() => {
+      if (activeMode === 'ar' && !isMobileDevice && !hasSeenAROnboarding()) {
+        openAROnboarding();
+      } else if (activeMode === 'photo' && !hasSeenPhotoOnboarding()) {
+        openPhotoOnboarding();
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [activeMode, isMobileDevice, openAROnboarding, openPhotoOnboarding]);
+
   return (
-    <div className="h-[calc(100vh-4rem-3rem)] w-full overflow-hidden pb-12">
+    <PageTransition>
+      <div className="h-[calc(100vh-4rem-3rem)] w-full overflow-hidden pb-12">
       {/* AR Mode - Desktop Only */}
       {activeMode === 'ar' && !isMobileDevice && (
         <div className="h-full flex flex-col lg:flex-row gap-4 p-4">
@@ -101,5 +118,6 @@ export default function TryOnPage() {
         </div>
       )}
     </div>
+    </PageTransition>
   );
 }

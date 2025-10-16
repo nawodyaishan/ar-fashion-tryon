@@ -7,10 +7,26 @@ import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
-import { RotateCcw } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
+import { RotateCcw, Undo2, Redo2, Grid3x3, Crosshair } from 'lucide-react';
 
 export function TransformControls() {
-  const { selectedGarmentId, garments, transform, setTransform, toggleLockAspect, resetToBaseline } = useTryonStore();
+  const {
+    selectedGarmentId,
+    garments,
+    transform,
+    setTransform,
+    toggleLockAspect,
+    resetToBaseline,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+    fineTuneMode,
+    toggleFineTuneMode,
+    showAlignmentGuides,
+    toggleAlignmentGuides,
+  } = useTryonStore();
 
   const selectedGarment = garments.find((g) => g.id === selectedGarmentId);
 
@@ -28,24 +44,47 @@ export function TransformControls() {
   }
 
   return (
-    <Card className="w-full">
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">Transform Controls</CardTitle>
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={resetToBaseline}
-          className="h-8 w-8 p-0"
-        >
-          <RotateCcw className="h-4 w-4" />
-        </Button>
+    <Card variant="elevated" className="w-full">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+        <CardTitle className="text-base font-bold">Transform Controls</CardTitle>
+        <div className="flex gap-1.5">
+          <Button
+            size="icon-sm"
+            variant="outline"
+            onClick={() => undo()}
+            disabled={!canUndo()}
+            title="Undo (Ctrl+Z)"
+            className="transition-all hover:scale-105"
+          >
+            <Undo2 className="h-4 w-4" />
+          </Button>
+          <Button
+            size="icon-sm"
+            variant="outline"
+            onClick={() => redo()}
+            disabled={!canRedo()}
+            title="Redo (Ctrl+Y)"
+            className="transition-all hover:scale-105"
+          >
+            <Redo2 className="h-4 w-4" />
+          </Button>
+          <Button
+            size="icon-sm"
+            variant="outline"
+            onClick={resetToBaseline}
+            title="Reset"
+            className="transition-all hover:scale-105"
+          >
+            <RotateCcw className="h-4 w-4" />
+          </Button>
+        </div>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-6">
         {/* Scale Control */}
-        <div className="space-y-2">
+        <div className="space-y-3 p-4 rounded-lg bg-muted/30 border border-border/50">
           <div className="flex items-center justify-between">
-            <Label htmlFor="scale" className="text-xs">Size</Label>
-            <span className="text-xs text-muted-foreground">{(transform.scale * 100).toFixed(0)}%</span>
+            <Label htmlFor="scale" className="text-sm font-semibold">Size</Label>
+            <span className="text-sm font-mono font-bold text-primary">{(transform.scale * 100).toFixed(0)}%</span>
           </div>
           <Slider
             id="scale"
@@ -59,10 +98,10 @@ export function TransformControls() {
         </div>
 
         {/* Rotation Control */}
-        <div className="space-y-2">
+        <div className="space-y-3 p-4 rounded-lg bg-muted/30 border border-border/50">
           <div className="flex items-center justify-between">
-            <Label htmlFor="rotation" className="text-xs">Rotation</Label>
-            <span className="text-xs text-muted-foreground">{transform.rotation}°</span>
+            <Label htmlFor="rotation" className="text-sm font-semibold">Rotation</Label>
+            <span className="text-sm font-mono font-bold text-accent">{transform.rotation}°</span>
           </div>
           <Slider
             id="rotation"
@@ -76,10 +115,10 @@ export function TransformControls() {
         </div>
 
         {/* Opacity Control */}
-        <div className="space-y-2">
+        <div className="space-y-3 p-4 rounded-lg bg-muted/30 border border-border/50">
           <div className="flex items-center justify-between">
-            <Label htmlFor="opacity" className="text-xs">Opacity</Label>
-            <span className="text-xs text-muted-foreground">{transform.opacity}%</span>
+            <Label htmlFor="opacity" className="text-sm font-semibold">Opacity</Label>
+            <span className="text-sm font-mono font-bold text-success">{transform.opacity}%</span>
           </div>
           <Slider
             id="opacity"
@@ -101,6 +140,38 @@ export function TransformControls() {
             id="lock-aspect"
             checked={transform.lockAspect}
             onCheckedChange={toggleLockAspect}
+          />
+        </div>
+
+        <Separator />
+
+        {/* Fine-Tune Mode */}
+        <div className="flex items-center justify-between space-x-2">
+          <div className="flex items-center gap-2">
+            <Crosshair className="h-3 w-3 text-muted-foreground" />
+            <Label htmlFor="fine-tune" className="text-xs cursor-pointer">
+              Fine-Tune Mode
+            </Label>
+          </div>
+          <Switch
+            id="fine-tune"
+            checked={fineTuneMode}
+            onCheckedChange={toggleFineTuneMode}
+          />
+        </div>
+
+        {/* Alignment Guides */}
+        <div className="flex items-center justify-between space-x-2">
+          <div className="flex items-center gap-2">
+            <Grid3x3 className="h-3 w-3 text-muted-foreground" />
+            <Label htmlFor="alignment-guides" className="text-xs cursor-pointer">
+              Show Guides
+            </Label>
+          </div>
+          <Switch
+            id="alignment-guides"
+            checked={showAlignmentGuides}
+            onCheckedChange={toggleAlignmentGuides}
           />
         </div>
 

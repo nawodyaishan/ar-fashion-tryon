@@ -9,20 +9,28 @@ import type { DraggableData, ResizableDelta } from 'react-rnd';
 interface GarmentOverlayProps {
   containerWidth: number;
   containerHeight: number;
+  shoulderY?: number; // For alignment guides
 }
 
 export function GarmentOverlay({
-  containerWidth, // Reserved for future bounds calculation
-  containerHeight, // Reserved for future bounds calculation
+  containerWidth,
+  containerHeight,
+  shoulderY,
 }: GarmentOverlayProps) {
-  const { selectedGarmentId, garments, transform, setTransform } = useTryonStore();
-
-  // Suppress unused variable warnings - these are reserved for future use
-  void containerWidth;
-  void containerHeight;
+  const {
+    selectedGarmentId,
+    garments,
+    transform,
+    setTransform,
+    centerGarment,
+    fineTuneMode,
+    showAlignmentGuides,
+  } = useTryonStore();
 
   const [garmentDimensions, setGarmentDimensions] = useState({ width: 200, height: 300 });
   const imageRef = useRef<HTMLImageElement>(null);
+  const lastClickTime = useRef(0);
+  const SNAP_THRESHOLD = 15; // pixels for magnetic snapping
 
   const selectedGarment = garments.find((g) => g.id === selectedGarmentId);
 
@@ -44,12 +52,12 @@ export function GarmentOverlay({
     };
   }, [selectedGarment, transform.scale]);
 
-  // Keyboard shortcuts
+  // Keyboard shortcuts with fine-tune mode
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
       if (!selectedGarment) return;
 
-      const step = e.shiftKey ? 10 : 1;
+      const step = fineTuneMode ? 1 : (e.shiftKey ? 10 : 5);
 
       switch (e.key) {
         case 'ArrowUp':
@@ -82,15 +90,42 @@ export function GarmentOverlay({
 
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [selectedGarment, transform, setTransform]);
+  }, [selectedGarment, transform, setTransform, fineTuneMode]);
 
   if (!selectedGarment) return null;
 
   const handleDragStop = (_e: unknown, d: DraggableData) => {
+    let finalX = d.x;
+    let finalY = d.y;
+
+    // Magnetic snapping to shoulder line
+    if (shoulderY && Math.abs(d.y - shoulderY) < SNAP_THRESHOLD) {
+      finalY = shoulderY;
+    }
+
+    // Magnetic snapping to center line
+    const centerX = containerWidth / 2 - garmentDimensions.width / 2;
+    if (Math.abs(d.x - centerX) < SNAP_THRESHOLD) {
+      finalX = centerX;
+    }
+
     setTransform({
-      x: d.x,
-      y: d.y
+      x: finalX,
+      y: finalY
     });
+  };
+
+  // Handle double-click to re-center
+  const handleClick = () => {
+    const now = Date.now();
+    const timeSinceLastClick = now - lastClickTime.current;
+
+    if (timeSinceLastClick < 300) {
+      // Double click detected
+      centerGarment(containerWidth, containerHeight, garmentDimensions.width);
+    }
+
+    lastClickTime.current = now;
   };
 
   const handleResizeStop = (
@@ -116,33 +151,55 @@ export function GarmentOverlay({
   };
 
   return (
-    <Rnd
-      size={{
-        width: garmentDimensions.width,
-        height: garmentDimensions.height
-      }}
-      position={{
-        x: transform.x,
-        y: transform.y
-      }}
-      onDragStop={handleDragStop}
-      onResizeStop={handleResizeStop}
-      lockAspectRatio={transform.lockAspect}
-      bounds="parent"
-      className="z-10"
-      enableResizing={{
-        top: false,
-        right: true,
-        bottom: true,
-        left: false,
-        topRight: true,
-        bottomRight: true,
-        bottomLeft: true,
-        topLeft: true
-      }}
-    >
+    <>
+      {/* Alignment Guides Overlay */}
+      {showAlignmentGuides && (
+        <div className="absolute inset-0 pointer-events-none z-[5]">
+          {/* Center vertical line */}
+          <div className="absolute left-1/2 top-0 bottom-0 w-px bg-primary/20" />
+
+          {/* Horizontal thirds */}
+          <div className="absolute left-0 right-0 h-px bg-primary/10" style={{ top: '33.33%' }} />
+          <div className="absolute left-0 right-0 h-px bg-primary/10" style={{ top: '66.66%' }} />
+
+          {/* Shoulder line (when available) */}
+          {shoulderY && (
+            <div
+              className="absolute left-0 right-0 h-px bg-green-500/30"
+              style={{ top: shoulderY }}
+            />
+          )}
+        </div>
+      )}
+
+      <Rnd
+        size={{
+          width: garmentDimensions.width,
+          height: garmentDimensions.height
+        }}
+        position={{
+          x: transform.x,
+          y: transform.y
+        }}
+        onDragStop={handleDragStop}
+        onResizeStop={handleResizeStop}
+        lockAspectRatio={transform.lockAspect}
+        bounds="parent"
+        className="z-10"
+        enableResizing={{
+          top: false,
+          right: true,
+          bottom: true,
+          left: false,
+          topRight: true,
+          bottomRight: true,
+          bottomLeft: true,
+          topLeft: true
+        }}
+      >
       <div
-        className="w-full h-full relative"
+        className="w-full h-full relative cursor-move"
+        onClick={handleClick}
         style={{
           opacity: transform.opacity / 100, // Convert 0-100 to 0-1
           transform: `rotate(${transform.rotation}deg)`,
@@ -167,7 +224,15 @@ export function GarmentOverlay({
         <div className="absolute -top-1 -right-1 w-3 h-3 bg-primary rounded-full pointer-events-none" />
         <div className="absolute -bottom-1 -left-1 w-3 h-3 bg-primary rounded-full pointer-events-none" />
         <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-primary rounded-full pointer-events-none" />
+
+        {/* Fine-tune mode indicator */}
+        {fineTuneMode && (
+          <div className="absolute top-2 right-2 bg-primary text-primary-foreground text-xs px-2 py-1 rounded pointer-events-none">
+            Fine Tune
+          </div>
+        )}
       </div>
     </Rnd>
+    </>
   );
 }

@@ -20,6 +20,7 @@ export interface ProcessImagesPayload {
 export async function processImages(
   payload: ProcessImagesPayload,
   signal?: AbortSignal,
+  onUploadProgress?: (progressEvent: { loaded: number; total?: number; progress?: number }) => void,
 ): Promise<Blob> {
   const fd = new FormData();
 
@@ -79,6 +80,14 @@ export async function processImages(
         Accept: 'image/png, image/jpeg, image/*',
       },
       responseType: 'blob', // Important: expect binary response
+      onUploadProgress: onUploadProgress
+        ? (progressEvent) => {
+            const total = progressEvent.total || 0;
+            const loaded = progressEvent.loaded;
+            const progress = total > 0 ? Math.round((loaded * 100) / total) : 0;
+            onUploadProgress({ loaded, total, progress });
+          }
+        : undefined,
     });
 
     const duration = Date.now() - startTime;
