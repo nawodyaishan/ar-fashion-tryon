@@ -17,24 +17,25 @@ export interface GarmentBodyOffsets {
   torso_length_ratio: number;
 }
 
-// Backend returns GSM object directly from /process/garment/top
-export interface ProcessGarmentResponse {
-  gsm_id: string;
-  image: {
-    w: number;
-    h: number;
-    url: string;
-  };
+export interface GarmentMetadataResponse {
+  version: number;
+  category: 'shirt' | 'tshirt';
+  w: number;
+  h: number;
   anchors: GarmentAnchorsResponse;
-  anchor_confidence?: number;
-  anchor_source: 'auto' | 'custom' | 'default';
-  keypoints?: Record<string, [number, number]>;
-  mesh?: {
-    verts: [number, number][];
-    tris: [number, number, number][];
-  };
   body_offsets: GarmentBodyOffsets;
-  upload_error?: string;
+}
+
+export interface ProcessGarmentResponse {
+  status: 'ok' | 'error';
+  meta: GarmentMetadataResponse;
+  urls: {
+    processed_png?: string;
+    processed_png_base64?: string;
+    public_id?: string;
+  };
+  message?: string;
+  error?: string;
 }
 
 export interface ProcessGarmentOptions {
@@ -106,13 +107,17 @@ export async function processGarment(
 
     const duration = Date.now() - startTime;
 
-    console.log('✅ Garment processing succeeded:', {
-      duration: `${(duration / 1000).toFixed(2)}s`,
-      gsmId: data.gsm_id,
-      dimensions: `${data.image.w}x${data.image.h}`,
-      anchorSource: data.anchor_source,
-      confidence: data.anchor_confidence?.toFixed(2)
-    });
+    if (data.status === 'ok') {
+      console.log('✅ Garment processing succeeded:', {
+        duration: `${(duration / 1000).toFixed(2)}s`,
+        category: data.meta.category,
+        dimensions: `${data.meta.w}x${data.meta.h}`,
+        anchors: data.meta.anchors,
+        uploaded: !!data.urls.processed_png
+      });
+    } else {
+      console.warn('⚠️ Garment processing returned error:', data.error || data.message);
+    }
 
     return data;
   } catch (error) {
