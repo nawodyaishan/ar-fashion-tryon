@@ -14,7 +14,6 @@ from contextlib import asynccontextmanager
 import asyncio
 
 import requests
-import orjson
 from fastapi import FastAPI, File, UploadFile, Request, HTTPException, Form
 from fastapi.responses import JSONResponse
 from fastapi.encoders import jsonable_encoder
@@ -927,36 +926,19 @@ async def process_garment_top(
 
         # Upload
         if upload:
-            # CRITICAL: Store GSM data in Cloudinary context metadata
-            gsm_metadata = {
-                "gsm_id": gsm_id,
-                "category": category,
-                "anchor_confidence": str(gsm.get("anchor_confidence", 0.0)),
-                "anchor_source": "auto" if auto_anchor else "default",
-                # Store full GSM as JSON string (compact, no whitespace)
-                "gsm_data": orjson.dumps({
-                    "anchors": gsm.get("anchors"),
-                    "keypoints": gsm.get("keypoints"),
-                    "mesh": gsm.get("mesh"),
-                    "body_offsets": gsm.get("body_offsets"),
-                    "image": {"w": gsm["image"]["w"], "h": gsm["image"]["h"]}
-                }).decode()
-            }
-
             upload_result = await run_in_threadpool(
                 upload_bytes,
                 img_bytes,
                 public_id or gsm_id,
                 cloud_folder,
-                "png",
-                gsm_metadata  # ← ADD THIS
+                "png"
             )
 
             gsm["image"]["url"] = upload_result["secure_url"]
             gsm["gsm_id"] = gsm_id
             gsm["anchor_source"] = "custom" if custom_anchors else ("auto" if auto_anchor else "default")
 
-            logger.info(f"[{request_id}] GSM uploaded with metadata: {gsm['image']['url']}")
+            logger.info(f"[{request_id}] GSM uploaded: {gsm['image']['url']}")
         else:
             # Return base64
             b64 = base64.b64encode(img_bytes).decode("ascii")

@@ -20,22 +20,18 @@ class GarmentProcessor:
     """Process garment images into Garment Shape Models (GSM)."""
 
     def __init__(self):
-        # Improved default anchors with better positioning
         self.default_anchors = {
             "shirt": {
-                "collar_left": [0.28, 0.10],
-                "neck_apex": [0.50, 0.15],
-                "collar_right": [0.72, 0.10]
+                "collar_left": [0.30, 0.12],
+                "neck_apex": [0.50, 0.18],
+                "collar_right": [0.70, 0.12]
             },
             "tshirt": {
-                "collar_left": [0.30, 0.14],
-                "neck_apex": [0.50, 0.19],
-                "collar_right": [0.70, 0.14]
+                "collar_left": [0.32, 0.15],
+                "neck_apex": [0.50, 0.20],
+                "collar_right": [0.68, 0.15]
             }
         }
-
-        # Confidence thresholds
-        self.MIN_CONFIDENCE = 0.65  # Require 65% confidence minimum
 
     def process(
         self,
@@ -124,15 +120,15 @@ class GarmentProcessor:
 
     def _detect_anchors(self, mask: np.ndarray, category: str) -> Tuple[Dict, float]:
         """
-        Auto-detect collar anchors with improved validation using contour analysis.
+        Auto-detect collar anchors using contour analysis.
 
         Returns:
             (anchors_dict, confidence_score)
         """
         h, w = mask.shape
 
-        # Focus on top 30% for collar detection
-        top_region = mask[:int(h * 0.30), :]
+        # Focus on top 35% for collar detection
+        top_region = mask[:int(h * 0.35), :]
 
         # Find contours
         contours, _ = cv2.findContours(top_region, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -145,49 +141,46 @@ class GarmentProcessor:
         contour = max(contours, key=cv2.contourArea)
         contour = contour.squeeze()
 
-        if len(contour) < 20:  # Need sufficient points (increased from 10)
-            logger.warning(f"Contour too small ({len(contour)} points), using defaults")
+        if len(contour) < 10:
+            logger.warning("Contour too small, using defaults")
             return self.default_anchors[category], 0.0
 
-        # Smooth contour heavily (increased window from 5 to 9)
-        contour_smooth = self._smooth_contour(contour, window=9)
+        # Smooth contour
+        contour_smooth = self._smooth_contour(contour)
 
         # Find neck apex (topmost point near center)
         center_x = w / 2
-        center_band = w * 0.15  # Within 15% of center
+        top_points = contour_smooth[contour_smooth[:, 1] < h * 0.2]
 
-        top_center_points = contour_smooth[
-            (contour_smooth[:, 1] < h * 0.22) &  # Top 22% (more restrictive)
-            (np.abs(contour_smooth[:, 0] - center_x) < center_band)
-        ]
-
-        if len(top_center_points) == 0:
-            logger.warning("No center top points found, using defaults")
+        if len(top_points) == 0:
+            logger.warning("No top points found, using defaults")
             return self.default_anchors[category], 0.0
 
-        # Pick TOPMOST (minimum y) - most accurate for neckline
-        neck_idx = np.argmin(top_center_points[:, 1])
-        neck_apex = top_center_points[neck_idx]
+        # Find point closest to center horizontally
+        distances = np.abs(top_points[:, 0] - center_x)
+        neck_idx = np.argmin(distances)
+        neck_apex = top_points[neck_idx]
 
-        # Find collar left and right
-        # For t-shirts: collar is BELOW neck apex
-        collar_y_range = (neck_apex[1] - h * 0.02, neck_apex[1] + h * 0.08)
+        # Find collar left and right (move along contour from neck)
+        collar_offset = w * 0.15  # 15% of width from center
 
-        collar_points = contour_smooth[
-            (contour_smooth[:, 1] >= collar_y_range[0]) &
-            (contour_smooth[:, 1] <= collar_y_range[1])
+        left_candidates = contour_smooth[
+            (contour_smooth[:, 0] < center_x - collar_offset * 0.5) &
+            (contour_smooth[:, 1] < h * 0.25)
         ]
 
-        left_collar = collar_points[collar_points[:, 0] < center_x]
-        right_collar = collar_points[collar_points[:, 0] > center_x]
+        right_candidates = contour_smooth[
+            (contour_smooth[:, 0] > center_x + collar_offset * 0.5) &
+            (contour_smooth[:, 1] < h * 0.25)
+        ]
 
-        if len(left_collar) == 0 or len(right_collar) == 0:
-            logger.warning("Collar points not found, using defaults")
+        if len(left_candidates) == 0 or len(right_candidates) == 0:
+            logger.warning("Collar candidates not found, using defaults")
             return self.default_anchors[category], 0.0
 
-        # Pick OUTERMOST points (most left and most right)
-        collar_left = left_collar[np.argmin(left_collar[:, 0])]
-        collar_right = right_collar[np.argmax(right_collar[:, 0])]
+        # Pick leftmost and rightmost
+        collar_left = left_candidates[np.argmin(left_candidates[:, 0])]
+        collar_right = right_candidates[np.argmax(right_candidates[:, 0])]
 
         # Normalize to 0-1
         anchors = {
@@ -196,35 +189,19 @@ class GarmentProcessor:
             "collar_right": [float(collar_right[0] / w), float(collar_right[1] / h)]
         }
 
-        # Calculate confidence with multiple metrics
+        # Calculate confidence based on geometry
         collar_width = collar_right[0] - collar_left[0]
-        expected_width = w * 0.42  # Expect 42% of width (more accurate)
-        width_error = abs(collar_width - expected_width) / expected_width
-        width_score = max(0.0, 1.0 - width_error)
+        expected_width = w * 0.4  # Expect ~40% of width
+        width_score = 1.0 - abs(collar_width - expected_width) / expected_width
+        width_score = np.clip(width_score, 0.0, 1.0)
 
-        # Check neck centering
-        neck_offset = abs(neck_apex[0] - center_x) / (w * 0.1)
-        center_score = max(0.0, 1.0 - neck_offset)
+        # Check if neck is roughly centered
+        neck_center_score = 1.0 - abs(neck_apex[0] - center_x) / (w * 0.1)
+        neck_center_score = np.clip(neck_center_score, 0.0, 1.0)
 
-        # Check collar symmetry
-        left_offset = abs(collar_left[0] - (center_x - collar_width/2))
-        right_offset = abs(collar_right[0] - (center_x + collar_width/2))
-        symmetry_error = (left_offset + right_offset) / (w * 0.1)
-        symmetry_score = max(0.0, 1.0 - symmetry_error)
+        confidence = float((width_score + neck_center_score) / 2)
 
-        # Weighted confidence (width is most important)
-        confidence = float(
-            width_score * 0.4 +
-            center_score * 0.3 +
-            symmetry_score * 0.3
-        )
-
-        # If confidence too low, use defaults
-        if confidence < self.MIN_CONFIDENCE:
-            logger.warning(f"Confidence {confidence:.2f} < {self.MIN_CONFIDENCE}, using defaults")
-            return self.default_anchors[category], confidence
-
-        logger.info(f"Auto-detected anchors: confidence={confidence:.2f} (width={width_score:.2f}, center={center_score:.2f}, sym={symmetry_score:.2f})")
+        logger.info(f"Auto-detected anchors: confidence={confidence:.2f}")
 
         return anchors, confidence
 

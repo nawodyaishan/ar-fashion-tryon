@@ -3,7 +3,7 @@ Cloudinary upload and management service.
 """
 import io
 import logging
-from typing import Optional, Dict
+from typing import Optional
 
 import cloudinary
 import cloudinary.uploader
@@ -18,25 +18,17 @@ logger = logging.getLogger(__name__)
 cloudinary.config(**CLOUDINARY_CONFIG)
 
 
-def upload_bytes(
-    data: bytes,
-    public_id: str,
-    folder: str,
-    fmt: Optional[str] = None,
-    context: Optional[Dict[str, str]] = None
-) -> dict:
+def upload_bytes(data: bytes, public_id: str, folder: str, fmt: Optional[str] = None) -> dict:
     """
-    Upload bytes to Cloudinary with automatic compression and optional context metadata.
+    Upload bytes to Cloudinary with automatic compression.
 
     Compresses images to stay under Cloudinary's 10MB free tier limit.
-    Context metadata allows storing custom data (like GSM) with the image.
 
     Args:
         data: Image bytes to upload
         public_id: Public ID for the image
         folder: Cloudinary folder path
         fmt: Optional format (e.g., "png", "jpg")
-        context: Optional dict of custom metadata (e.g., {"gsm_data": "...", "category": "shirt"})
 
     Returns:
         Cloudinary upload response dict with 'secure_url'
@@ -51,16 +43,8 @@ def upload_bytes(
         "resource_type": "image",
         "overwrite": True,
     }
-
     if fmt:
         kwargs["format"] = fmt
-
-    # Add context metadata if provided
-    if context:
-        # Cloudinary context format: "key1=value1|key2=value2"
-        context_str = "|".join([f"{k}={v}" for k, v in context.items()])
-        kwargs["context"] = context_str
-        logger.info(f"Adding context metadata: {len(context)} keys")
 
     logger.info(f"Uploading to Cloudinary: {len(compressed_data)} bytes → {folder}/{public_id}")
     result = cloudinary.uploader.upload(io.BytesIO(compressed_data), **kwargs)
