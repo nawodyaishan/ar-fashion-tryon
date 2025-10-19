@@ -251,7 +251,7 @@ export default function ARPanel() {
                 fill
                 sizes="(max-width: 640px) 25vw, (max-width: 1024px) 15vw, 10vw"
                 className="object-contain p-1 bg-muted/20"
-                unoptimized={garment.id.startsWith('custom-')}
+                unoptimized // Skip Next.js image optimization for all garments
                 onError={(e) => {
                   // Fallback for missing images
                   console.error(`Failed to load: ${garment.src}`);

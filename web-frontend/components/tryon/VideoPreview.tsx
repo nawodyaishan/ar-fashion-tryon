@@ -44,18 +44,10 @@ export function VideoPreview({ onStreamReady, className = '' }: VideoPreviewProp
 
     try {
       const mediaStream = await requestCameraAccess(deviceId);
+
+      // Store stream in state (this will trigger useEffect to attach to video)
       setStream(mediaStream);
-
-      if (videoRef.current) {
-        videoRef.current.srcObject = mediaStream;
-        // Wait for video to be ready
-        await videoRef.current.play();
-
-        // Pass both stream and video element to callback
-        onStreamReady?.(mediaStream, videoRef.current);
-      }
-
-      setSetupState('active');
+      setSetupState('active'); // Render video element
 
       // Load available devices after successful start
       const devices = await getCameraDevices();
@@ -70,13 +62,44 @@ export function VideoPreview({ onStreamReady, className = '' }: VideoPreviewProp
         setSelectedDeviceId(deviceId);
       }
 
-      toast.success('Camera started successfully');
+      console.log('📹 Camera stream created, waiting for video element...');
     } catch (err) {
       setError(err as CameraError);
       setSetupState('idle');
       toast.error((err as CameraError).message);
     }
   };
+
+  // Attach stream to video element when both are ready
+  useEffect(() => {
+    if (stream && videoRef.current && setupState === 'active') {
+      const attachStream = async () => {
+        try {
+          console.log('📹 Attaching stream to video element...');
+          videoRef.current!.srcObject = stream;
+
+          // Wait for video to be ready and play
+          await videoRef.current!.play();
+
+          console.log('✅ Video playing successfully');
+
+          // Notify parent that stream is ready
+          onStreamReady?.(stream, videoRef.current!);
+
+          toast.success('Camera started successfully');
+        } catch (error) {
+          console.error('❌ Failed to play video:', error);
+          setError({
+            type: 'not-readable',
+            message: 'Failed to play video stream'
+          });
+          setSetupState('idle');
+        }
+      };
+
+      attachStream();
+    }
+  }, [stream, setupState, onStreamReady]);
 
   // Check permissions and support on mount
   useEffect(() => {
