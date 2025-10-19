@@ -8,10 +8,8 @@ import {
   checkCameraSupport,
   getSecurityWarning,
   checkCameraPermission,
-  getCameraDevices,
   type CameraError,
-  type PermissionState,
-  type CameraDevice
+  type PermissionState
 } from '@/lib/camera';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -28,6 +26,7 @@ type SetupState = 'idle' | 'checking-permission' | 'requesting-permission' | 'lo
 
 export function VideoPreview({ onStreamReady, className = '' }: VideoPreviewProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const streamAttachedRef = useRef<MediaStream | null>(null); // Track which stream is attached
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [error, setError] = useState<CameraError | null>(null);
   const [setupState, setSetupState] = useState<SetupState>('idle');
@@ -35,71 +34,159 @@ export function VideoPreview({ onStreamReady, className = '' }: VideoPreviewProp
   const [securityWarning, setSecurityWarning] = useState<string | null>(null);
   const [permissionState, setPermissionState] = useState<PermissionState>('prompt');
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | undefined>(undefined);
-  const [availableDevices, setAvailableDevices] = useState<CameraDevice[]>([]);
 
   // Start camera with selected device
   const startCamera = async (deviceId?: string) => {
+    console.log(`📹 Starting camera${deviceId ? ` with device: ${deviceId}` : ' (default)'}`);
+
+    // Clear any previous errors
     setSetupState('loading');
     setError(null);
+    streamAttachedRef.current = null; // Reset attached stream tracker
 
     try {
+      // Request camera access
       const mediaStream = await requestCameraAccess(deviceId);
+
+      // Validate stream has video tracks
+      if (!mediaStream.getVideoTracks().length) {
+        throw {
+          type: 'not-found',
+          message: 'No video track found in media stream'
+        } as CameraError;
+      }
 
       // Store stream in state (this will trigger useEffect to attach to video)
       setStream(mediaStream);
       setSetupState('active'); // Render video element
 
-      // Load available devices after successful start
-      const devices = await getCameraDevices();
-      setAvailableDevices(devices);
-
-      // If no device was selected, try to identify the current one
-      if (!deviceId && devices.length > 0) {
+      // Auto-detect current device (but don't block on this)
+      if (!deviceId) {
+        // If no specific device was requested, try to identify the current one
         const videoTrack = mediaStream.getVideoTracks()[0];
         const settings = videoTrack.getSettings();
         setSelectedDeviceId(settings.deviceId);
-      } else if (deviceId) {
+        console.log('📹 Auto-detected camera device:', settings.deviceId);
+      } else {
         setSelectedDeviceId(deviceId);
       }
 
-      console.log('📹 Camera stream created, waiting for video element...');
+      console.log('✅ Camera stream created, waiting for video element...');
     } catch (err) {
-      setError(err as CameraError);
+      const cameraError = err as CameraError;
+      console.error('❌ Failed to start camera:', cameraError);
+
+      setError(cameraError);
       setSetupState('idle');
-      toast.error((err as CameraError).message);
+      streamAttachedRef.current = null;
+
+      // Show user-friendly error message
+      const errorMsg = cameraError.message || 'Failed to access camera';
+      toast.error(errorMsg);
     }
   };
 
-  // Attach stream to video element when both are ready
+  // Attach stream to video element when both are ready (runs only once per stream)
   useEffect(() => {
-    if (stream && videoRef.current && setupState === 'active') {
+    // Only attach if:
+    // 1. We have a stream
+    // 2. Video element exists
+    // 3. We're in active state
+    // 4. This stream hasn't been attached yet (prevent duplicates)
+    if (stream && videoRef.current && setupState === 'active' && streamAttachedRef.current !== stream) {
+      let isCancelled = false;
+
       const attachStream = async () => {
         try {
           console.log('📹 Attaching stream to video element...');
-          videoRef.current!.srcObject = stream;
 
-          // Wait for video to be ready and play
-          await videoRef.current!.play();
+          // Check if cancelled (component unmounted or stream changed)
+          if (isCancelled || !videoRef.current) {
+            console.log('⚠️ Stream attachment cancelled');
+            return;
+          }
+
+          // Mark this stream as attached to prevent duplicates
+          streamAttachedRef.current = stream;
+
+          // Attach stream to video element
+          videoRef.current.srcObject = stream;
+
+          // Wait for video metadata to load before playing
+          await new Promise<void>((resolve, reject) => {
+            const video = videoRef.current;
+            if (!video) {
+              reject(new Error('Video element not available'));
+              return;
+            }
+
+            const onLoadedMetadata = () => {
+              video.removeEventListener('loadedmetadata', onLoadedMetadata);
+              video.removeEventListener('error', onError);
+              resolve();
+            };
+
+            const onError = () => {
+              video.removeEventListener('loadedmetadata', onLoadedMetadata);
+              video.removeEventListener('error', onError);
+              reject(new Error('Video metadata failed to load'));
+            };
+
+            video.addEventListener('loadedmetadata', onLoadedMetadata);
+            video.addEventListener('error', onError);
+
+            // If metadata is already loaded, resolve immediately
+            if (video.readyState >= 1) {
+              video.removeEventListener('loadedmetadata', onLoadedMetadata);
+              video.removeEventListener('error', onError);
+              resolve();
+            }
+          });
+
+          // Check again if cancelled
+          if (isCancelled || !videoRef.current) {
+            console.log('⚠️ Stream attachment cancelled after metadata load');
+            return;
+          }
+
+          // Play the video
+          await videoRef.current.play();
 
           console.log('✅ Video playing successfully');
 
-          // Notify parent that stream is ready
-          onStreamReady?.(stream, videoRef.current!);
-
-          toast.success('Camera started successfully');
+          // Notify parent that stream is ready (only once)
+          if (!isCancelled && videoRef.current) {
+            onStreamReady?.(stream, videoRef.current);
+            toast.success('Camera started successfully');
+          }
         } catch (error) {
-          console.error('❌ Failed to play video:', error);
-          setError({
-            type: 'not-readable',
-            message: 'Failed to play video stream'
-          });
-          setSetupState('idle');
+          if (!isCancelled) {
+            console.error('❌ Failed to play video:', error);
+
+            // Only show error if it's a real error, not a cancellation
+            const errorMessage = error instanceof Error ? error.message : 'Failed to play video stream';
+            if (!errorMessage.includes('interrupted') && !errorMessage.includes('removed from the document')) {
+              setError({
+                type: 'not-readable',
+                message: errorMessage
+              });
+              setSetupState('idle');
+              streamAttachedRef.current = null; // Reset on error
+            }
+          }
         }
       };
 
       attachStream();
+
+      // Cleanup function: cancel if stream changes or component unmounts
+      return () => {
+        isCancelled = true;
+        console.log('🧹 Cleaning up stream attachment');
+      };
     }
-  }, [stream, setupState, onStreamReady]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stream, setupState]); // Intentionally excluded onStreamReady to prevent infinite loop
 
   // Check permissions and support on mount
   useEffect(() => {
@@ -129,11 +216,22 @@ export function VideoPreview({ onStreamReady, className = '' }: VideoPreviewProp
 
     checkSetup();
 
-    // Cleanup on unmount
+    // Cleanup on unmount: stop stream and clear video
     return () => {
+      console.log('🧹 Component unmounting, cleaning up camera...');
+
       if (stream) {
         stopCameraStream(stream);
       }
+
+      // Capture ref value for cleanup (suppressing false positive warning)
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      const video = videoRef.current;
+      if (video) {
+        video.srcObject = null;
+      }
+
+      streamAttachedRef.current = null;
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -145,10 +243,18 @@ export function VideoPreview({ onStreamReady, className = '' }: VideoPreviewProp
 
   // Handle device change
   const handleDeviceChange = (deviceId: string) => {
-    // Stop current stream
+    console.log('📹 Switching camera device...');
+
+    // Stop current stream and clear attached ref
     if (stream) {
       stopCameraStream(stream);
       setStream(null);
+      streamAttachedRef.current = null;
+    }
+
+    // Clear video element source
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
     }
 
     // Start with new device
@@ -157,13 +263,25 @@ export function VideoPreview({ onStreamReady, className = '' }: VideoPreviewProp
 
   // Handle reset
   const handleReset = () => {
+    console.log('🔄 Resetting camera...');
+
+    // Stop current stream and clear all state
     if (stream) {
       stopCameraStream(stream);
       setStream(null);
+      streamAttachedRef.current = null;
     }
+
+    // Clear video element
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+
+    // Reset state
     setSetupState('idle');
     setError(null);
     setSelectedDeviceId(undefined);
+
     toast.info('Camera reset');
   };
 
