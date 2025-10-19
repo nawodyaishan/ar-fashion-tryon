@@ -185,8 +185,7 @@ export function VideoPreview({ onStreamReady, className = '' }: VideoPreviewProp
         console.log('🧹 Cleaning up stream attachment');
       };
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stream, setupState]); // Intentionally excluded onStreamReady to prevent infinite loop
+  }, [stream, setupState, onStreamReady]); // onStreamReady is now stable thanks to useCallback in ARStage
 
   // Check permissions and support on mount
   useEffect(() => {

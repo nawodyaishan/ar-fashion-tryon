@@ -1,7 +1,7 @@
 // components/tryon/ARStage.tsx
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { VideoPreview } from './VideoPreview';
 import { GarmentOverlay } from './GarmentOverlay';
 import { PoseLandmarks } from './PoseLandmarks';
@@ -68,11 +68,12 @@ export default function ARStage() {
     return () => window.removeEventListener('resize', updateDimensions);
   }, []);
 
-  const handleStreamReady = (mediaStream: MediaStream, video: HTMLVideoElement) => {
+  // Wrap in useCallback to prevent infinite loop on re-renders
+  const handleStreamReady = useCallback((mediaStream: MediaStream, video: HTMLVideoElement) => {
     console.log('📹 Stream ready for overlay and pose detection');
     setStream(mediaStream);
     videoRef.current = video;
-  };
+  }, []); // Empty deps - this function doesn't need to change
 
   return (
     <Card className="relative w-full h-full min-h-[600px] overflow-hidden bg-black/20 backdrop-blur-sm">
