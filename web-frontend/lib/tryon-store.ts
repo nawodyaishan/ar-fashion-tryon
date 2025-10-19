@@ -20,6 +20,7 @@ interface TryonState {
   snapToShoulders: boolean;
   poseConfidence: PoseConfidence;
   continuousTracking: boolean;
+  lockScale: boolean; // Lock garment size during tracking
   autoAlignInProgress: boolean;
   lastAutoAlignTime: number;
 
@@ -69,6 +70,7 @@ interface TryonState {
   setSnapToShoulders: (snap: boolean) => void;
   setPoseConfidence: (confidence: PoseConfidence | number) => void;
   toggleContinuousTracking: () => void;
+  toggleLockScale: () => void;
   autoAlignGarment: (x: number, y: number, scale: number, rotation: number) => void;
   setStatus: (status: Partial<Status>) => void;
   setBodyPhoto: (photo: string | null) => void;
@@ -95,36 +97,8 @@ const defaultTransform: Transform = {
   lockAspect: true,
 };
 
-// Sample garments for demo
-const sampleGarments: Garment[] = [
-  {
-    id: 'sample-1',
-    name: 'White T-Shirt',
-    src: '/garments/white-tshirt.jpg',
-    width: 512,
-    height: 512,
-    sizeKb: 3,
-    category: 'tops',
-  },
-  {
-    id: 'sample-2',
-    name: 'Black Hoodie',
-    src: '/garments/black-hoodie.jpg',
-    width: 512,
-    height: 512,
-    sizeKb: 4,
-    category: 'tops',
-  },
-  {
-    id: 'sample-3',
-    name: 'Denim Jacket',
-    src: '/garments/denim-jacket.jpg',
-    width: 512,
-    height: 512,
-    sizeKb: 41,
-    category: 'jackets',
-  },
-];
+// Sample garments for demo (disabled - users should upload their own)
+const sampleGarments: Garment[] = [];
 
 export const useTryonStore = create<TryonState>()(
   persist(
@@ -140,6 +114,7 @@ export const useTryonStore = create<TryonState>()(
       snapToShoulders: true,
       poseConfidence: 'Okay',
       continuousTracking: false,
+      lockScale: false,
       autoAlignInProgress: false,
       lastAutoAlignTime: 0,
       positionHistory: [{ ...defaultTransform }],
@@ -336,13 +311,19 @@ export const useTryonStore = create<TryonState>()(
           continuousTracking: !state.continuousTracking,
         })),
 
+      toggleLockScale: () =>
+        set((state) => ({
+          lockScale: !state.lockScale,
+        })),
+
       autoAlignGarment: (x, y, scale, rotation) =>
         set((state) => ({
           transform: {
             ...state.transform,
             x: Math.round(x),
             y: Math.round(y),
-            scale: Math.max(0.3, Math.min(3.0, scale)), // Clamp scale: 0.3 to 3.0
+            // Only update scale if not locked
+            scale: state.lockScale ? state.transform.scale : Math.max(0.3, Math.min(3.0, scale)),
             rotation: Math.max(-45, Math.min(45, Math.round(rotation))) // Clamp rotation: -45° to +45°
           },
           autoAlignInProgress: false,

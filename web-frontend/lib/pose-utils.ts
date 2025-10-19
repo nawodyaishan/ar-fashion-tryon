@@ -90,9 +90,9 @@ export function calculateGarmentPosition(
   baseGarmentWidth: number = 200
 ): GarmentSuggestion {
   // Calculate scale based on shoulder width
-  // Garment should be ~120% of shoulder width for natural fit
-  const targetWidth = shoulderPos.width * 1.2;
-  const scale = targetWidth / baseGarmentWidth;
+  // Garment should be ~90% of shoulder width for better fit (reduced from 120%)
+  const targetWidth = shoulderPos.width * 0.9;
+  const scale = Math.max(0.5, Math.min(1.5, targetWidth / baseGarmentWidth)); // Clamp scale for safety
 
   // Position garment centered on shoulders, slightly below
   const x = shoulderPos.center.x - (baseGarmentWidth * scale) / 2;

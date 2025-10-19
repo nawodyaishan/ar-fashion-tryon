@@ -157,7 +157,6 @@ export function VideoPreview({ onStreamReady, className = '' }: VideoPreviewProp
           // Notify parent that stream is ready (only once)
           if (!isCancelled && videoRef.current) {
             onStreamReady?.(stream, videoRef.current);
-            toast.success('Camera started successfully');
           }
         } catch (error) {
           if (!isCancelled) {

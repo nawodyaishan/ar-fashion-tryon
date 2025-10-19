@@ -30,6 +30,8 @@ export default function ARPanel() {
     toggleLandmarks,
     continuousTracking,
     toggleContinuousTracking,
+    lockScale,
+    toggleLockScale,
     snapToShoulders,
     setSnapToShoulders,
     poseConfidence,
@@ -210,6 +212,24 @@ export default function ARPanel() {
                   checked={continuousTracking}
                   onCheckedChange={toggleContinuousTracking}
                   disabled={!selectedGarmentId}
+                />
+              </div>
+
+              {/* Lock Size */}
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="lock-size-toggle" className="text-sm cursor-pointer">
+                    Lock Size
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Prevent size changes during tracking
+                  </p>
+                </div>
+                <Switch
+                  id="lock-size-toggle"
+                  checked={lockScale}
+                  onCheckedChange={toggleLockScale}
+                  disabled={!continuousTracking}
                 />
               </div>
 

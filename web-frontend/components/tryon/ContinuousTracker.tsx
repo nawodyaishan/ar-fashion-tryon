@@ -17,7 +17,7 @@ export function ContinuousTracker({
   containerWidth,
   containerHeight
 }: ContinuousTrackerProps) {
-  const { continuousTracking, autoAlignGarment, selectedGarmentId } = useTryonStore();
+  const { continuousTracking, autoAlignGarment, selectedGarmentId, lockScale } = useTryonStore();
   const lastUpdateRef = useRef(0);
 
   useEffect(() => {
@@ -42,7 +42,7 @@ export function ContinuousTracker({
     );
 
     lastUpdateRef.current = now;
-  }, [landmarks, containerWidth, containerHeight, continuousTracking, autoAlignGarment, selectedGarmentId]);
+  }, [landmarks, containerWidth, containerHeight, continuousTracking, autoAlignGarment, selectedGarmentId, lockScale]);
 
   return null; // No UI, just side effects
 }
