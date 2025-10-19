@@ -4,20 +4,96 @@ export interface CameraError {
   message: string;
 }
 
-export async function requestCameraAccess(): Promise<MediaStream> {
+export interface CameraDevice {
+  deviceId: string;
+  label: string;
+  groupId: string;
+}
+
+export type PermissionState = 'granted' | 'denied' | 'prompt' | 'unsupported';
+
+/**
+ * Check camera permission state without triggering permission prompt
+ */
+export async function checkCameraPermission(): Promise<PermissionState> {
+  try {
+    // Check if Permissions API is available
+    if (!navigator.permissions || !navigator.permissions.query) {
+      console.warn('⚠️ Permissions API not available');
+      return 'unsupported';
+    }
+
+    // Query camera permission
+    const result = await navigator.permissions.query({ name: 'camera' as PermissionName });
+    console.log('🔐 Camera permission state:', result.state);
+    return result.state as PermissionState;
+  } catch (error) {
+    console.warn('⚠️ Permission check failed:', error);
+    return 'unsupported';
+  }
+}
+
+/**
+ * Get list of available video input devices
+ */
+export async function getCameraDevices(): Promise<CameraDevice[]> {
+  try {
+    // First request basic camera access to get device labels
+    // (labels are empty without permission)
+    const permissionState = await checkCameraPermission();
+
+    if (permissionState === 'denied') {
+      console.warn('⚠️ Camera permission denied, cannot enumerate devices');
+      return [];
+    }
+
+    // Enumerate devices
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const videoDevices = devices
+      .filter(device => device.kind === 'videoinput')
+      .map((device, index) => ({
+        deviceId: device.deviceId,
+        label: device.label || `Camera ${index + 1}`,
+        groupId: device.groupId
+      }));
+
+    console.log(`📹 Found ${videoDevices.length} camera device(s):`, videoDevices);
+    return videoDevices;
+  } catch (error) {
+    console.error('❌ Failed to enumerate devices:', error);
+    return [];
+  }
+}
+
+/**
+ * Request camera access with optional device ID
+ */
+export async function requestCameraAccess(deviceId?: string): Promise<MediaStream> {
+  // Build video constraints
+  const videoConstraints: MediaTrackConstraints = deviceId
+    ? {
+        // Use specific device ID
+        deviceId: { exact: deviceId },
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+        frameRate: { ideal: 30 }
+      }
+    : {
+        // Use default front camera
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+        facingMode: 'user',
+        frameRate: { ideal: 30 }
+      };
+
   // First, try with ideal constraints
   try {
     const stream = await navigator.mediaDevices.getUserMedia({
-      video: {
-        width: { ideal: 1280 },
-        height: { ideal: 720 },
-        facingMode: 'user', // Front camera
-        frameRate: { ideal: 30 }
-      },
+      video: videoConstraints,
       audio: false
     });
 
-    console.log('✅ Camera access granted (ideal settings)');
+    console.log(`✅ Camera access granted${deviceId ? ' (device: ' + deviceId + ')' : ' (ideal settings)'}`);
     return stream;
   } catch {
     console.log('⚠️ Ideal settings failed, trying basic settings...');

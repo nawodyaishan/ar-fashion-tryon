@@ -2,31 +2,48 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { requestCameraAccess, stopCameraStream, checkCameraSupport, getSecurityWarning, type CameraError } from '@/lib/camera';
+import {
+  requestCameraAccess,
+  stopCameraStream,
+  checkCameraSupport,
+  getSecurityWarning,
+  checkCameraPermission,
+  getCameraDevices,
+  type CameraError,
+  type PermissionState,
+  type CameraDevice
+} from '@/lib/camera';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Camera, AlertCircle, RefreshCcw, Shield } from 'lucide-react';
+import { Camera, AlertCircle, RefreshCcw, Shield, Settings } from 'lucide-react';
+import { CameraControls } from './CameraControls';
+import { toast } from 'sonner';
 
 interface VideoPreviewProps {
   onStreamReady?: (stream: MediaStream, video: HTMLVideoElement) => void;
   className?: string;
 }
 
+type SetupState = 'idle' | 'checking-permission' | 'requesting-permission' | 'loading' | 'active';
+
 export function VideoPreview({ onStreamReady, className = '' }: VideoPreviewProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [error, setError] = useState<CameraError | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [setupState, setSetupState] = useState<SetupState>('idle');
   const [isSupported, setIsSupported] = useState(true);
   const [securityWarning, setSecurityWarning] = useState<string | null>(null);
+  const [permissionState, setPermissionState] = useState<PermissionState>('prompt');
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string | undefined>(undefined);
+  const [availableDevices, setAvailableDevices] = useState<CameraDevice[]>([]);
 
-  // Initialize camera
-  const initializeCamera = async () => {
-    setIsLoading(true);
+  // Start camera with selected device
+  const startCamera = async (deviceId?: string) => {
+    setSetupState('loading');
     setError(null);
 
     try {
-      const mediaStream = await requestCameraAccess();
+      const mediaStream = await requestCameraAccess(deviceId);
       setStream(mediaStream);
 
       if (videoRef.current) {
@@ -38,30 +55,56 @@ export function VideoPreview({ onStreamReady, className = '' }: VideoPreviewProp
         onStreamReady?.(mediaStream, videoRef.current);
       }
 
-      setIsLoading(false);
+      setSetupState('active');
+
+      // Load available devices after successful start
+      const devices = await getCameraDevices();
+      setAvailableDevices(devices);
+
+      // If no device was selected, try to identify the current one
+      if (!deviceId && devices.length > 0) {
+        const videoTrack = mediaStream.getVideoTracks()[0];
+        const settings = videoTrack.getSettings();
+        setSelectedDeviceId(settings.deviceId);
+      } else if (deviceId) {
+        setSelectedDeviceId(deviceId);
+      }
+
+      toast.success('Camera started successfully');
     } catch (err) {
       setError(err as CameraError);
-      setIsLoading(false);
+      setSetupState('idle');
+      toast.error((err as CameraError).message);
     }
   };
 
-  // Check support on mount
+  // Check permissions and support on mount
   useEffect(() => {
-    // Check for security warnings
-    const warning = getSecurityWarning();
-    if (warning) {
-      setSecurityWarning(warning);
-      setIsLoading(false);
-      return;
-    }
+    const checkSetup = async () => {
+      // Check for security warnings
+      const warning = getSecurityWarning();
+      if (warning) {
+        setSecurityWarning(warning);
+        setSetupState('idle');
+        return;
+      }
 
-    if (!checkCameraSupport()) {
-      setIsSupported(false);
-      setIsLoading(false);
-      return;
-    }
+      if (!checkCameraSupport()) {
+        setIsSupported(false);
+        setSetupState('idle');
+        return;
+      }
 
-    initializeCamera();
+      // Check permission state
+      setSetupState('checking-permission');
+      const permission = await checkCameraPermission();
+      setPermissionState(permission);
+      setSetupState('idle');
+
+      console.log('📹 Camera setup check complete. Permission:', permission);
+    };
+
+    checkSetup();
 
     // Cleanup on unmount
     return () => {
@@ -71,12 +114,34 @@ export function VideoPreview({ onStreamReady, className = '' }: VideoPreviewProp
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Retry handler
-  const handleRetry = () => {
+  // Handle start camera button
+  const handleStartCamera = () => {
+    setSetupState('requesting-permission');
+    startCamera(selectedDeviceId);
+  };
+
+  // Handle device change
+  const handleDeviceChange = (deviceId: string) => {
+    // Stop current stream
     if (stream) {
       stopCameraStream(stream);
+      setStream(null);
     }
-    initializeCamera();
+
+    // Start with new device
+    startCamera(deviceId);
+  };
+
+  // Handle reset
+  const handleReset = () => {
+    if (stream) {
+      stopCameraStream(stream);
+      setStream(null);
+    }
+    setSetupState('idle');
+    setError(null);
+    setSelectedDeviceId(undefined);
+    toast.info('Camera reset');
   };
 
   // Security warning (HTTPS required for network access)
@@ -114,6 +179,39 @@ export function VideoPreview({ onStreamReady, className = '' }: VideoPreviewProp
     );
   }
 
+  // Idle state - Show "Start Camera" button
+  if (setupState === 'idle' && !stream && !error) {
+    return (
+      <div className={`flex items-center justify-center bg-black/20 backdrop-blur-sm rounded-lg ${className}`}>
+        <div className="text-center p-6 space-y-4">
+          <div className="mx-auto h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center">
+            <Camera className="h-10 w-10 text-primary" />
+          </div>
+          <div className="space-y-2">
+            <h3 className="font-semibold text-lg">Start Live Camera</h3>
+            <p className="text-sm text-muted-foreground max-w-sm">
+              {permissionState === 'denied'
+                ? 'Camera permission was denied. Please allow camera access in your browser settings.'
+                : permissionState === 'granted'
+                  ? 'Camera permission granted. Click below to start.'
+                  : 'We need camera access to show the live preview.'}
+            </p>
+          </div>
+          <Button onClick={handleStartCamera} size="lg" disabled={permissionState === 'denied'}>
+            <Camera className="mr-2 h-5 w-5" />
+            Start Camera
+          </Button>
+          {permissionState === 'denied' && (
+            <p className="text-xs text-muted-foreground">
+              <Settings className="inline h-3 w-3 mr-1" />
+              Check browser settings → Site permissions → Camera
+            </p>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   // Error state
   if (error) {
     return (
@@ -123,9 +221,9 @@ export function VideoPreview({ onStreamReady, className = '' }: VideoPreviewProp
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>{error.message}</AlertDescription>
           </Alert>
-          <Button onClick={handleRetry} variant="outline" size="sm">
+          <Button onClick={handleReset} variant="outline" size="sm">
             <RefreshCcw className="mr-2 h-4 w-4" />
-            Retry Camera Access
+            Try Again
           </Button>
           {error.type === 'permission-denied' && (
             <p className="text-xs text-muted-foreground">
@@ -138,18 +236,22 @@ export function VideoPreview({ onStreamReady, className = '' }: VideoPreviewProp
   }
 
   // Loading state
-  if (isLoading) {
+  if (setupState === 'checking-permission' || setupState === 'requesting-permission' || setupState === 'loading') {
     return (
       <div className={`flex items-center justify-center bg-black/20 backdrop-blur-sm rounded-lg ${className}`}>
         <div className="text-center space-y-4">
           <Camera className="mx-auto h-12 w-12 animate-pulse text-primary" />
-          <p className="text-sm text-muted-foreground">Accessing camera...</p>
+          <p className="text-sm text-muted-foreground">
+            {setupState === 'checking-permission' && 'Checking permissions...'}
+            {setupState === 'requesting-permission' && 'Requesting camera access...'}
+            {setupState === 'loading' && 'Starting camera...'}
+          </p>
         </div>
       </div>
     );
   }
 
-  // Video display
+  // Video display (active state)
   return (
     <div className={`relative overflow-hidden rounded-lg ${className}`}>
       <video
@@ -159,9 +261,20 @@ export function VideoPreview({ onStreamReady, className = '' }: VideoPreviewProp
         muted
         className="w-full h-full object-cover scale-x-[-1]" // Mirror effect
       />
-      {/* Optional: Overlay for FPS or status */}
-      <div className="absolute top-2 right-2 bg-black/50 backdrop-blur-sm px-2 py-1 rounded text-xs text-white">
-        Camera Active
+
+      {/* Camera Controls Overlay */}
+      <div className="absolute top-2 left-2 right-2 flex items-start justify-between gap-2">
+        <div className="bg-black/50 backdrop-blur-sm px-2 py-1 rounded text-xs text-white">
+          Camera Active
+        </div>
+
+        {/* Camera Controls */}
+        <CameraControls
+          currentDeviceId={selectedDeviceId}
+          onDeviceChange={handleDeviceChange}
+          onReset={handleReset}
+          disabled={setupState !== 'active'}
+        />
       </div>
     </div>
   );
