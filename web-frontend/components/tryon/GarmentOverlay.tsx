@@ -136,17 +136,26 @@ export function GarmentOverlay({
     position: { x: number; y: number }
   ) => {
     const newWidth = parseInt(ref.style.width);
+    const newHeight = parseInt(ref.style.height);
     const newScale = newWidth / 200; // Calculate scale based on base width
 
+    // Calculate the old center point (shoulders center = center-top)
+    const oldCenterX = transform.x + garmentDimensions.width / 2;
+    const oldCenterTopY = transform.y;
+
+    // Calculate new position to keep shoulders center fixed
+    const newX = oldCenterX - newWidth / 2;
+    const newY = oldCenterTopY;
+
     setTransform({
-      x: position.x,
-      y: position.y,
+      x: newX,
+      y: newY,
       scale: newScale
     });
 
     setGarmentDimensions({
       width: newWidth,
-      height: parseInt(ref.style.height)
+      height: newHeight
     });
   };
 

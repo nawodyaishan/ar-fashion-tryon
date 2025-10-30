@@ -723,7 +723,7 @@ async def virtual_tryon(
     return JSONResponse(response)
 
 
-# -------------------- Global Exception Handler --------------------
+# -------------------- Global Exception Handler -------------------
 @app.exception_handler(Exception)
 async def unhandled_exc_handler(request: Request, exc: Exception):
     """Global exception handler with request tracking."""
