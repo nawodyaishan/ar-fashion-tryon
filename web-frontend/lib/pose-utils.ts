@@ -111,9 +111,9 @@ export function calculateGarmentPosition(
   console.log('📐 Using simple positioning (no keypoints or low confidence)');
 
   // Calculate scale based on shoulder width
-  // Garment should be ~90% of shoulder width for better fit (reduced from 120%)
-  const targetWidth = shoulderPos.width * 0.9;
-  const scale = Math.max(0.5, Math.min(1.5, targetWidth / baseGarmentWidth)); // Clamp scale for safety
+  // Garment should be 180% of shoulder width (2x increase from 90%)
+  const targetWidth = shoulderPos.width * 1.8;
+  const scale = Math.max(0.5, Math.min(3.0, targetWidth / baseGarmentWidth)); // Clamp scale increased to 3.0
 
   // Position garment centered on shoulders, slightly below
   const x = shoulderPos.center.x - (baseGarmentWidth * scale) / 2;
