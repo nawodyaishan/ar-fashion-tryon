@@ -208,8 +208,11 @@ Look for MMPose-related errors after "Starting up application...".
 ✅ **Root cause 2**: MMPose dependencies installed opencv-python (with GUI support)
 ✅ **Solution 2**: Force use of opencv-python-headless (no OpenGL dependencies)
 
+✅ **Root cause 3**: NumPy binary incompatibility with MMPose (numpy.dtype size changed)
+✅ **Solution 3**: Pin numpy<2.0.0 and force wheel-only installation with PIP_ONLY_BINARY
+
 ✅ **Changes**: requirements.txt, install_mmpose.sh, nixpacks.toml
-✅ **Expected result**: Clean build with no compilation errors and proper OpenCV headless support
+✅ **Expected result**: Clean build with no compilation errors, proper OpenCV headless support, and working keypoint detection
 
 The deployment should now succeed on Railway without requiring C++ compilation tools or OpenGL libraries.
 
@@ -266,3 +269,67 @@ fi
 ✓ Downloading TensorFlow model...
 ✓ All checks passed - Models ready for deployment
 ```
+
+---
+
+## NumPy Binary Incompatibility Fix (Update 2)
+
+### Problem
+
+After fixing OpenCV, a third error appeared at runtime:
+
+```
+2025-11-11 10:33:13,850 | ERROR | services.keypoint_service | Failed to load MMPose model: numpy.dtype size changed, may indicate binary incompatibility. Expected 96 from C header, got 88 from PyObject
+2025-11-11 10:33:13,851 | WARNING | services.keypoint_service | Keypoint detection will not be available. Service continues without it.
+```
+
+**Root Cause**:
+1. MMPose and its dependencies were compiled against NumPy 1.x (with dtype size 96)
+2. Railway installed NumPy 2.x (with dtype size 88), causing binary incompatibility
+3. Additionally, `mim install` was still attempting to compile from source despite our script
+
+### Solution
+
+**Three-part fix in `install_mmpose.sh`:**
+
+1. **Force wheel-only installation** with environment variables:
+   ```bash
+   export PIP_NO_BUILD_ISOLATION=1
+   export PIP_ONLY_BINARY=:all:
+   ```
+
+2. **Add verification step** after mmcv installation:
+   ```bash
+   if python -c "import mmcv; print(f'mmcv {mmcv.__version__} loaded successfully')" 2>/dev/null; then
+       log_info "✓ mmcv installed and verified successfully"
+   else
+       log_warn "⚠ mmcv import failed - keypoint detection may not work"
+   fi
+   ```
+
+3. **Pin NumPy version** in `requirements.txt`:
+   ```python
+   numpy<2.0.0  # Pin to avoid binary incompatibility with MMPose
+   ```
+
+### Expected Runtime Output (Updated)
+
+After successful deployment, the `/health` endpoint should show:
+
+```json
+{
+  "status": "OK",
+  "model_loaded": true,
+  "keypoint_model_loaded": true,  ← Should be true now!
+  "rejection_threshold": 0.75
+}
+```
+
+And the startup logs should show:
+
+```
+2025-11-11 10:33:13 | INFO | services.keypoint_service | ✅ MMPose model loaded successfully
+2025-11-11 10:33:13 | INFO | services.keypoint_service | RTMPose model ready for inference
+```
+
+Instead of the previous error.
