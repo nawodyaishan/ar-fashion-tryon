@@ -19,3 +19,10 @@ gradio-client>=1.4.0
 
 # TensorFlow for garment classification
 tensorflow-cpu
+
+# MMPose for garment keypoint detection
+openmim
+mmengine
+mmcv>=2.0.0
+mmpose
+mmdet
