@@ -20,23 +20,23 @@ log_info "Initial NumPy version: $INITIAL_NUMPY"
 
 # Step 2: Install openmim (package manager for OpenMMLab)
 log_info "Installing openmim..."
-pip install openmim
+pip install openmim 2>&1 | tee /tmp/mmpose_full_install.log
 
 # Step 3: Install mmengine with strict NumPy 1.x requirement
 log_info "Installing mmengine with NumPy 1.x constraint..."
-pip install "mmengine>=0.8.0,<0.11.0" "numpy<2.0.0"
+pip install "mmengine>=0.8.0,<0.11.0" "numpy<2.0.0" 2>&1 | tee -a /tmp/mmpose_full_install.log
 
 # Step 4: Install mmcv directly from OpenMMLab wheels (NumPy 1.x compatible)
 log_info "Installing mmcv from OpenMMLab wheel repository..."
 log_info "Platform: linux, CPU-only, PyTorch 2.x, NumPy 1.x"
 pip install --no-cache-dir mmcv==2.1.0 \
   -f https://download.openmmlab.com/mmcv/dist/cpu/torch2.0/index.html \
-  "numpy<2.0.0"
+  "numpy<2.0.0" 2>&1 | tee -a /tmp/mmpose_full_install.log
 
 INSTALL_STATUS=$?
 if [ $INSTALL_STATUS -ne 0 ]; then
     log_warn "Direct mmcv install failed, trying mim as fallback..."
-    mim install "mmcv==2.1.0"
+    mim install "mmcv==2.1.0" 2>&1 | tee -a /tmp/mmpose_full_install.log
 fi
 
 # Step 5: CRITICAL - Check if NumPy was upgraded
@@ -46,14 +46,14 @@ log_info "NumPy version after mmcv: $NUMPY_AFTER_MMCV"
 
 if [[ "$NUMPY_AFTER_MMCV" == 2.* ]]; then
     log_warn "⚠ CRITICAL: NumPy was upgraded to 2.x! Forcing downgrade..."
-    pip install --force-reinstall "numpy>=1.20.0,<2.0.0"
+    pip install --force-reinstall "numpy>=1.20.0,<2.0.0" 2>&1 | tee -a /tmp/mmpose_full_install.log
     NUMPY_FIXED=$(python -c 'import numpy; print(numpy.__version__)')
     log_info "NumPy forcefully downgraded to: $NUMPY_FIXED"
 fi
 
 # Step 6: Install mmpose and mmdet with NumPy constraints
 log_info "Installing mmpose and mmdet..."
-pip install "mmpose>=1.0.0,<1.4.0" "mmdet>=3.0.0,<3.4.0" "numpy<2.0.0"
+pip install "mmpose>=1.0.0,<1.4.0" "mmdet>=3.0.0,<3.4.0" "numpy<2.0.0" 2>&1 | tee -a /tmp/mmpose_full_install.log
 
 # Step 7: FINAL NumPy check
 FINAL_NUMPY=$(python -c "import numpy; print(numpy.__version__)")
@@ -63,28 +63,23 @@ if [[ "$FINAL_NUMPY" == 2.* ]]; then
     log_warn "⚠ FATAL: NumPy is still at 2.x after all installations!"
     log_warn "Performing aggressive downgrade..."
     pip uninstall -y numpy
-    pip install "numpy==1.26.4"
+    pip install "numpy==1.26.4" 2>&1 | tee -a /tmp/mmpose_full_install.log
     log_info "Final NumPy: $(python -c 'import numpy; print(numpy.__version__)')"
 fi
 
-# Step 8: Check for multiple NumPy installations
-log_info "Checking for multiple NumPy installations..."
-pip list | grep numpy || true
-
-# Step 9: Verify mmcv loads correctly
+# Step 8: Verify mmcv loads correctly
 log_info "Verifying mmcv installation..."
-if python -c "import mmcv; print(f'✓ mmcv {mmcv.__version__} loaded successfully')"; then
+if python -c "import mmcv; print(f'✓ mmcv {mmcv.__version__} loaded successfully')" 2>&1 | tee -a /tmp/mmpose_full_install.log; then
     log_info "✓ mmcv installed and verified successfully"
 
     # Detailed verification
-    python -c "import numpy; print(f'NumPy version: {numpy.__version__}, dtype size: {numpy.dtype(numpy.float64).itemsize}')"
-    python -c "import numpy; import sys; print(f'NumPy location: {numpy.__file__}')"
-    python -c "import mmengine; print(f'mmengine version: {mmengine.__version__}')"
-    python -c "import mmpose; print(f'mmpose version: {mmpose.__version__}')"
-    python -c "import mmdet; print(f'mmdet version: {mmdet.__version__}')"
+    python -c "import numpy; print(f'NumPy version: {numpy.__version__}, dtype size: {numpy.dtype(numpy.float64).itemsize}')" 2>&1 | tee -a /tmp/mmpose_full_install.log
+    python -c "import mmengine; print(f'mmengine version: {mmengine.__version__}')" 2>&1 | tee -a /tmp/mmpose_full_install.log
+    python -c "import mmpose; print(f'mmpose version: {mmpose.__version__}')" 2>&1 | tee -a /tmp/mmpose_full_install.log
 else
     log_warn "⚠ mmcv import failed - checking error details..."
-    python -c "import mmcv" || true
+    python -c "import mmcv" 2>&1 | tee -a /tmp/mmpose_full_install.log || true
+    log_warn "Full install log saved to /tmp/mmpose_full_install.log"
     log_warn "Keypoint detection will not be available"
 fi
 
