@@ -20,4 +20,16 @@ mim install "mmcv>=2.0.0,<2.3.0" || {
     pip install mmcv==2.1.0 -f https://download.openmmlab.com/mmcv/dist/cpu/torch2.0/index.html
 }
 
+# Fix OpenCV conflict: MMPose dependencies may install opencv-python (with GUI)
+# Railway needs opencv-python-headless (no GUI/OpenGL dependencies)
+log_info "Fixing OpenCV dependencies for headless environment..."
+if pip show opencv-python &>/dev/null; then
+    log_warn "Found opencv-python (with GUI support), uninstalling..."
+    pip uninstall -y opencv-python
+    log_info "Ensuring opencv-python-headless is installed..."
+    pip install --force-reinstall opencv-python-headless
+else
+    log_info "opencv-python not found, opencv-python-headless is already in use"
+fi
+
 log_info "✓ MMPose dependencies installed successfully"
