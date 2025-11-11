@@ -22,7 +22,7 @@ tensorflow-cpu
 
 # MMPose for garment keypoint detection
 openmim
-mmengine
-# Note: mmcv will be installed via mim (see install_mmpose.sh)
-mmpose
-mmdet
+mmengine>=0.8.0,<0.11.0  # Pin to avoid NumPy 2.x requirement
+# Note: mmcv will be installed separately (see install_mmpose.sh)
+mmpose>=1.0.0,<1.4.0  # Pin to compatible version
+mmdet>=3.0.0,<3.4.0  # Pin to compatible version
