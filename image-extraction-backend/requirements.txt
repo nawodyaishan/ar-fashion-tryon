@@ -23,6 +23,6 @@ tensorflow-cpu
 # MMPose for garment keypoint detection
 openmim
 mmengine
-# Note: mmcv will be installed via mim (see install_mmpose.sh)
+mmcv>=2.0.0
 mmpose
 mmdet
