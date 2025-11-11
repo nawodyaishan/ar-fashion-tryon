@@ -21,13 +21,12 @@ from config import (
     CORS_ALLOW_ORIGINS, CORS_ALLOW_CREDENTIALS,
     FOLDER_ORIG, FOLDER_CUT, FOLDER_TRYON
 )
-from models import HealthOut, UrlIn, KeypointDetectionResponse
+from models import HealthOut, UrlIn
 from middleware import RequestIDMiddleware
 from services.classifier import load_model_and_config, classify_image
 from services.cloudinary_service import upload_bytes, download_url_bytes
 from services.gradio_service import get_gradio_client, call_gradio_api
 from services.image_processing import remove_background, image_to_png_bytes, ensure_png_format, construct_outfit_image
-from services.keypoint_service import load_keypoint_model, detect_keypoints, is_model_loaded as is_keypoint_model_loaded
 
 # -------------------- Logging Setup --------------------
 logging.basicConfig(
@@ -61,9 +60,6 @@ async def startup_load():
     # Load classification model
     load_model_and_config()
 
-    # Load keypoint detection model (graceful degradation if fails)
-    load_keypoint_model()
-
     # Note: Gradio client will connect on first use (lazy loading)
     # This prevents startup failures if Gradio space is temporarily unavailable
 
@@ -80,7 +76,7 @@ def _allowed_file(filename: str) -> bool:
 @app.get("/health", response_model=HealthOut)
 async def health():
     """Health check endpoint."""
-    return HealthOut(keypoint_model_loaded=is_keypoint_model_loaded())
+    return HealthOut()
 
 
 @app.post("/classify_garment")
@@ -725,210 +721,6 @@ async def virtual_tryon(
 
     logger.info(f"[{request_id}] virtual_tryon completed successfully")
     return JSONResponse(response)
-
-
-# -------------------- Keypoint Detection Endpoints --------------------
-@app.post("/detect_garment_keypoints", response_model=KeypointDetectionResponse)
-async def detect_garment_keypoints(request: Request, garment: UploadFile = File(...)):
-    """
-    Detect garment keypoints for AR try-on alignment.
-
-    This endpoint uploads the garment image to Cloudinary and detects structural
-    keypoints (shoulders, neckline, hips, etc.) that can be used for precise
-    garment-to-body alignment in AR applications.
-
-    The keypoint detection uses body pose estimation as a proxy, which works well
-    when garments are laid flat or displayed on a mannequin/model.
-
-    Form-Data:
-        garment: Image file (PNG, JPG, JPEG, max 16MB)
-
-    Returns:
-        JSON with:
-        - garment_url: Cloudinary URL of uploaded image
-        - all_keypoints: List of all detected keypoints (normalized 0-1)
-        - garment_keypoints: Organized keypoints for alignment (shoulders, hips, etc.)
-        - image_dimensions: Original image width and height
-        - detection_confidence: Overall confidence score
-
-    Note: Requires MMPose model to be loaded. Check /health endpoint first.
-    """
-    request_id = getattr(request.state, "request_id", "unknown")
-    logger.info(f"[{request_id}] detect_garment_keypoints request started")
-
-    # Check if keypoint model is loaded
-    if not is_keypoint_model_loaded():
-        raise HTTPException(
-            status_code=503,
-            detail="Keypoint detection model not loaded. Check /health endpoint."
-        )
-
-    # Validate file
-    filename = garment.filename or ""
-    if not filename or not _allowed_file(filename):
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid file type. Allowed: {', '.join(sorted(ALLOWED_EXTS))}"
-        )
-
-    # Read and validate image
-    body = await garment.read()
-    if len(body) > MAX_CONTENT_BYTES:
-        raise HTTPException(
-            status_code=413,
-            detail=f"File too large (>{int(MAX_CONTENT_MB)}MB)"
-        )
-
-    try:
-        Image.open(io.BytesIO(body)).verify()
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid image file")
-
-    # Upload original to Cloudinary
-    token = secrets.token_hex(8)
-    orig_public_id = f"garment_{token}"
-
-    try:
-        orig_upload = await run_in_threadpool(upload_bytes, body, orig_public_id, FOLDER_ORIG, None)
-        garment_url = orig_upload["secure_url"]
-        logger.info(f"[{request_id}] Uploaded to Cloudinary: {garment_url}")
-    except Exception as e:
-        logger.error(f"[{request_id}] Cloudinary upload failed: {e}")
-        raise HTTPException(status_code=500, detail=f"Upload failed: {e}")
-
-    # Save to temp file for keypoint detection
-    ext = filename.rsplit(".", 1)[1].lower()
-    with tempfile.NamedTemporaryFile(delete=False, suffix=f".{ext}") as tmp:
-        tmp.write(body)
-        tmp_path = Path(tmp.name)
-
-    try:
-        # Detect keypoints
-        keypoint_result = await run_in_threadpool(detect_keypoints, tmp_path)
-
-        logger.info(
-            f"[{request_id}] Keypoint detection completed: "
-            f"{len(keypoint_result['all_keypoints'])} keypoints detected, "
-            f"confidence {keypoint_result['detection_confidence']:.2f}"
-        )
-
-        # Build response
-        response = KeypointDetectionResponse(
-            success=True,
-            garment_url=garment_url,
-            garment_public_id=f"{FOLDER_ORIG}/{orig_public_id}",
-            all_keypoints=keypoint_result["all_keypoints"],
-            garment_keypoints=keypoint_result["garment_keypoints"],
-            image_dimensions=keypoint_result["image_dimensions"],
-            detection_confidence=keypoint_result["detection_confidence"],
-            message=keypoint_result["message"]
-        )
-
-        return response
-
-    except ValueError as e:
-        logger.error(f"[{request_id}] Keypoint detection failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-    except Exception as e:
-        logger.error(f"[{request_id}] Processing failed: {e}")
-        raise HTTPException(status_code=500, detail=f"Processing failed: {e}")
-    finally:
-        tmp_path.unlink(missing_ok=True)
-
-
-@app.post("/detect_garment_keypoints_by_url", response_model=KeypointDetectionResponse)
-async def detect_garment_keypoints_by_url(request: Request, payload: UrlIn):
-    """
-    Detect garment keypoints from a URL.
-
-    This is the URL-based variant of /detect_garment_keypoints.
-    Downloads image from URL, uploads to Cloudinary, and detects keypoints.
-
-    JSON Body:
-        {
-            "source_url": "https://example.com/garment.jpg"
-        }
-
-    Returns:
-        Same as /detect_garment_keypoints endpoint
-
-    Note: Requires MMPose model to be loaded. Check /health endpoint first.
-    """
-    request_id = getattr(request.state, "request_id", "unknown")
-    logger.info(f"[{request_id}] detect_garment_keypoints_by_url request: {payload.source_url}")
-
-    # Check if keypoint model is loaded
-    if not is_keypoint_model_loaded():
-        raise HTTPException(
-            status_code=503,
-            detail="Keypoint detection model not loaded. Check /health endpoint."
-        )
-
-    url = payload.source_url.strip()
-    if not (url.startswith("http://") or url.startswith("https://")):
-        raise HTTPException(status_code=400, detail="Invalid URL")
-
-    # Download image
-    try:
-        body = await run_in_threadpool(download_url_bytes, url, MAX_CONTENT_BYTES)
-        Image.open(io.BytesIO(body)).verify()
-    except ValueError:
-        raise HTTPException(
-            status_code=413,
-            detail=f"File too large (>{int(MAX_CONTENT_MB)}MB)"
-        )
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Failed to fetch image: {e}")
-
-    # Upload original to Cloudinary
-    token = secrets.token_hex(8)
-    orig_public_id = f"garment_{token}"
-
-    try:
-        orig_upload = await run_in_threadpool(upload_bytes, body, orig_public_id, FOLDER_ORIG, None)
-        garment_url = orig_upload["secure_url"]
-        logger.info(f"[{request_id}] Uploaded to Cloudinary: {garment_url}")
-    except Exception as e:
-        logger.error(f"[{request_id}] Cloudinary upload failed: {e}")
-        raise HTTPException(status_code=500, detail=f"Upload failed: {e}")
-
-    # Save to temp file for keypoint detection
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp:
-        tmp.write(body)
-        tmp_path = Path(tmp.name)
-
-    try:
-        # Detect keypoints
-        keypoint_result = await run_in_threadpool(detect_keypoints, tmp_path)
-
-        logger.info(
-            f"[{request_id}] Keypoint detection completed: "
-            f"{len(keypoint_result['all_keypoints'])} keypoints detected, "
-            f"confidence {keypoint_result['detection_confidence']:.2f}"
-        )
-
-        # Build response
-        response = KeypointDetectionResponse(
-            success=True,
-            garment_url=garment_url,
-            garment_public_id=f"{FOLDER_ORIG}/{orig_public_id}",
-            all_keypoints=keypoint_result["all_keypoints"],
-            garment_keypoints=keypoint_result["garment_keypoints"],
-            image_dimensions=keypoint_result["image_dimensions"],
-            detection_confidence=keypoint_result["detection_confidence"],
-            message=keypoint_result["message"]
-        )
-
-        return response
-
-    except ValueError as e:
-        logger.error(f"[{request_id}] Keypoint detection failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-    except Exception as e:
-        logger.error(f"[{request_id}] Processing failed: {e}")
-        raise HTTPException(status_code=500, detail=f"Processing failed: {e}")
-    finally:
-        tmp_path.unlink(missing_ok=True)
 
 
 # -------------------- Global Exception Handler -------------------
