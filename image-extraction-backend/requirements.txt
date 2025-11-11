@@ -9,7 +9,7 @@ requests
 python-dotenv
 
 # Image processing
-numpy<2.0.0  # Pin to avoid binary incompatibility with MMPose
+numpy
 rembg
 onnxruntime
 opencv-python-headless
