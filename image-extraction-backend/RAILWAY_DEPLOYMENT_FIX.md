@@ -202,67 +202,9 @@ Look for MMPose-related errors after "Starting up application...".
 
 ## Summary
 
-✅ **Root cause 1**: mmcv tried to compile from source (needs gcc)
-✅ **Solution 1**: Install mmcv using pre-built wheels via mim
-
-✅ **Root cause 2**: MMPose dependencies installed opencv-python (with GUI support)
-✅ **Solution 2**: Force use of opencv-python-headless (no OpenGL dependencies)
-
+✅ **Root cause**: mmcv tried to compile from source (needs gcc)
+✅ **Solution**: Install mmcv using pre-built wheels via mim
 ✅ **Changes**: requirements.txt, install_mmpose.sh, nixpacks.toml
-✅ **Expected result**: Clean build with no compilation errors and proper OpenCV headless support
+✅ **Expected result**: Clean build with no compilation errors
 
-The deployment should now succeed on Railway without requiring C++ compilation tools or OpenGL libraries.
-
----
-
-## OpenCV Conflict Fix (Update)
-
-### Problem
-
-After fixing the mmcv compilation issue, a second error appeared:
-
-```
-ImportError: libGL.so.1: cannot open shared object file: No such file or directory
-  File "/app/services/classifier.py", line 14, in <module>
-    import cv2
-```
-
-**Root Cause**: When installing MMPose dependencies (mmcv, mmdet, mmengine), the regular `opencv-python` package gets installed as a transitive dependency. This package includes GUI support and requires OpenGL libraries (libGL.so.1), which don't exist in Railway's headless environment.
-
-### Solution
-
-The `install_mmpose.sh` script now includes an OpenCV conflict check:
-
-```bash
-# Fix OpenCV conflict: MMPose dependencies may install opencv-python (with GUI)
-# Railway needs opencv-python-headless (no GUI/OpenGL dependencies)
-log_info "Fixing OpenCV dependencies for headless environment..."
-if pip show opencv-python &>/dev/null; then
-    log_warn "Found opencv-python (with GUI support), uninstalling..."
-    pip uninstall -y opencv-python
-    log_info "Ensuring opencv-python-headless is installed..."
-    pip install --force-reinstall opencv-python-headless
-else
-    log_info "opencv-python not found, opencv-python-headless is already in use"
-fi
-```
-
-**How it works:**
-1. After installing mmcv via mim, check if `opencv-python` was installed
-2. If found, uninstall it
-3. Reinstall `opencv-python-headless` (which was already in requirements.txt)
-4. This ensures cv2 imports without requiring OpenGL libraries
-
-### Expected Build Output (Updated)
-
-```
-✓ Installing dependencies from requirements.txt
-✓ Installing MMPose dependencies with pre-built wheels...
-✓ Installing mmcv via mim...
-✓ Fixing OpenCV dependencies for headless environment...
-[WARN] Found opencv-python (with GUI support), uninstalling...
-✓ Ensuring opencv-python-headless is installed...
-✓ MMPose dependencies installed successfully
-✓ Downloading TensorFlow model...
-✓ All checks passed - Models ready for deployment
-```
+The deployment should now succeed on Railway without requiring C++ compilation tools.
