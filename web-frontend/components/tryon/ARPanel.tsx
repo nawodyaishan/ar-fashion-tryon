@@ -13,7 +13,6 @@ import { extractGarmentSmart } from '@/lib/services/garmentApi';
 import {
   uploadGarmentWithKeypoints,
   transformAPIResponseToGarment,
-  checkKeypointAPIHealth,
 } from '@/lib/api/keypoint-client';
 import { TransformControls } from './TransformControls';
 import { MediaPipeTestPanel } from './MediaPipeTestPanel';
@@ -47,19 +46,6 @@ export default function ARPanel() {
   } = useTryonStore();
 
   const [containerDimensions, setContainerDimensions] = useState({ width: 640, height: 480 });
-  const [keypointAPIAvailable, setKeypointAPIAvailable] = useState<boolean | null>(null);
-
-  // Check keypoint API health on mount
-  useEffect(() => {
-    checkKeypointAPIHealth().then((available) => {
-      setKeypointAPIAvailable(available);
-      if (!available) {
-        console.warn('⚠️ Keypoint API unavailable - will use basic garment upload');
-      } else {
-        console.log('✅ Keypoint API available');
-      }
-    });
-  }, []);
 
   // Load saved position when garment is selected
   useEffect(() => {
@@ -111,42 +97,38 @@ export default function ARPanel() {
     try {
       setUploading(true);
 
-      // Try keypoint-based upload if API is available
-      if (keypointAPIAvailable) {
-        toast.loading('Uploading garment with keypoint detection...', { id: 'upload' });
+      // Always try keypoint-based upload first
+      toast.loading('Uploading garment with keypoint detection...', { id: 'upload' });
 
-        const apiResponse = await uploadGarmentWithKeypoints(file);
+      const apiResponse = await uploadGarmentWithKeypoints(file);
 
-        if (apiResponse) {
-          // Success: Transform API response to Garment object
-          const garment = transformAPIResponseToGarment(file, apiResponse);
+      if (apiResponse) {
+        // Success: Transform API response to Garment object
+        const garment = transformAPIResponseToGarment(file, apiResponse);
 
-          addGarment(garment);
-          selectGarment(garment.id);
+        addGarment(garment);
+        selectGarment(garment.id);
 
-          const confidence = Math.round(apiResponse.detection_confidence * 100);
-          const confidenceEmoji = confidence >= 70 ? '🎯' : confidence >= 50 ? '✓' : '⚠️';
-          toast.success(
-            `${confidenceEmoji} Garment added with ${confidence}% keypoint confidence`,
-            {
-              id: 'upload',
-              description:
-                confidence < 60
-                  ? 'Low confidence - alignment may be less accurate'
-                  : 'High quality alignment enabled',
-            },
-          );
+        const confidence = Math.round(apiResponse.detection_confidence * 100);
+        const confidenceEmoji = confidence >= 70 ? '🎯' : confidence >= 50 ? '✓' : '⚠️';
+        toast.success(
+          `${confidenceEmoji} Garment added with ${confidence}% keypoint confidence`,
+          {
+            id: 'upload',
+            description:
+              confidence < 60
+                ? 'Low confidence - alignment may be less accurate'
+                : 'High quality alignment enabled',
+          },
+        );
 
-          console.log('✅ Garment added with keypoints:', garment);
-          return;
-        } else {
-          // Keypoint detection failed - fall through to basic extraction
-          console.warn('⚠️ Keypoint detection failed - falling back to basic extraction');
-          toast.loading('Extracting garment...', { id: 'upload' });
-        }
-      } else {
-        toast.loading('Extracting garment...', { id: 'upload' });
+        console.log('✅ Garment added with keypoints:', garment);
+        return;
       }
+
+      // Keypoint detection failed or unavailable - fall back to basic extraction
+      console.warn('⚠️ Keypoint detection unavailable - falling back to basic extraction');
+      toast.loading('Extracting garment...', { id: 'upload' });
 
       // Fallback: Use basic extraction without keypoints
       const { result, extractedFile, method, cloudinaryUrl } = await extractGarmentSmart(file);

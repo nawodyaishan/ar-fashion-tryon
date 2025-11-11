@@ -43,11 +43,11 @@ New file created with complete API integration:
 
 #### 1.3 Garment Upload Handler (`components/tryon/ARPanel.tsx`)
 Enhanced upload flow with intelligent fallback:
-1. Check if keypoint API is available on mount
-2. Try keypoint-based upload first
-3. Show confidence-based success messages (🎯 high, ✓ medium, ⚠️ low)
-4. Graceful fallback to basic extraction if keypoint detection fails
-5. No user-facing errors - seamless degradation
+1. **Always try keypoint-based upload first** (no separate health check)
+2. Show confidence-based success messages (🎯 high, ✓ medium, ⚠️ low)
+3. Graceful fallback to basic extraction if keypoint detection fails (503, 404, network errors, etc.)
+4. No user-facing errors - seamless degradation
+5. **Robust approach**: Direct endpoint testing instead of relying on health checks
 
 ### Phase 2: Algorithm Enhancement (COMPLETED ✅)
 
@@ -107,10 +107,15 @@ Updated for real-time tracking:
 
 ### Graceful Degradation Pattern
 ```
-1. Frontend checks keypoint API health on mount
-2. If available: Try keypoint-based upload
-3. If keypoint fails: Fallback to basic extraction
-4. User always gets working try-on (no errors shown)
+1. User uploads garment image
+2. Frontend always tries keypoint endpoint first (/detect_garment_keypoints)
+3. If successful (200 OK): Use keypoint data for precise alignment
+4. If fails (503/404/network error): Fallback to basic extraction
+5. User always gets working try-on (no errors shown)
+
+✅ Robust: No dependency on separate health checks
+✅ Simple: Direct endpoint testing
+✅ Resilient: Handles all error types gracefully
 ```
 
 ### Position Calculation Flow
