@@ -10,6 +10,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useTryonStore } from '@/lib/tryon-store';
 import { loadImageFromFile, getImageDimensions, getFileSizeKB } from '@/lib/canvas';
 import { extractGarmentSmart } from '@/lib/services/garmentApi';
+import {
+  uploadGarmentWithKeypoints,
+  transformAPIResponseToGarment,
+  checkKeypointAPIHealth,
+} from '@/lib/api/keypoint-client';
 import { TransformControls } from './TransformControls';
 import { MediaPipeTestPanel } from './MediaPipeTestPanel';
 import { PresetPositions } from './PresetPositions';
@@ -42,6 +47,19 @@ export default function ARPanel() {
   } = useTryonStore();
 
   const [containerDimensions, setContainerDimensions] = useState({ width: 640, height: 480 });
+  const [keypointAPIAvailable, setKeypointAPIAvailable] = useState<boolean | null>(null);
+
+  // Check keypoint API health on mount
+  useEffect(() => {
+    checkKeypointAPIHealth().then((available) => {
+      setKeypointAPIAvailable(available);
+      if (!available) {
+        console.warn('⚠️ Keypoint API unavailable - will use basic garment upload');
+      } else {
+        console.log('✅ Keypoint API available');
+      }
+    });
+  }, []);
 
   // Load saved position when garment is selected
   useEffect(() => {
@@ -72,41 +90,75 @@ export default function ARPanel() {
     return '🔴 Low';
   };
 
-  // Handle file upload with garment extraction
+  // Handle file upload with garment extraction AND keypoint detection
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     // Validate file type
-    if (!file.type.startsWith('image/')) {
-      toast.error('Please upload an image file (JPEG, PNG, WEBP)');
+    const validTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+    if (!validTypes.some((type) => file.type === type)) {
+      toast.error('Please upload PNG, JPEG, or WEBP image');
       return;
     }
 
-    // Validate file size (max 10MB for extraction API)
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error('File size must be less than 10MB');
+    // Validate file size (max 16MB for keypoint API)
+    if (file.size > 16 * 1024 * 1024) {
+      toast.error('File size must be less than 16MB');
       return;
     }
 
     try {
       setUploading(true);
-      toast.loading('Extracting garment...', { id: 'extraction' });
 
-      // Step 1: Extract garment through API (auto-selects Cloudinary or direct upload)
+      // Try keypoint-based upload if API is available
+      if (keypointAPIAvailable) {
+        toast.loading('Uploading garment with keypoint detection...', { id: 'upload' });
+
+        const apiResponse = await uploadGarmentWithKeypoints(file);
+
+        if (apiResponse) {
+          // Success: Transform API response to Garment object
+          const garment = transformAPIResponseToGarment(file, apiResponse);
+
+          addGarment(garment);
+          selectGarment(garment.id);
+
+          const confidence = Math.round(apiResponse.detection_confidence * 100);
+          const confidenceEmoji = confidence >= 70 ? '🎯' : confidence >= 50 ? '✓' : '⚠️';
+          toast.success(
+            `${confidenceEmoji} Garment added with ${confidence}% keypoint confidence`,
+            {
+              id: 'upload',
+              description:
+                confidence < 60
+                  ? 'Low confidence - alignment may be less accurate'
+                  : 'High quality alignment enabled',
+            },
+          );
+
+          console.log('✅ Garment added with keypoints:', garment);
+          return;
+        } else {
+          // Keypoint detection failed - fall through to basic extraction
+          console.warn('⚠️ Keypoint detection failed - falling back to basic extraction');
+          toast.loading('Extracting garment...', { id: 'upload' });
+        }
+      } else {
+        toast.loading('Extracting garment...', { id: 'upload' });
+      }
+
+      // Fallback: Use basic extraction without keypoints
       const { result, extractedFile, method, cloudinaryUrl } = await extractGarmentSmart(file);
 
-      // Check if extraction was successful
       if (!result.success || !extractedFile) {
-        toast.error(result.message || 'Failed to extract garment', { id: 'extraction' });
+        toast.error(result.message || 'Failed to extract garment', { id: 'upload' });
         return;
       }
 
-      // Step 2: Load extracted image
       const extractedSrc = await loadImageFromFile(extractedFile);
       const dimensions = await getImageDimensions(extractedSrc);
 
-      // Step 3: Create new garment with extraction metadata
       const newGarment = {
         id: `custom-${Date.now()}`,
         name: file.name.replace(/\.[^/.]+$/, ''),
@@ -117,26 +169,28 @@ export default function ARPanel() {
         category: 'misc' as const,
         extracted: true,
         extractedUrl: result.extraction?.cutout_url,
-        cloudinaryUrl: cloudinaryUrl, // Store Cloudinary URL if available
-        classification: result.classification ? {
-          label: result.classification.label as 'tshirt' | 'trousers' | 'unknown',
-          confidence: result.classification.confidence
-        } : undefined,
+        cloudinaryUrl: cloudinaryUrl,
+        classification: result.classification
+          ? {
+              label: result.classification.label as 'tshirt' | 'trousers' | 'unknown',
+              confidence: result.classification.confidence,
+            }
+          : undefined,
         processingTime: result.processing_time_ms || undefined,
+        // No keypoints for fallback upload
       };
 
       addGarment(newGarment);
       selectGarment(newGarment.id);
 
       const methodEmoji = method === 'cloudinary' ? '🌩️' : '📤';
-      const methodLabel = method === 'cloudinary' ? 'via Cloudinary' : 'direct upload';
       toast.success(
-        `${methodEmoji} Garment extracted ${methodLabel}: ${result.classification?.label.toUpperCase()} (${(result.classification!.confidence * 100).toFixed(0)}% confidence)`,
-        { id: 'extraction' },
+        `${methodEmoji} Garment extracted: ${result.classification?.label.toUpperCase() || 'GARMENT'}`,
+        { id: 'upload' },
       );
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to upload garment';
-      toast.error(errorMessage, { id: 'extraction' });
+      toast.error(errorMessage, { id: 'upload' });
       console.error(err);
     } finally {
       setUploading(false);

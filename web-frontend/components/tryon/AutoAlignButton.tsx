@@ -22,7 +22,7 @@ export function AutoAlignButton({
   containerHeight,
   disabled
 }: AutoAlignButtonProps) {
-  const { autoAlignGarment, selectedGarmentId } = useTryonStore();
+  const { autoAlignGarment, selectedGarmentId, garments } = useTryonStore();
   const [isAligning, setIsAligning] = useState(false);
   const [justAligned, setJustAligned] = useState(false);
 
@@ -46,7 +46,20 @@ export function AutoAlignButton({
         return;
       }
 
-      const garmentSuggestion = calculateGarmentPosition(shoulderPos);
+      // Get the selected garment
+      const selectedGarment = garments.find(g => g.id === selectedGarmentId);
+      if (!selectedGarment) {
+        toast.error('No garment selected');
+        setIsAligning(false);
+        return;
+      }
+
+      const garmentSuggestion = calculateGarmentPosition(
+        shoulderPos,
+        selectedGarment,
+        containerWidth,
+        containerHeight
+      );
 
       autoAlignGarment(
         garmentSuggestion.x,
@@ -57,7 +70,13 @@ export function AutoAlignButton({
 
       setIsAligning(false);
       setJustAligned(true);
-      toast.success('Garment aligned to shoulders');
+
+      // Enhanced success message
+      if (selectedGarment.keypoints && selectedGarment.keypoints.detectionConfidence >= 0.5) {
+        toast.success('🎯 Garment aligned using keypoint detection');
+      } else {
+        toast.success('Garment aligned to shoulders');
+      }
     }, 300);
   };
 

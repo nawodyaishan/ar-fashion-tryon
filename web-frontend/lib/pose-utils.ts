@@ -1,5 +1,6 @@
 // lib/pose-utils.ts
 import type { PoseLandmark } from './hooks/usePoseDetection';
+import type { Garment, Transform } from './types';
 
 // MediaPipe landmark indices
 export const POSE_LANDMARKS = {
@@ -87,8 +88,28 @@ export interface GarmentSuggestion {
 
 export function calculateGarmentPosition(
   shoulderPos: ShoulderPosition,
+  garment: Garment,
+  containerWidth: number,
+  containerHeight: number,
   baseGarmentWidth: number = 200
-): GarmentSuggestion {
+): GarmentSuggestion | Transform {
+  // Try keypoint-based positioning first if available
+  if (garment.keypoints && garment.keypoints.detectionConfidence >= 0.5) {
+    const keypointTransform = calculateGarmentPositionWithKeypoints(
+      shoulderPos,
+      garment,
+      containerWidth,
+      containerHeight
+    );
+    if (keypointTransform) {
+      console.log('🎯 Using keypoint positioning');
+      return keypointTransform;
+    }
+  }
+
+  // Fallback to simple positioning (existing algorithm)
+  console.log('📐 Using simple positioning (no keypoints or low confidence)');
+
   // Calculate scale based on shoulder width
   // Garment should be ~90% of shoulder width for better fit (reduced from 120%)
   const targetWidth = shoulderPos.width * 0.9;
@@ -106,6 +127,79 @@ export function calculateGarmentPosition(
   };
 }
 
+/**
+ * Calculate garment position using detected keypoints
+ * Provides PRECISE alignment by matching garment shoulder seams to body shoulders
+ */
+export function calculateGarmentPositionWithKeypoints(
+  shoulderPos: ShoulderPosition,
+  garment: Garment,
+  containerWidth: number,
+  containerHeight: number,
+): Transform | null {
+  // Validate inputs
+  if (!garment.keypoints) {
+    console.warn('⚠️ Garment has no keypoint data');
+    return null;
+  }
+
+  const keypoints = garment.keypoints;
+
+  // Check keypoint confidence
+  const MIN_CONFIDENCE = 0.5;
+  if (keypoints.detectionConfidence < MIN_CONFIDENCE) {
+    console.warn(
+      `⚠️ Low keypoint confidence: ${keypoints.detectionConfidence.toFixed(2)} < ${MIN_CONFIDENCE}`,
+    );
+    return null;
+  }
+
+  // Body shoulder data (already in pixels)
+  const bodyCenter = shoulderPos.center;
+  const bodyWidth = shoulderPos.width;
+  const bodyAngle = shoulderPos.angle;
+
+  // Garment keypoint data (convert normalized to pixels)
+  const garmentCenter = {
+    x: keypoints.shoulderCenter.x * garment.width,
+    y: keypoints.shoulderCenter.y * garment.height,
+  };
+  const garmentWidth = keypoints.shoulderWidth;
+  const garmentAngle = keypoints.shoulderAngle;
+
+  // Calculate scale
+  const scale = Math.max(0.5, Math.min(2.0, bodyWidth / garmentWidth));
+
+  // Calculate position
+  const scaledCenter = {
+    x: garmentCenter.x * scale,
+    y: garmentCenter.y * scale,
+  };
+
+  const position = {
+    x: bodyCenter.x - scaledCenter.x,
+    y: bodyCenter.y - scaledCenter.y,
+  };
+
+  // Calculate rotation
+  const rotation = Math.max(-45, Math.min(45, bodyAngle - garmentAngle));
+
+  console.log('✨ Keypoint transform:', {
+    scale: scale.toFixed(2),
+    rotation: rotation.toFixed(1),
+    position: { x: Math.round(position.x), y: Math.round(position.y) },
+  });
+
+  return {
+    x: Math.round(position.x),
+    y: Math.round(position.y),
+    scale,
+    rotation,
+    opacity: 90,
+    lockAspect: true,
+  };
+}
+
 export function isConfidentPose(landmarks: PoseLandmark[]): boolean {
   if (!landmarks || landmarks.length < 33) return false;
 
@@ -113,11 +207,11 @@ export function isConfidentPose(landmarks: PoseLandmark[]): boolean {
     POSE_LANDMARKS.LEFT_SHOULDER,
     POSE_LANDMARKS.RIGHT_SHOULDER,
     POSE_LANDMARKS.LEFT_HIP,
-    POSE_LANDMARKS.RIGHT_HIP
+    POSE_LANDMARKS.RIGHT_HIP,
   ];
 
-  const visibleCount = criticalLandmarks.filter(idx =>
-    (landmarks[idx]?.visibility || 0) > 0.5
+  const visibleCount = criticalLandmarks.filter(
+    (idx) => (landmarks[idx]?.visibility || 0) > 0.5,
   ).length;
 
   return visibleCount >= 3; // At least 3 out of 4 critical points visible

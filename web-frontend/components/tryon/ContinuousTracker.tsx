@@ -17,7 +17,7 @@ export function ContinuousTracker({
   containerWidth,
   containerHeight
 }: ContinuousTrackerProps) {
-  const { continuousTracking, autoAlignGarment, selectedGarmentId, lockScale } = useTryonStore();
+  const { continuousTracking, autoAlignGarment, selectedGarmentId, lockScale, garments } = useTryonStore();
   const lastUpdateRef = useRef(0);
 
   useEffect(() => {
@@ -32,7 +32,16 @@ export function ContinuousTracker({
     const shoulderPos = calculateShoulderPosition(landmarks, containerWidth, containerHeight);
     if (!shoulderPos) return;
 
-    const garmentSuggestion = calculateGarmentPosition(shoulderPos);
+    // Get the selected garment
+    const selectedGarment = garments.find(g => g.id === selectedGarmentId);
+    if (!selectedGarment) return;
+
+    const garmentSuggestion = calculateGarmentPosition(
+      shoulderPos,
+      selectedGarment,
+      containerWidth,
+      containerHeight
+    );
 
     autoAlignGarment(
       garmentSuggestion.x,
@@ -42,7 +51,7 @@ export function ContinuousTracker({
     );
 
     lastUpdateRef.current = now;
-  }, [landmarks, containerWidth, containerHeight, continuousTracking, autoAlignGarment, selectedGarmentId, lockScale]);
+  }, [landmarks, containerWidth, containerHeight, continuousTracking, autoAlignGarment, selectedGarmentId, lockScale, garments]);
 
   return null; // No UI, just side effects
 }

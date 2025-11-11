@@ -58,6 +58,25 @@ export interface GarmentHealthCheck {
   version: string;
 }
 
+// Garment Keypoint Types
+export interface GarmentKeypoint {
+  x: number; // Normalized 0-1
+  y: number; // Normalized 0-1
+  confidence: number; // 0-1
+}
+
+export interface GarmentKeypointData {
+  leftShoulder: GarmentKeypoint;
+  rightShoulder: GarmentKeypoint;
+  shoulderCenter: GarmentKeypoint;
+  shoulderWidth: number; // Pixels
+  shoulderAngle: number; // Degrees
+  leftHip?: GarmentKeypoint;
+  rightHip?: GarmentKeypoint;
+  detectionConfidence: number; // Overall confidence 0-1
+  detectedAt: string; // ISO timestamp
+}
+
 export interface Garment {
   id: string;
   name: string;
@@ -72,6 +91,9 @@ export interface Garment {
   extractedUrl?: string; // URL to extracted/cutout image
   classification?: ClassificationResult;
   processingTime?: number;
+
+  // Keypoint data (for precise AR alignment)
+  keypoints?: GarmentKeypointData;
 }
 
 export interface ImageSelection {
