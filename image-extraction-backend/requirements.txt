@@ -21,8 +21,10 @@ gradio-client>=1.4.0
 tensorflow-cpu
 
 # MMPose for garment keypoint detection
-openmim
-mmengine>=0.8.0,<0.11.0  # Pin to avoid NumPy 2.x requirement
-# Note: mmcv will be installed separately (see install_mmpose.sh)
-mmpose>=1.0.0,<1.4.0  # Pin to compatible version
-mmdet>=3.0.0,<3.4.0  # Pin to compatible version
+# NOTE: MMPose ecosystem packages are installed via install_mmpose.sh
+# to ensure proper NumPy version compatibility. Do NOT add them here:
+# - openmim
+# - mmengine
+# - mmcv
+# - mmpose
+# - mmdet
