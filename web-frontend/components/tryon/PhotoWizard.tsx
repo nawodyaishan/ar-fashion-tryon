@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
@@ -43,16 +43,15 @@ import ClothTypeSelector from './ClothTypeSelector';
 import ScrollIndicator from '@/components/ui/scroll-indicator';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ProcessingOverlay } from './ProcessingOverlay';
+import Webcam from 'react-webcam';
 
 export default function PhotoWizard() {
   const bodyFileInputRef = useRef<HTMLInputElement>(null);
   const garmentFileInputRef = useRef<HTMLInputElement>(null);
   const upperFileInputRef = useRef<HTMLInputElement>(null);
   const lowerFileInputRef = useRef<HTMLInputElement>(null);
-  const bodyVideoRef = useRef<HTMLVideoElement>(null);
-  const bodyCanvasRef = useRef<HTMLCanvasElement>(null);
-  const garmentVideoRef = useRef<HTMLVideoElement>(null);
-  const garmentCanvasRef = useRef<HTMLCanvasElement>(null);
+  const bodyWebcamRef = useRef<Webcam>(null);
+  const garmentWebcamRef = useRef<Webcam>(null);
   const contentScrollRef = useRef<HTMLDivElement>(null);
 
   // Tryon Store (for onboarding)
@@ -91,8 +90,6 @@ export default function PhotoWizard() {
   const [progress, setProgress] = useState(0);
   const [showBodyCamera, setShowBodyCamera] = useState(false);
   const [showGarmentCamera, setShowGarmentCamera] = useState(false);
-  const [bodyCameraStream, setBodyCameraStream] = useState<MediaStream | null>(null);
-  const [garmentCameraStream, setGarmentCameraStream] = useState<MediaStream | null>(null);
 
   // Progress tracking
   useEffect(() => {
@@ -116,131 +113,90 @@ export default function PhotoWizard() {
   }, [status]);
 
   // Body Camera functions
-  const startBodyCamera = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user', width: 1280, height: 720 },
-      });
-      setBodyCameraStream(stream);
-      if (bodyVideoRef.current) {
-        bodyVideoRef.current.srcObject = stream;
-      }
-      setShowBodyCamera(true);
-      toast.success('Camera started');
-    } catch (err) {
-      console.error('Camera error:', err);
-      toast.error('Failed to access camera');
+  const captureBodyPhoto = useCallback(async () => {
+    const imageSrc = bodyWebcamRef.current?.getScreenshot();
+    if (!imageSrc) {
+      toast.error('Failed to capture photo. Please try again.');
+      return;
     }
-  };
 
-  const captureBodyPhoto = async () => {
-    if (!bodyVideoRef.current || !bodyCanvasRef.current) return;
+    // Convert base64 to File
+    const response = await fetch(imageSrc);
+    const blob = await response.blob();
+    const file = new File([blob], `body-${Date.now()}.jpg`, { type: 'image/jpeg' });
 
-    const video = bodyVideoRef.current;
-    const canvas = bodyCanvasRef.current;
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    ctx.drawImage(video, 0, 0);
-
-    canvas.toBlob(
-      async (blob) => {
-        if (!blob) return;
-        const file = new File([blob], `body-${Date.now()}.jpg`, { type: 'image/jpeg' });
-
-        setBody(file);
-        toast.success('Body photo captured');
-        stopBodyCamera();
-      },
-      'image/jpeg',
-      0.95,
-    );
-  };
-
-  const stopBodyCamera = () => {
-    if (bodyCameraStream) {
-      bodyCameraStream.getTracks().forEach((track) => track.stop());
-      setBodyCameraStream(null);
-    }
+    // Stop camera before processing
     setShowBodyCamera(false);
-  };
+
+    // Set body photo
+    await setBody(file);
+    toast.success('Body photo captured successfully');
+  }, [setBody]);
+
+  const handleBodyCameraError = useCallback((error: string | DOMException) => {
+    console.error('Body camera error:', error);
+    setShowBodyCamera(false);
+
+    let errorMessage = 'Failed to access camera';
+    if (typeof error === 'object' && error.name) {
+      if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+        errorMessage = 'Camera permission denied. Please allow camera access in your browser settings.';
+      } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+        errorMessage = 'No camera found on this device.';
+      } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+        errorMessage = 'Camera is already in use by another application.';
+      }
+    }
+
+    toast.error(errorMessage, { duration: 5000 });
+  }, []);
 
   // Garment Camera functions
-  const startGarmentCamera = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment', width: 1280, height: 720 },
-      });
-      setGarmentCameraStream(stream);
-      if (garmentVideoRef.current) {
-        garmentVideoRef.current.srcObject = stream;
-      }
-      setShowGarmentCamera(true);
-      toast.success('Camera started');
-    } catch (err) {
-      console.error('Camera error:', err);
-      toast.error('Failed to access camera');
+  const captureGarmentPhoto = useCallback(async () => {
+    const imageSrc = garmentWebcamRef.current?.getScreenshot();
+    if (!imageSrc) {
+      toast.error('Failed to capture photo. Please try again.');
+      return;
     }
-  };
 
-  const captureGarmentPhoto = async () => {
-    if (!garmentVideoRef.current || !garmentCanvasRef.current) return;
+    // Convert base64 to File
+    const response = await fetch(imageSrc);
+    const blob = await response.blob();
+    const file = new File([blob], `garment-${Date.now()}.jpg`, { type: 'image/jpeg' });
 
-    const video = garmentVideoRef.current;
-    const canvas = garmentCanvasRef.current;
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    ctx.drawImage(video, 0, 0);
-
-    canvas.toBlob(
-      async (blob) => {
-        if (!blob) return;
-        const file = new File([blob], `garment-${Date.now()}.jpg`, { type: 'image/jpeg' });
-
-        const toastId = 'garment-capture';
-        toast.loading('Processing captured image...', { id: toastId });
-
-        const skipClassification = tryOnPath === 'REFERENCE';
-        const { ok, message } = await setGarmentFile(file, skipClassification);
-
-        if (ok) {
-          toast.success('Garment captured', { id: toastId });
-          stopGarmentCamera();
-        } else {
-          toast.error(message || 'Capture failed', { id: toastId });
-        }
-      },
-      'image/jpeg',
-      0.95,
-    );
-  };
-
-  const stopGarmentCamera = () => {
-    if (garmentCameraStream) {
-      garmentCameraStream.getTracks().forEach((track) => track.stop());
-      setGarmentCameraStream(null);
-    }
+    // Stop camera before processing
     setShowGarmentCamera(false);
-  };
 
-  // Cleanup camera streams on unmount
-  useEffect(() => {
-    return () => {
-      if (bodyCameraStream) {
-        bodyCameraStream.getTracks().forEach((track) => track.stop());
+    const toastId = 'garment-capture';
+    toast.loading('Processing captured image...', { id: toastId });
+
+    const skipClassification = tryOnPath === 'REFERENCE';
+    const { ok, message } = await setGarmentFile(file, skipClassification);
+
+    if (ok) {
+      toast.success('Garment captured successfully', { id: toastId });
+    } else {
+      toast.error(message || 'Capture failed', { id: toastId });
+    }
+  }, [setGarmentFile, tryOnPath]);
+
+  const handleGarmentCameraError = useCallback((error: string | DOMException) => {
+    console.error('Garment camera error:', error);
+    setShowGarmentCamera(false);
+
+    let errorMessage = 'Failed to access camera';
+    if (typeof error === 'object' && error.name) {
+      if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+        errorMessage = 'Camera permission denied. Please allow camera access in your browser settings.';
+      } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+        errorMessage = 'No camera found on this device.';
+      } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+        errorMessage = 'Camera is already in use by another application.';
       }
-      if (garmentCameraStream) {
-        garmentCameraStream.getTracks().forEach((track) => track.stop());
-      }
-    };
-  }, [bodyCameraStream, garmentCameraStream]);
+    }
+
+    toast.error(errorMessage, { duration: 5000 });
+  }, []);
 
   // Upload handlers
   const handleBodyUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -332,8 +288,8 @@ export default function PhotoWizard() {
   };
 
   const handleNewTryOn = () => {
-    stopBodyCamera();
-    stopGarmentCamera();
+    setShowBodyCamera(false);
+    setShowGarmentCamera(false);
     setProgress(0);
     reset();
     toast.info('Starting new try-on');
@@ -551,33 +507,88 @@ export default function PhotoWizard() {
                   </div>
                 </div>
 
-                <Button variant="outline" size="lg" className="w-full" onClick={startBodyCamera}>
+                <Button variant="outline" size="lg" className="w-full" onClick={() => setShowBodyCamera(true)}>
                   <Camera className="h-5 w-5 mr-2" />
                   Capture with Camera
                 </Button>
               </div>
             ) : showBodyCamera ? (
               <div className="space-y-4">
-                <div className="relative aspect-video rounded-lg overflow-hidden border bg-black">
-                  <video
-                    ref={bodyVideoRef}
-                    autoPlay
-                    playsInline
+                {/* Camera Preview with Guide Overlay */}
+                <div className="relative aspect-[3/4] max-w-md mx-auto rounded-lg overflow-hidden border-2 border-primary/50 bg-black shadow-xl">
+                  <Webcam
+                    ref={bodyWebcamRef}
+                    audio={false}
+                    screenshotFormat="image/jpeg"
+                    videoConstraints={{
+                      facingMode: 'user',
+                      width: { ideal: 1280 },
+                      height: { ideal: 720 },
+                    }}
+                    onUserMediaError={handleBodyCameraError}
                     className="w-full h-full object-cover scale-x-[-1]"
+                    mirrored
                   />
-                  <canvas ref={bodyCanvasRef} className="hidden" />
+
+                  {/* Guide Overlay */}
+                  <div className="absolute inset-0 pointer-events-none">
+                    {/* Center Guide Frame */}
+                    <div className="absolute inset-0 flex items-center justify-center p-8">
+                      <div className="w-full h-full border-2 border-dashed border-white/40 rounded-lg" />
+                    </div>
+
+                    {/* Instructions */}
+                    <div className="absolute top-4 left-0 right-0 text-center">
+                      <div className="inline-block bg-black/70 backdrop-blur-sm px-4 py-2 rounded-full">
+                        <p className="text-white text-sm font-medium">Position yourself in the frame</p>
+                      </div>
+                    </div>
+
+                    {/* Camera Status Badge */}
+                    <div className="absolute top-4 right-4">
+                      <div className="flex items-center gap-2 bg-red-500/90 backdrop-blur-sm px-3 py-1.5 rounded-full">
+                        <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+                        <span className="text-white text-xs font-medium">LIVE</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <Button variant="outline" onClick={stopBodyCamera}>
-                    <X className="h-4 w-4 mr-2" />
+                {/* Camera Controls */}
+                <div className="grid grid-cols-2 gap-3 max-w-md mx-auto">
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    onClick={() => setShowBodyCamera(false)}
+                    className="border-2"
+                  >
+                    <X className="h-5 w-5 mr-2" />
                     Cancel
                   </Button>
-                  <Button onClick={captureBodyPhoto}>
-                    <Camera className="h-4 w-4 mr-2" />
+                  <Button
+                    size="lg"
+                    onClick={captureBodyPhoto}
+                    className="bg-primary hover:bg-primary/90"
+                  >
+                    <Camera className="h-5 w-5 mr-2" />
                     Capture
                   </Button>
                 </div>
+
+                {/* Tips */}
+                <Card className="p-3 bg-blue-500/10 border-blue-500/20 max-w-md mx-auto">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium text-blue-700 dark:text-blue-300">Quick Tips</p>
+                      <ul className="text-xs text-blue-600/90 dark:text-blue-300/90 space-y-0.5">
+                        <li>• Stand 3-4 feet from camera</li>
+                        <li>• Ensure good lighting on your face</li>
+                        <li>• Keep shoulders visible in frame</li>
+                      </ul>
+                    </div>
+                  </div>
+                </Card>
               </div>
             ) : (
               <div className="space-y-4">
@@ -614,7 +625,7 @@ export default function PhotoWizard() {
                     <Upload className="h-4 w-4 mr-2" />
                     Upload New
                   </Button>
-                  <Button variant="outline" onClick={startBodyCamera}>
+                  <Button variant="outline" onClick={() => setShowBodyCamera(true)}>
                     <Camera className="h-4 w-4 mr-2" />
                     Capture
                   </Button>
@@ -705,7 +716,7 @@ export default function PhotoWizard() {
                       variant="outline"
                       size="lg"
                       className="w-full"
-                      onClick={startGarmentCamera}
+                      onClick={() => setShowGarmentCamera(true)}
                     >
                       <Camera className="h-5 w-5 mr-2" />
                       Capture with Camera
@@ -715,26 +726,100 @@ export default function PhotoWizard() {
               </div>
             ) : showGarmentCamera ? (
               <div className="space-y-4">
-                <div className="relative aspect-video rounded-lg overflow-hidden border bg-black">
-                  <video
-                    ref={garmentVideoRef}
-                    autoPlay
-                    playsInline
+                {/* Camera Preview with Guide Overlay */}
+                <div className="relative aspect-square max-w-md mx-auto rounded-lg overflow-hidden border-2 border-primary/50 bg-black shadow-xl">
+                  <Webcam
+                    ref={garmentWebcamRef}
+                    audio={false}
+                    screenshotFormat="image/jpeg"
+                    videoConstraints={{
+                      facingMode: { ideal: 'environment' },
+                      width: { ideal: 1280 },
+                      height: { ideal: 720 },
+                    }}
+                    onUserMediaError={handleGarmentCameraError}
                     className="w-full h-full object-cover"
                   />
-                  <canvas ref={garmentCanvasRef} className="hidden" />
+
+                  {/* Guide Overlay */}
+                  <div className="absolute inset-0 pointer-events-none">
+                    {/* Center Guide Frame */}
+                    <div className="absolute inset-0 flex items-center justify-center p-12">
+                      <div className="w-full h-full border-2 border-dashed border-white/40 rounded-lg" />
+                    </div>
+
+                    {/* Instructions */}
+                    <div className="absolute top-4 left-0 right-0 text-center">
+                      <div className="inline-block bg-black/70 backdrop-blur-sm px-4 py-2 rounded-full">
+                        <p className="text-white text-sm font-medium">
+                          {tryOnPath === 'REFERENCE' ? 'Center person in frame' : 'Center garment in frame'}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Camera Status Badge */}
+                    <div className="absolute top-4 right-4">
+                      <div className="flex items-center gap-2 bg-red-500/90 backdrop-blur-sm px-3 py-1.5 rounded-full">
+                        <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+                        <span className="text-white text-xs font-medium">LIVE</span>
+                      </div>
+                    </div>
+
+                    {/* Corner Guides */}
+                    <div className="absolute top-8 left-8 w-8 h-8 border-t-2 border-l-2 border-white/60" />
+                    <div className="absolute top-8 right-8 w-8 h-8 border-t-2 border-r-2 border-white/60" />
+                    <div className="absolute bottom-8 left-8 w-8 h-8 border-b-2 border-l-2 border-white/60" />
+                    <div className="absolute bottom-8 right-8 w-8 h-8 border-b-2 border-r-2 border-white/60" />
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <Button variant="outline" onClick={stopGarmentCamera}>
-                    <X className="h-4 w-4 mr-2" />
+                {/* Camera Controls */}
+                <div className="grid grid-cols-2 gap-3 max-w-md mx-auto">
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    onClick={() => setShowGarmentCamera(false)}
+                    className="border-2"
+                  >
+                    <X className="h-5 w-5 mr-2" />
                     Cancel
                   </Button>
-                  <Button onClick={captureGarmentPhoto}>
-                    <Camera className="h-4 w-4 mr-2" />
+                  <Button
+                    size="lg"
+                    onClick={captureGarmentPhoto}
+                    className="bg-primary hover:bg-primary/90"
+                  >
+                    <Camera className="h-5 w-5 mr-2" />
                     Capture
                   </Button>
                 </div>
+
+                {/* Tips */}
+                <Card className="p-3 bg-purple-500/10 border-purple-500/20 max-w-md mx-auto">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="h-4 w-4 text-purple-500 mt-0.5 shrink-0" />
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium text-purple-700 dark:text-purple-300">
+                        {tryOnPath === 'REFERENCE' ? 'Reference Photo Tips' : 'Garment Photo Tips'}
+                      </p>
+                      <ul className="text-xs text-purple-600/90 dark:text-purple-300/90 space-y-0.5">
+                        {tryOnPath === 'REFERENCE' ? (
+                          <>
+                            <li>• Full body visible, front-facing</li>
+                            <li>• Good lighting, no harsh shadows</li>
+                            <li>• Clear outfit details visible</li>
+                          </>
+                        ) : (
+                          <>
+                            <li>• Lay garment flat or hang on wall</li>
+                            <li>• Use plain background for best results</li>
+                            <li>• Avoid shadows and wrinkles</li>
+                          </>
+                        )}
+                      </ul>
+                    </div>
+                  </div>
+                </Card>
               </div>
             ) : (
               <div className="space-y-4">
@@ -785,7 +870,7 @@ export default function PhotoWizard() {
                     Upload New
                   </Button>
                   {tryOnPath !== 'REFERENCE' && (
-                    <Button variant="outline" onClick={startGarmentCamera}>
+                    <Button variant="outline" onClick={() => setShowGarmentCamera(true)}>
                       <Camera className="h-4 w-4 mr-2" />
                       Capture
                     </Button>
