@@ -32,6 +32,7 @@ import {
   Upload,
   User,
   X,
+  SwitchCamera,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import Image from 'next/image';
@@ -90,6 +91,8 @@ export default function PhotoWizard() {
   const [progress, setProgress] = useState(0);
   const [showBodyCamera, setShowBodyCamera] = useState(false);
   const [showGarmentCamera, setShowGarmentCamera] = useState(false);
+  const [bodyFacingMode, setBodyFacingMode] = useState<'user' | 'environment'>('environment');
+  const [garmentFacingMode, setGarmentFacingMode] = useState<'user' | 'environment'>('environment');
 
   // Progress tracking
   useEffect(() => {
@@ -111,6 +114,17 @@ export default function PhotoWizard() {
       setProgress(0);
     }
   }, [status]);
+
+  // Camera toggle functions
+  const toggleBodyCamera = useCallback(() => {
+    setBodyFacingMode(prev => prev === 'user' ? 'environment' : 'user');
+    toast.info(bodyFacingMode === 'user' ? 'Switched to back camera' : 'Switched to front camera');
+  }, [bodyFacingMode]);
+
+  const toggleGarmentCamera = useCallback(() => {
+    setGarmentFacingMode(prev => prev === 'user' ? 'environment' : 'user');
+    toast.info(garmentFacingMode === 'user' ? 'Switched to back camera' : 'Switched to front camera');
+  }, [garmentFacingMode]);
 
   // Body Camera functions
   const captureBodyPhoto = useCallback(async () => {
@@ -513,78 +527,100 @@ export default function PhotoWizard() {
                 </Button>
               </div>
             ) : showBodyCamera ? (
-              <div className="space-y-4">
+              <div className="space-y-3 sm:space-y-4 pb-4">
                 {/* Camera Preview with Guide Overlay */}
-                <div className="relative aspect-[3/4] max-w-md mx-auto rounded-lg overflow-hidden border-2 border-primary/50 bg-black shadow-xl">
+                <div className="relative w-full aspect-[3/4] sm:max-w-lg mx-auto rounded-xl overflow-hidden border-2 border-primary/50 bg-black shadow-2xl">
                   <Webcam
                     ref={bodyWebcamRef}
                     audio={false}
                     screenshotFormat="image/jpeg"
                     videoConstraints={{
-                      facingMode: 'user',
+                      facingMode: bodyFacingMode,
                       width: { ideal: 1280 },
                       height: { ideal: 720 },
                     }}
                     onUserMediaError={handleBodyCameraError}
-                    className="w-full h-full object-cover scale-x-[-1]"
-                    mirrored
+                    className="w-full h-full object-cover"
+                    mirrored={bodyFacingMode === 'user'}
                   />
 
                   {/* Guide Overlay */}
                   <div className="absolute inset-0 pointer-events-none">
                     {/* Center Guide Frame */}
-                    <div className="absolute inset-0 flex items-center justify-center p-8">
-                      <div className="w-full h-full border-2 border-dashed border-white/40 rounded-lg" />
+                    <div className="absolute inset-0 flex items-center justify-center p-6 sm:p-10">
+                      <div className="w-full h-full border-2 border-dashed border-white/40 rounded-xl" />
                     </div>
 
                     {/* Instructions */}
-                    <div className="absolute top-4 left-0 right-0 text-center">
-                      <div className="inline-block bg-black/70 backdrop-blur-sm px-4 py-2 rounded-full">
-                        <p className="text-white text-sm font-medium">Position yourself in the frame</p>
+                    <div className="absolute top-3 sm:top-4 left-0 right-0 text-center px-3">
+                      <div className="inline-block bg-black/80 backdrop-blur-md px-3 sm:px-4 py-1.5 sm:py-2 rounded-full shadow-lg">
+                        <p className="text-white text-xs sm:text-sm font-medium">Position yourself in the frame</p>
                       </div>
                     </div>
 
                     {/* Camera Status Badge */}
-                    <div className="absolute top-4 right-4">
-                      <div className="flex items-center gap-2 bg-red-500/90 backdrop-blur-sm px-3 py-1.5 rounded-full">
-                        <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
-                        <span className="text-white text-xs font-medium">LIVE</span>
+                    <div className="absolute top-3 sm:top-4 right-3 sm:right-4">
+                      <div className="flex items-center gap-1.5 sm:gap-2 bg-red-500/90 backdrop-blur-sm px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full shadow-lg">
+                        <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-white rounded-full animate-pulse" />
+                        <span className="text-white text-[10px] sm:text-xs font-bold tracking-wide">LIVE</span>
                       </div>
+                    </div>
+
+                    {/* Camera Switch Button */}
+                    <div className="absolute bottom-3 sm:bottom-4 left-3 sm:left-4">
+                      <Button
+                        size="icon"
+                        variant="secondary"
+                        className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-white/95 hover:bg-white shadow-xl pointer-events-auto transition-all hover:scale-110"
+                        onClick={toggleBodyCamera}
+                      >
+                        <SwitchCamera className="h-5 w-5 sm:h-6 sm:w-6 text-gray-800" />
+                      </Button>
                     </div>
                   </div>
                 </div>
 
                 {/* Camera Controls */}
-                <div className="grid grid-cols-2 gap-3 max-w-md mx-auto">
+                <div className="flex gap-2 sm:gap-3 px-2 sm:px-0 sm:max-w-lg mx-auto">
                   <Button
                     variant="outline"
                     size="lg"
                     onClick={() => setShowBodyCamera(false)}
-                    className="border-2"
+                    className="flex-1 h-12 sm:h-14 text-base font-semibold border-2 hover:bg-destructive/10"
                   >
-                    <X className="h-5 w-5 mr-2" />
-                    Cancel
+                    <X className="h-5 w-5 sm:h-6 sm:w-6 mr-2" />
+                    <span className="hidden xs:inline">Cancel</span>
+                    <span className="xs:hidden">✕</span>
                   </Button>
                   <Button
                     size="lg"
                     onClick={captureBodyPhoto}
-                    className="bg-primary hover:bg-primary/90"
+                    className="flex-[2] h-12 sm:h-14 text-base font-bold bg-primary hover:bg-primary/90 shadow-lg hover:shadow-xl transition-all"
                   >
-                    <Camera className="h-5 w-5 mr-2" />
-                    Capture
+                    <Camera className="h-5 w-5 sm:h-6 sm:w-6 mr-2" />
+                    Capture Photo
                   </Button>
                 </div>
 
-                {/* Tips */}
-                <Card className="p-3 bg-blue-500/10 border-blue-500/20 max-w-md mx-auto">
-                  <div className="flex items-start gap-2">
-                    <AlertCircle className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium text-blue-700 dark:text-blue-300">Quick Tips</p>
-                      <ul className="text-xs text-blue-600/90 dark:text-blue-300/90 space-y-0.5">
-                        <li>• Stand 3-4 feet from camera</li>
-                        <li>• Ensure good lighting on your face</li>
-                        <li>• Keep shoulders visible in frame</li>
+                {/* Tips - Collapsible on mobile */}
+                <Card className="mx-2 sm:mx-0 sm:max-w-lg sm:mx-auto p-3 sm:p-4 bg-blue-500/10 border-blue-500/20 backdrop-blur-sm">
+                  <div className="flex items-start gap-2 sm:gap-3">
+                    <AlertCircle className="h-4 w-4 sm:h-5 sm:w-5 text-blue-500 mt-0.5 shrink-0" />
+                    <div className="space-y-1 flex-1">
+                      <p className="text-sm sm:text-base font-semibold text-blue-700 dark:text-blue-300">Quick Tips</p>
+                      <ul className="text-xs sm:text-sm text-blue-600/90 dark:text-blue-300/90 space-y-1">
+                        <li className="flex items-start gap-1.5">
+                          <span className="text-blue-500 font-bold">•</span>
+                          <span>Stand 3-4 feet from camera</span>
+                        </li>
+                        <li className="flex items-start gap-1.5">
+                          <span className="text-blue-500 font-bold">•</span>
+                          <span>Ensure good lighting</span>
+                        </li>
+                        <li className="flex items-start gap-1.5">
+                          <span className="text-blue-500 font-bold">•</span>
+                          <span>Keep shoulders visible</span>
+                        </li>
                       </ul>
                     </div>
                   </div>
@@ -725,95 +761,127 @@ export default function PhotoWizard() {
                 )}
               </div>
             ) : showGarmentCamera ? (
-              <div className="space-y-4">
+              <div className="space-y-3 sm:space-y-4 pb-4">
                 {/* Camera Preview with Guide Overlay */}
-                <div className="relative aspect-square max-w-md mx-auto rounded-lg overflow-hidden border-2 border-primary/50 bg-black shadow-xl">
+                <div className="relative w-full aspect-square sm:max-w-lg mx-auto rounded-xl overflow-hidden border-2 border-primary/50 bg-black shadow-2xl">
                   <Webcam
                     ref={garmentWebcamRef}
                     audio={false}
                     screenshotFormat="image/jpeg"
                     videoConstraints={{
-                      facingMode: { ideal: 'environment' },
+                      facingMode: garmentFacingMode,
                       width: { ideal: 1280 },
                       height: { ideal: 720 },
                     }}
                     onUserMediaError={handleGarmentCameraError}
                     className="w-full h-full object-cover"
+                    mirrored={garmentFacingMode === 'user'}
                   />
 
                   {/* Guide Overlay */}
                   <div className="absolute inset-0 pointer-events-none">
                     {/* Center Guide Frame */}
-                    <div className="absolute inset-0 flex items-center justify-center p-12">
-                      <div className="w-full h-full border-2 border-dashed border-white/40 rounded-lg" />
+                    <div className="absolute inset-0 flex items-center justify-center p-8 sm:p-14">
+                      <div className="w-full h-full border-2 border-dashed border-white/40 rounded-xl" />
                     </div>
 
                     {/* Instructions */}
-                    <div className="absolute top-4 left-0 right-0 text-center">
-                      <div className="inline-block bg-black/70 backdrop-blur-sm px-4 py-2 rounded-full">
-                        <p className="text-white text-sm font-medium">
+                    <div className="absolute top-3 sm:top-4 left-0 right-0 text-center px-3">
+                      <div className="inline-block bg-black/80 backdrop-blur-md px-3 sm:px-4 py-1.5 sm:py-2 rounded-full shadow-lg">
+                        <p className="text-white text-xs sm:text-sm font-medium">
                           {tryOnPath === 'REFERENCE' ? 'Center person in frame' : 'Center garment in frame'}
                         </p>
                       </div>
                     </div>
 
                     {/* Camera Status Badge */}
-                    <div className="absolute top-4 right-4">
-                      <div className="flex items-center gap-2 bg-red-500/90 backdrop-blur-sm px-3 py-1.5 rounded-full">
-                        <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
-                        <span className="text-white text-xs font-medium">LIVE</span>
+                    <div className="absolute top-3 sm:top-4 right-3 sm:right-4">
+                      <div className="flex items-center gap-1.5 sm:gap-2 bg-red-500/90 backdrop-blur-sm px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full shadow-lg">
+                        <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-white rounded-full animate-pulse" />
+                        <span className="text-white text-[10px] sm:text-xs font-bold tracking-wide">LIVE</span>
                       </div>
                     </div>
 
-                    {/* Corner Guides */}
-                    <div className="absolute top-8 left-8 w-8 h-8 border-t-2 border-l-2 border-white/60" />
-                    <div className="absolute top-8 right-8 w-8 h-8 border-t-2 border-r-2 border-white/60" />
-                    <div className="absolute bottom-8 left-8 w-8 h-8 border-b-2 border-l-2 border-white/60" />
-                    <div className="absolute bottom-8 right-8 w-8 h-8 border-b-2 border-r-2 border-white/60" />
+                    {/* Corner Guides - Responsive */}
+                    <div className="absolute top-6 left-6 sm:top-10 sm:left-10 w-6 h-6 sm:w-10 sm:h-10 border-t-2 border-l-2 border-white/70 rounded-tl-lg" />
+                    <div className="absolute top-6 right-6 sm:top-10 sm:right-10 w-6 h-6 sm:w-10 sm:h-10 border-t-2 border-r-2 border-white/70 rounded-tr-lg" />
+                    <div className="absolute bottom-6 left-6 sm:bottom-10 sm:left-10 w-6 h-6 sm:w-10 sm:h-10 border-b-2 border-l-2 border-white/70 rounded-bl-lg" />
+                    <div className="absolute bottom-6 right-6 sm:bottom-10 sm:right-10 w-6 h-6 sm:w-10 sm:h-10 border-b-2 border-r-2 border-white/70 rounded-br-lg" />
+
+                    {/* Camera Switch Button */}
+                    <div className="absolute bottom-3 sm:bottom-4 left-3 sm:left-4">
+                      <Button
+                        size="icon"
+                        variant="secondary"
+                        className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-white/95 hover:bg-white shadow-xl pointer-events-auto transition-all hover:scale-110"
+                        onClick={toggleGarmentCamera}
+                      >
+                        <SwitchCamera className="h-5 w-5 sm:h-6 sm:w-6 text-gray-800" />
+                      </Button>
+                    </div>
                   </div>
                 </div>
 
                 {/* Camera Controls */}
-                <div className="grid grid-cols-2 gap-3 max-w-md mx-auto">
+                <div className="flex gap-2 sm:gap-3 px-2 sm:px-0 sm:max-w-lg mx-auto">
                   <Button
                     variant="outline"
                     size="lg"
                     onClick={() => setShowGarmentCamera(false)}
-                    className="border-2"
+                    className="flex-1 h-12 sm:h-14 text-base font-semibold border-2 hover:bg-destructive/10"
                   >
-                    <X className="h-5 w-5 mr-2" />
-                    Cancel
+                    <X className="h-5 w-5 sm:h-6 sm:w-6 mr-2" />
+                    <span className="hidden xs:inline">Cancel</span>
+                    <span className="xs:hidden">✕</span>
                   </Button>
                   <Button
                     size="lg"
                     onClick={captureGarmentPhoto}
-                    className="bg-primary hover:bg-primary/90"
+                    className="flex-[2] h-12 sm:h-14 text-base font-bold bg-primary hover:bg-primary/90 shadow-lg hover:shadow-xl transition-all"
                   >
-                    <Camera className="h-5 w-5 mr-2" />
-                    Capture
+                    <Camera className="h-5 w-5 sm:h-6 sm:w-6 mr-2" />
+                    Capture Photo
                   </Button>
                 </div>
 
                 {/* Tips */}
-                <Card className="p-3 bg-purple-500/10 border-purple-500/20 max-w-md mx-auto">
-                  <div className="flex items-start gap-2">
-                    <AlertCircle className="h-4 w-4 text-purple-500 mt-0.5 shrink-0" />
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium text-purple-700 dark:text-purple-300">
+                <Card className="mx-2 sm:mx-0 sm:max-w-lg sm:mx-auto p-3 sm:p-4 bg-purple-500/10 border-purple-500/20 backdrop-blur-sm">
+                  <div className="flex items-start gap-2 sm:gap-3">
+                    <AlertCircle className="h-4 w-4 sm:h-5 sm:w-5 text-purple-500 mt-0.5 shrink-0" />
+                    <div className="space-y-1 flex-1">
+                      <p className="text-sm sm:text-base font-semibold text-purple-700 dark:text-purple-300">
                         {tryOnPath === 'REFERENCE' ? 'Reference Photo Tips' : 'Garment Photo Tips'}
                       </p>
-                      <ul className="text-xs text-purple-600/90 dark:text-purple-300/90 space-y-0.5">
+                      <ul className="text-xs sm:text-sm text-purple-600/90 dark:text-purple-300/90 space-y-1">
                         {tryOnPath === 'REFERENCE' ? (
                           <>
-                            <li>• Full body visible, front-facing</li>
-                            <li>• Good lighting, no harsh shadows</li>
-                            <li>• Clear outfit details visible</li>
+                            <li className="flex items-start gap-1.5">
+                              <span className="text-purple-500 font-bold">•</span>
+                              <span>Full body visible, front-facing</span>
+                            </li>
+                            <li className="flex items-start gap-1.5">
+                              <span className="text-purple-500 font-bold">•</span>
+                              <span>Good lighting, no harsh shadows</span>
+                            </li>
+                            <li className="flex items-start gap-1.5">
+                              <span className="text-purple-500 font-bold">•</span>
+                              <span>Clear outfit details visible</span>
+                            </li>
                           </>
                         ) : (
                           <>
-                            <li>• Lay garment flat or hang on wall</li>
-                            <li>• Use plain background for best results</li>
-                            <li>• Avoid shadows and wrinkles</li>
+                            <li className="flex items-start gap-1.5">
+                              <span className="text-purple-500 font-bold">•</span>
+                              <span>Lay garment flat or hang on wall</span>
+                            </li>
+                            <li className="flex items-start gap-1.5">
+                              <span className="text-purple-500 font-bold">•</span>
+                              <span>Use plain background for best results</span>
+                            </li>
+                            <li className="flex items-start gap-1.5">
+                              <span className="text-purple-500 font-bold">•</span>
+                              <span>Avoid shadows and wrinkles</span>
+                            </li>
                           </>
                         )}
                       </ul>
