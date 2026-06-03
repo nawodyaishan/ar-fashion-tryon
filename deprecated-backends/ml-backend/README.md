@@ -34,7 +34,7 @@ service handles garment detection, human pose estimation, and virtual try-on pro
 ## 🏗 Architecture
 
 ```
-ml-backend/
+deprecated-backends/ml-backend/
 ├── app/
 │   ├── main.py              # FastAPI application entry
 │   ├── config.py            # Configuration management
@@ -66,10 +66,10 @@ ml-backend/
 
 ### Installation
 
-1. **Clone and navigate to ml-backend:**
+1. **Clone and navigate to deprecated-backends/ml-backend:**
 
 ```bash
-cd ar-fashion-tryon/ml-backend
+cd ar-fashion-tryon/deprecated-backends/ml-backend
 ```
 
 2. **Create virtual environment:**
@@ -411,7 +411,7 @@ function useGarmentDetection() {
 
 ```python
 # View logs
-tail -f logs/ml-backend.log
+tail -f logs/deprecated-backends/ml-backend.log
 
 # Log levels in .env
 LOG_LEVEL=INFO  # DEBUG, INFO, WARNING, ERROR

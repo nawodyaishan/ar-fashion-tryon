@@ -1,0 +1,514 @@
+openapi: 3.0.3
+info:
+  title: Garment Extraction & Virtual Try-On API
+  description: |
+    AI-powered garment classification, background removal, outfit construction, and virtual try-on API.
+
+    **Features:**
+    - 🏷️ Garment type classification
+    - ✂️ Automatic background removal
+    - 🎨 Full outfit construction
+    - 👕 AI-powered virtual try-on
+    - ☁️ Cloudinary integration
+
+    **Base URL:** `https://ar-fashion-tryon-production.up.railway.app`
+  version: 2.0.0
+  contact:
+    name: API Support
+    email: support@example.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://ar-fashion-tryon-production.up.railway.app
+    description: Production server
+  - url: http://localhost:5000
+    description: Local development server
+
+tags:
+  - name: Health
+    description: Health check endpoints
+  - name: Classification
+    description: Garment classification endpoints
+  - name: Outfit Construction
+    description: Outfit image construction
+  - name: Virtual Try-On
+    description: AI-powered virtual try-on
+
+paths:
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Health check
+      description: Check if the API is running and responsive
+      operationId: healthCheck
+      responses:
+        '200':
+          description: API is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+  /classify_garment:
+    post:
+      tags:
+        - Classification
+      summary: Classify garment and remove background
+      description: Upload a garment image to classify its type and remove the background. Returns Cloudinary URLs for both original and cutout images.
+      operationId: classifyGarment
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - garment
+              properties:
+                garment:
+                  type: string
+                  format: binary
+                  description: Garment image file (PNG, JPG, JPEG, max 16MB)
+      responses:
+        '200':
+          description: Successful classification
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClassifyGarmentResponse'
+        '400':
+          description: Bad request (invalid file, wrong format, etc.)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '413':
+          description: File too large (>16MB)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /classify_garment_by_url:
+    post:
+      tags:
+        - Classification
+      summary: Classify garment from URL
+      description: Same as /classify_garment but accepts an image URL instead of file upload
+      operationId: classifyGarmentByUrl
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - source_url
+              properties:
+                source_url:
+                  type: string
+                  format: uri
+                  example: https://example.com/garment-image.jpg
+                  description: Public URL of garment image
+      responses:
+        '200':
+          description: Successful classification
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClassifyGarmentResponse'
+        '400':
+          description: Invalid URL or failed to fetch image
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '413':
+          description: Image too large (>16MB)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /detect_garment_type:
+    post:
+      tags:
+        - Classification
+      summary: Detect garment type only
+      description: Lightweight endpoint for garment type detection. No background removal or Cloudinary uploads.
+      operationId: detectGarmentType
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - garment
+              properties:
+                garment:
+                  type: string
+                  format: binary
+                  description: Garment image file (PNG, JPG, JPEG, max 16MB)
+      responses:
+        '200':
+          description: Successful detection
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetectGarmentTypeResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '413':
+          description: File too large
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Classification failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /construct_outfit:
+    post:
+      tags:
+        - Outfit Construction
+      summary: Construct full outfit from upper and lower garments
+      description: Merge upper garment (shirt) and lower garment (pants) into a full outfit image. Classifies both garments and constructs a vertically stacked visualization.
+      operationId: constructOutfit
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - upper_garment
+                - lower_garment
+              properties:
+                upper_garment:
+                  type: string
+                  format: binary
+                  description: Upper garment image (shirt, t-shirt, top, jacket)
+                lower_garment:
+                  type: string
+                  format: binary
+                  description: Lower garment image (pants, trousers, skirt, shorts)
+      responses:
+        '200':
+          description: Outfit constructed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConstructOutfitResponse'
+        '400':
+          description: Invalid garment images
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '413':
+          description: File too large
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Construction failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /virtual_tryon:
+    post:
+      tags:
+        - Virtual Try-On
+      summary: AI-powered virtual try-on
+      description: Generate realistic try-on result using AI. Upload a person image and garment image to see how the garment looks on the person.
+      operationId: virtualTryOn
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - person_image
+                - garment_image
+              properties:
+                person_image:
+                  type: string
+                  format: binary
+                  description: Person/model image
+                garment_image:
+                  type: string
+                  format: binary
+                  description: Garment to try on
+                cloth_type:
+                  type: string
+                  enum: [upper, lower, overall]
+                  default: upper
+                  description: Type of garment
+                num_inference_steps:
+                  type: integer
+                  minimum: 10
+                  maximum: 100
+                  default: 50
+                  description: Number of diffusion steps (higher = better quality but slower)
+                guidance_scale:
+                  type: number
+                  format: float
+                  minimum: 0.0
+                  maximum: 7.5
+                  default: 2.5
+                  description: Guidance scale for generation
+                seed:
+                  type: integer
+                  default: 42
+                  description: Random seed for reproducibility (-1 for random)
+                show_type:
+                  type: string
+                  enum: [result only, input & result, input & mask & result]
+                  default: result only
+                  description: Display mode for results
+                process_garment:
+                  type: boolean
+                  default: true
+                  description: Whether to classify and remove background from garment first
+      responses:
+        '200':
+          description: Virtual try-on successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VirtualTryOnResponse'
+        '400':
+          description: Invalid images
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '413':
+          description: File too large
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Try-on processing failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: AI service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    ClassifyGarmentResponse:
+      type: object
+      properties:
+        label:
+          type: string
+          example: tshirt
+          description: Classified garment type
+        confidence:
+          type: number
+          format: float
+          example: 0.9234
+          description: Classification confidence (0.0 - 1.0)
+        garment_url:
+          type: string
+          format: uri
+          example: https://res.cloudinary.com/demo/image/upload/v1234/garments/originals/garment_a1b2c3d4.jpg
+          description: Cloudinary URL of original garment
+        cutout_url:
+          type: string
+          format: uri
+          example: https://res.cloudinary.com/demo/image/upload/v1234/garments/cutouts/cutout_a1b2c3d4.png
+          description: Cloudinary URL of background-removed garment
+        cutout_path:
+          type: string
+          example: garments/cutouts/cutout_a1b2c3d4.png
+          description: Relative path to cutout
+        garment_public_id:
+          type: string
+          example: garments/originals/garment_a1b2c3d4
+          description: Cloudinary public ID of original
+        cutout_public_id:
+          type: string
+          example: garments/cutouts/cutout_a1b2c3d4
+          description: Cloudinary public ID of cutout
+
+    DetectGarmentTypeResponse:
+      type: object
+      properties:
+        label:
+          type: string
+          example: tshirt
+        confidence:
+          type: number
+          format: float
+          example: 0.9234
+        filename:
+          type: string
+          example: garment_a1b2c3d4.jpg
+        file_size_bytes:
+          type: integer
+          example: 245678
+        content_type:
+          type: string
+          example: image/jpeg
+
+    ConstructOutfitResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        upper_garment:
+          type: object
+          properties:
+            label:
+              type: string
+              example: tshirt
+            confidence:
+              type: number
+              format: float
+              example: 0.9534
+            url:
+              type: string
+              format: uri
+              example: https://res.cloudinary.com/demo/image/upload/v1234/garments/originals/upper_a1b2c3d4.jpg
+            public_id:
+              type: string
+              example: garments/originals/upper_a1b2c3d4
+        lower_garment:
+          type: object
+          properties:
+            label:
+              type: string
+              example: trousers
+            confidence:
+              type: number
+              format: float
+              example: 0.8821
+            url:
+              type: string
+              format: uri
+              example: https://res.cloudinary.com/demo/image/upload/v1234/garments/originals/lower_a1b2c3d4.jpg
+            public_id:
+              type: string
+              example: garments/originals/lower_a1b2c3d4
+        outfit:
+          type: object
+          properties:
+            url:
+              type: string
+              format: uri
+              example: https://res.cloudinary.com/demo/image/upload/v1234/garments/originals/outfit_a1b2c3d4.png
+            public_id:
+              type: string
+              example: garments/originals/outfit_a1b2c3d4
+            format:
+              type: string
+              example: png
+
+    VirtualTryOnResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        person_url:
+          type: string
+          format: uri
+          example: https://res.cloudinary.com/demo/image/upload/v1234/garments/originals/person_a1b2c3d4.jpg
+        garment_url:
+          type: string
+          format: uri
+          example: https://res.cloudinary.com/demo/image/upload/v1234/garments/originals/garment_a1b2c3d4.jpg
+        cutout_url:
+          type: string
+          format: uri
+          example: https://res.cloudinary.com/demo/image/upload/v1234/garments/cutouts/cutout_a1b2c3d4.png
+          nullable: true
+        result_url:
+          type: string
+          format: uri
+          example: https://res.cloudinary.com/demo/image/upload/v1234/garments/tryon_results/tryon_a1b2c3d4.png
+        result_public_id:
+          type: string
+          example: garments/tryon_results/tryon_a1b2c3d4
+        cloth_type:
+          type: string
+          example: upper
+        parameters:
+          type: object
+          properties:
+            num_inference_steps:
+              type: integer
+              example: 50
+            guidance_scale:
+              type: number
+              format: float
+              example: 2.5
+            seed:
+              type: integer
+              example: 42
+            show_type:
+              type: string
+              example: result only
+        garment_classification:
+          type: object
+          nullable: true
+          properties:
+            label:
+              type: string
+              example: tshirt
+            confidence:
+              type: number
+              format: float
+              example: 0.9234
+
+    ErrorResponse:
+      type: object
+      properties:
+        detail:
+          type: string
+          example: Error message describing what went wrong
+        request_id:
+          type: string
+          example: abc12345
+          description: Request ID for tracking (when available)

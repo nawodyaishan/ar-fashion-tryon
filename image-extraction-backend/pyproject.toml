@@ -1,0 +1,27 @@
+[project]
+name = "image-extraction-backend"
+version = "0.1.0"
+description = "FastAPI garment extraction and virtual try-on backend"
+readme = "README.md"
+requires-python = ">=3.10,<3.13"
+dependencies = [
+    "cloudinary",
+    "fastapi",
+    "gdown",
+    "gradio-client>=1.4.0",
+    "gunicorn",
+    "numpy",
+    "onnxruntime",
+    "opencv-python-headless",
+    "pillow",
+    "python-dotenv",
+    "python-multipart",
+    "rembg",
+    "requests",
+    "tensorflow; platform_system == 'Darwin' and platform_machine == 'arm64'",
+    "tensorflow-cpu; platform_system != 'Darwin' or platform_machine != 'arm64'",
+    "uvicorn[standard]",
+]
+
+[tool.uv]
+package = false
