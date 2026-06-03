@@ -461,7 +461,7 @@ curl -X POST "http://localhost:5000/virtual_tryon" \
 
 ```bash
 # Start backend
-cd image-extraction-backend
+cd garment-processing-api
 python app.py  # Port 5000
 
 # Start frontend

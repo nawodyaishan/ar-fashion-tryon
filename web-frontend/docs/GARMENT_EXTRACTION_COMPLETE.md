@@ -130,7 +130,7 @@ Works out of the box, no configuration needed:
 
 ```bash
 # Start backend
-cd ../image-extraction-backend
+cd ../garment-processing-api
 python app.py
 
 # Start frontend

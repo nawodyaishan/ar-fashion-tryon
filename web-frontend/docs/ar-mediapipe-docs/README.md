@@ -450,7 +450,7 @@ See project root for license information.
 
 - **Project Root**: `../../CLAUDE.md` - Full-stack system overview
 - **Frontend**: `../../web-frontend/CLAUDE.md` - Frontend-specific documentation
-- **ML Backend**: `../../ml-backend/README.md` - CatVTON integration
+- **ML Backend**: `../../deprecated-backends/ml-backend/README.md` - CatVTON integration
 
 ---
 

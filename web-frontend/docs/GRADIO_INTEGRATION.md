@@ -391,7 +391,7 @@ if (!garment.extracted) {
 1. **Start Services**:
    ```bash
    # Terminal 1: Garment Extraction API
-   cd image-extraction-backend
+   cd garment-processing-api
    python main.py
    # Running on http://localhost:5000
 

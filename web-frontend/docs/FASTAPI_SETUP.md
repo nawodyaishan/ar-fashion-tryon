@@ -19,7 +19,7 @@ Your frontend now uses a **FastAPI backend** instead of calling Gradio directly.
 Your FastAPI backend (`app.py`) is ready to use! Just configure the environment:
 
 ```bash
-# In your backend directory (image-extraction-backend)
+# In your backend directory (garment-processing-api)
 # Create .env file with:
 
 # Cloudinary (required for image storage)
