@@ -1,0 +1,13 @@
+[phases.setup]
+nixPkgs = ["python310", "unzip", "uv"]
+
+[phases.install]
+cmds = [
+  "uv sync --frozen --no-dev",
+  'uv run python -c "import importlib.metadata as md, platform; packages={d.metadata[\"Name\"].lower() for d in md.distributions()}; expected=\"tensorflow\" if platform.system()==\"Darwin\" and platform.machine()==\"arm64\" else \"tensorflow-cpu\"; installed=[p for p in packages if p.startswith(\"tensorflow\")]; assert expected in packages, f\"Expected {expected}, installed {installed}\"; print(f\"TensorFlow package verified: {expected} on {platform.system()} {platform.machine()}\")"',
+  "chmod +x scripts/download_models_railway_v2.sh",
+  "uv run bash scripts/download_models_railway_v2.sh"
+]
+
+[start]
+cmd = "uv run gunicorn -k uvicorn.workers.UvicornWorker -w 1 -b 0.0.0.0:$PORT app:app"
