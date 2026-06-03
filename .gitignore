@@ -152,7 +152,12 @@ build/
 *.pt
 *.onnx
 *.tflite
+*.h5
+*.keras
+*.safetensors
 checkpoints/
+garment-processing-api/models/*.h5
+deprecated-backends/**/*.h5
 
 # IDE
 .vscode/

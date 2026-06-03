@@ -27,6 +27,9 @@ Prerequisites:
 ```bash
 uv sync
 
+# Required once per fresh clone: restore local TensorFlow model files.
+uv run bash scripts/download_models_local.sh
+
 export CLOUDINARY_CLOUD_NAME=your-cloud-name
 export CLOUDINARY_API_KEY=your-api-key
 export CLOUDINARY_API_SECRET=your-api-secret
@@ -68,6 +71,52 @@ Railway verifies the selected TensorFlow package during the Nixpacks install pha
 ├── nixpacks.toml
 └── Procfile
 ```
+
+## Model Files
+
+Large TensorFlow model binaries are intentionally kept out of normal Git pushes:
+
+- `models/best_clothing_model.h5`
+- `models/clothing_model_final.h5`
+
+The small JSON metadata files in `models/` must stay committed because they define the model label order and inference settings.
+
+### Restore Models Manually
+
+1. Download `trained_models.zip` from the project Google Drive model artifact.
+2. Extract the zip.
+3. Copy only the `.h5` files into `garment-processing-api/models/`.
+4. Keep the existing committed JSON files in `garment-processing-api/models/` unchanged.
+
+Expected final layout:
+
+```text
+garment-processing-api/models/
+├── best_clothing_model.h5
+├── clothing_model_final.h5
+├── class_labels.json
+├── model_config.json
+├── rejection_threshold.json
+└── README.md
+```
+
+### Restore Models With Script
+
+The same placement can be automated with the existing downloader:
+
+```bash
+cd garment-processing-api
+uv run bash scripts/download_models_local.sh
+```
+
+To use a different Google Drive file, pass its file ID:
+
+```bash
+cd garment-processing-api
+GDRIVE_MODEL_FILE_ID=your_file_id uv run bash scripts/download_models_local.sh
+```
+
+The script downloads `trained_models.zip`, copies the `.h5` files into `models/`, and preserves the committed JSON configuration files.
 
 ## Common Commands
 
