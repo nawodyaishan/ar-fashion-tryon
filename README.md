@@ -6,28 +6,40 @@ Preview clothing with live camera overlays or generate a photo try-on from perso
 
 [Product specification](docs/PROJECT_SPEC.md) · [Contributor guide](CONTRIBUTING.md) · [Roadmap](docs/ROADMAP.md) · [Security reporting](SECURITY.md)
 
+![Person photo and garment inputs with generated try-on results for normal, full outfit, and reference modes](docs/assets/try-on-modes.png)
+
+<sub>Input pairs (top) and generated CatVTON results (bottom) for the three photo try-on modes.</sub>
+
 ## What you can do
 
-| Experience          | Workflow                                                                                                    |
-| ------------------- | ----------------------------------------------------------------------------------------------------------- |
-| **Live AR preview** | Use browser camera input and MediaPipe pose tracking to position, scale, and rotate garment overlays.       |
-| **Single garment**  | Upload a person and garment image, classify the garment, remove its background, and request a photo try-on. |
-| **Full outfit**     | Combine separate upper and lower garments, preview the constructed outfit, and generate a try-on.           |
-| **Full reference**  | Use a reference image with manual garment-type selection for an experimental photo workflow.                |
+| Experience           | Workflow                                                                                                    |
+| -------------------- | ----------------------------------------------------------------------------------------------------------- |
+| **Live AR preview**  | Use browser camera input and MediaPipe pose tracking to position, scale, and rotate garment overlays.       |
+| **Normal mode**      | Upload a person and garment image, classify the garment, remove its background, and request a photo try-on. |
+| **Full outfit mode** | Combine separate upper and lower garments, preview the constructed outfit, and generate a try-on.           |
+| **Reference mode**   | Use a reference image with manual garment-type selection for an experimental photo workflow.                |
 
 Photo workflows expose inference controls and a result viewer with download options. Live AR overlays and generated photo results are separate experiences; their behavior is detailed in the [product specification](docs/PROJECT_SPEC.md).
 
 ## Architecture
 
-```mermaid
-flowchart LR
-    User[Browser] --> Web[Next.js frontend]
-    Web --> AR[MediaPipe camera overlays]
-    Web --> API[FastAPI garment API]
-    API --> Processing[TensorFlow classification and rembg cutouts]
-    API --> GPU[Hosted CatVTON / Gradio inference]
-    API --> Storage[Cloudinary image storage and delivery]
-```
+![AR Fashion Try-On system architecture: Next.js frontend, FastAPI backend on Railway, Cloudinary storage, and CatVTON inference on a Hugging Face GPU Space](docs/assets/architecture/ar_fashion_architecture.png)
+
+The system has four layers: a **Next.js frontend** (with a client-side MediaPipe + Three.js AR preview), a **FastAPI backend** on Railway, **Cloudinary** for storage and delivery, and **CatVTON** inference on a Hugging Face GPU Space.
+
+A photo try-on request follows the numbered steps in the diagram:
+
+1. The shopper opens the Next.js app. AR mode stays in the browser: MediaPipe Pose landmarks drive a Three.js garment overlay.
+2. The frontend uploads the person and garment images to Cloudinary.
+3. The frontend calls the FastAPI gateway.
+4. The API classifies the garment (TensorFlow CNN), removes its background (`rembg` / U²-Net), and stores the cutout.
+5. For full outfits, OpenCV merges upper and lower cutouts and the API stores the outfit.
+6. The try-on client calls the Gradio API `predict()` on the Hugging Face Space.
+7. The Space fetches the inputs, runs DensePose + SCHP preprocessing, then CatVTON diffusion.
+8. The result is uploaded to Cloudinary.
+9. The frontend receives the result URL and displays it.
+
+The diagram is generated from code with [`diagrams`](https://diagrams.mingrammer.com/); edit [`architecture.py`](docs/assets/architecture/architecture.py) and run `python architecture.py` from `docs/assets/architecture/` (requires Graphviz) to regenerate it.
 
 | Component                | Location                                                      | Role                                                                                                         |
 | ------------------------ | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
