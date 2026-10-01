@@ -128,34 +128,37 @@ export default function ContactPage() {
                       rel="noopener noreferrer"
                     >
                       GitHub repository
-                    </a>
-                    {' '}with details about the problem and steps to reproduce it.
+                    </a>{' '}
+                    with details about the problem and steps to reproduce it.
                   </p>
                 </div>
 
                 <div className="p-4 rounded-lg bg-muted/30">
                   <h3 className="font-semibold mb-2">Can I contribute to the project?</h3>
                   <p className="text-sm text-muted-foreground">
-                    Absolutely! We welcome contributions. Check out our repository for contribution guidelines,
-                    or reach out via email to discuss ideas.
+                    Absolutely! We welcome contributions. Check out our repository for contribution
+                    guidelines, or reach out via email to discuss ideas.
                   </p>
                 </div>
 
                 <div className="p-4 rounded-lg bg-muted/30">
                   <h3 className="font-semibold mb-2">Is this project open source?</h3>
                   <p className="text-sm text-muted-foreground">
-                    Yes! The entire project is available on GitHub. Feel free to explore, learn, and contribute.
+                    Yes! The entire project is available on GitHub. Feel free to explore, learn, and
+                    contribute.
                   </p>
                 </div>
 
                 <div className="p-4 rounded-lg bg-muted/30">
-                  <h3 className="font-semibold mb-2">How can I use this for commercial purposes?</h3>
+                  <h3 className="font-semibold mb-2">
+                    How can I use this for commercial purposes?
+                  </h3>
                   <p className="text-sm text-muted-foreground">
                     Please reach out to us via email at{' '}
                     <a href="mailto:nawodyain@gmail.com" className="text-primary hover:underline">
                       nawodyain@gmail.com
-                    </a>
-                    {' '}to discuss licensing and commercial use.
+                    </a>{' '}
+                    to discuss licensing and commercial use.
                   </p>
                 </div>
               </div>
@@ -167,8 +170,9 @@ export default function ContactPage() {
         <Card className="border-2 border-primary/20 bg-primary/5">
           <CardContent className="pt-6">
             <p className="text-sm text-center text-muted-foreground">
-              <strong>Response Time:</strong> We typically respond within 24-48 hours during weekdays.
-              For urgent technical issues, please use GitHub Issues for faster community support.
+              <strong>Response Time:</strong> We typically respond within 24-48 hours during
+              weekdays. For urgent technical issues, please use GitHub Issues for faster community
+              support.
             </p>
           </CardContent>
         </Card>

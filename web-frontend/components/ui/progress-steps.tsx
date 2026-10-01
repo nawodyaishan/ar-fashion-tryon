@@ -34,8 +34,9 @@ export function ProgressSteps({ steps, currentStep, className }: ProgressStepsPr
                     {
                       'bg-primary border-primary text-primary-foreground scale-110': isActive,
                       'bg-success border-success text-success-foreground': isCompleted,
-                      'bg-background border-border text-muted-foreground': !isActive && !isCompleted,
-                    }
+                      'bg-background border-border text-muted-foreground':
+                        !isActive && !isCompleted,
+                    },
                   )}
                 >
                   {isCompleted ? (
@@ -56,14 +57,11 @@ export function ProgressSteps({ steps, currentStep, className }: ProgressStepsPr
                 {/* Label */}
                 <div className="mt-2 text-center hidden sm:block">
                   <p
-                    className={cn(
-                      'text-xs font-medium transition-colors whitespace-nowrap',
-                      {
-                        'text-primary': isActive,
-                        'text-success': isCompleted,
-                        'text-muted-foreground': !isActive && !isCompleted,
-                      }
-                    )}
+                    className={cn('text-xs font-medium transition-colors whitespace-nowrap', {
+                      'text-primary': isActive,
+                      'text-success': isCompleted,
+                      'text-muted-foreground': !isActive && !isCompleted,
+                    })}
                   >
                     {step.label}
                   </p>
@@ -85,7 +83,7 @@ export function ProgressSteps({ steps, currentStep, className }: ProgressStepsPr
                       {
                         'w-full': isCompleted,
                         'w-0': !isCompleted,
-                      }
+                      },
                     )}
                   />
                 </div>
@@ -97,13 +95,9 @@ export function ProgressSteps({ steps, currentStep, className }: ProgressStepsPr
 
       {/* Mobile: Show only current step label */}
       <div className="sm:hidden mt-4 text-center">
-        <p className="text-sm font-medium text-primary">
-          {steps[currentStep].label}
-        </p>
+        <p className="text-sm font-medium text-primary">{steps[currentStep].label}</p>
         {steps[currentStep].description && (
-          <p className="text-xs text-muted-foreground mt-1">
-            {steps[currentStep].description}
-          </p>
+          <p className="text-xs text-muted-foreground mt-1">{steps[currentStep].description}</p>
         )}
         <p className="text-xs text-muted-foreground mt-2">
           Step {currentStep + 1} of {steps.length}

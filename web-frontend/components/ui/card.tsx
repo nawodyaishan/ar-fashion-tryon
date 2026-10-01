@@ -2,28 +2,27 @@ import * as React from 'react';
 import { cn } from '@/lib/utils';
 import { cva, type VariantProps } from 'class-variance-authority';
 
-const cardVariants = cva(
-  'rounded-xl transition-all duration-300',
-  {
-    variants: {
-      variant: {
-        default: 'bg-card border border-border shadow-md hover:shadow-lg',
-        elevated: 'bg-card-elevated border border-border shadow-lg hover:shadow-xl',
-        glass: 'backdrop-blur-xl bg-card/90 border border-border/50 shadow-xl',
-        outline: 'bg-background border-2 border-border hover:border-border-hover shadow-sm hover:shadow-md',
-        gradient: 'bg-gradient-to-br from-card via-card to-card-elevated border border-border/50 shadow-lg',
-      },
-      interactive: {
-        true: 'cursor-pointer hover:-translate-y-1 active:translate-y-0 active:shadow-md',
-        false: '',
-      },
+const cardVariants = cva('rounded-xl transition-all duration-300', {
+  variants: {
+    variant: {
+      default: 'bg-card border border-border shadow-md hover:shadow-lg',
+      elevated: 'bg-card-elevated border border-border shadow-lg hover:shadow-xl',
+      glass: 'backdrop-blur-xl bg-card/90 border border-border/50 shadow-xl',
+      outline:
+        'bg-background border-2 border-border hover:border-border-hover shadow-sm hover:shadow-md',
+      gradient:
+        'bg-gradient-to-br from-card via-card to-card-elevated border border-border/50 shadow-lg',
     },
-    defaultVariants: {
-      variant: 'default',
-      interactive: false,
+    interactive: {
+      true: 'cursor-pointer hover:-translate-y-1 active:translate-y-0 active:shadow-md',
+      false: '',
     },
-  }
-);
+  },
+  defaultVariants: {
+    variant: 'default',
+    interactive: false,
+  },
+});
 
 export interface CardProps
   extends React.HTMLAttributes<HTMLDivElement>,
@@ -31,11 +30,7 @@ export interface CardProps
 
 const Card = React.forwardRef<HTMLDivElement, CardProps>(
   ({ className, variant, interactive, ...props }, ref) => (
-    <div
-      ref={ref}
-      className={cn(cardVariants({ variant, interactive }), className)}
-      {...props}
-    />
+    <div ref={ref} className={cn(cardVariants({ variant, interactive }), className)} {...props} />
   ),
 );
 Card.displayName = 'Card';

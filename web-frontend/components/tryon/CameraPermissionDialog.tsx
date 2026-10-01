@@ -4,15 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import {
-  Camera,
-  CheckCircle2,
-  XCircle,
-  AlertCircle,
-  Info,
-  Shield,
-  RefreshCw,
-} from 'lucide-react';
+import { Camera, CheckCircle2, XCircle, AlertCircle, Info, Shield, RefreshCw } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import {
   getCameraPermissionStatus,
@@ -221,8 +213,8 @@ export default function CameraPermissionDialog({
           {/* Help Text */}
           {permissionStatus === 'prompt' && (
             <p className="text-xs text-center text-muted-foreground">
-              By allowing camera access, you agree that we can use your device camera for AR
-              try-on features only.
+              By allowing camera access, you agree that we can use your device camera for AR try-on
+              features only.
             </p>
           )}
         </div>

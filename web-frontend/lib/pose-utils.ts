@@ -12,7 +12,7 @@ export const POSE_LANDMARKS = {
   LEFT_ELBOW: 13,
   RIGHT_ELBOW: 14,
   LEFT_HIP: 23,
-  RIGHT_HIP: 24
+  RIGHT_HIP: 24,
 };
 
 export interface ShoulderPosition {
@@ -26,7 +26,7 @@ export interface ShoulderPosition {
 export function calculateShoulderPosition(
   landmarks: PoseLandmark[],
   containerWidth: number,
-  containerHeight: number
+  containerHeight: number,
 ): ShoulderPosition | null {
   if (!landmarks || landmarks.length < 33) return null;
 
@@ -34,33 +34,34 @@ export function calculateShoulderPosition(
   const rightShoulder = landmarks[POSE_LANDMARKS.RIGHT_SHOULDER];
 
   // Check visibility
-  if (!leftShoulder || !rightShoulder ||
-      (leftShoulder.visibility || 0) < 0.5 ||
-      (rightShoulder.visibility || 0) < 0.5) {
+  if (
+    !leftShoulder ||
+    !rightShoulder ||
+    (leftShoulder.visibility || 0) < 0.5 ||
+    (rightShoulder.visibility || 0) < 0.5
+  ) {
     return null;
   }
 
   // Convert normalized coordinates to pixels
   const left = {
     x: leftShoulder.x * containerWidth,
-    y: leftShoulder.y * containerHeight
+    y: leftShoulder.y * containerHeight,
   };
 
   const right = {
     x: rightShoulder.x * containerWidth,
-    y: rightShoulder.y * containerHeight
+    y: rightShoulder.y * containerHeight,
   };
 
   // Calculate center point
   const center = {
     x: (left.x + right.x) / 2,
-    y: (left.y + right.y) / 2
+    y: (left.y + right.y) / 2,
   };
 
   // Calculate shoulder width
-  const width = Math.sqrt(
-    Math.pow(right.x - left.x, 2) + Math.pow(right.y - left.y, 2)
-  );
+  const width = Math.sqrt(Math.pow(right.x - left.x, 2) + Math.pow(right.y - left.y, 2));
 
   // Calculate shoulder angle (for rotation)
   // Note: Landmarks are already flipped in usePoseDetection (x: 1 - l.x)
@@ -75,7 +76,7 @@ export function calculateShoulderPosition(
     rightShoulder: right,
     center,
     width,
-    angle: clampedAngle
+    angle: clampedAngle,
   };
 }
 
@@ -91,7 +92,7 @@ export function calculateGarmentPosition(
   garment: Garment,
   containerWidth: number,
   containerHeight: number,
-  baseGarmentWidth: number = 200
+  baseGarmentWidth: number = 200,
 ): GarmentSuggestion | Transform {
   // Try keypoint-based positioning first if available
   if (garment.keypoints && garment.keypoints.detectionConfidence >= 0.5) {
@@ -99,7 +100,7 @@ export function calculateGarmentPosition(
       shoulderPos,
       garment,
       containerWidth,
-      containerHeight
+      containerHeight,
     );
     if (keypointTransform) {
       console.log('🎯 Using keypoint positioning');
@@ -117,13 +118,13 @@ export function calculateGarmentPosition(
 
   // Position garment centered on shoulders, slightly below
   const x = shoulderPos.center.x - (baseGarmentWidth * scale) / 2;
-  const y = shoulderPos.center.y - (baseGarmentWidth * scale * 0.15); // Offset upward slightly
+  const y = shoulderPos.center.y - baseGarmentWidth * scale * 0.15; // Offset upward slightly
 
   return {
     x,
     y,
     scale,
-    rotation: shoulderPos.angle
+    rotation: shoulderPos.angle,
   };
 }
 
@@ -134,8 +135,8 @@ export function calculateGarmentPosition(
 export function calculateGarmentPositionWithKeypoints(
   shoulderPos: ShoulderPosition,
   garment: Garment,
-  containerWidth: number,
-  containerHeight: number,
+  _containerWidth: number,
+  _containerHeight: number,
 ): Transform | null {
   // Validate inputs
   if (!garment.keypoints) {

@@ -26,7 +26,7 @@ const variantMap = {
 export function LoadingSpinner({
   size = 'md',
   variant = 'primary',
-  className
+  className,
 }: LoadingSpinnerProps) {
   return (
     <motion.div
@@ -34,7 +34,7 @@ export function LoadingSpinner({
         'rounded-full border-2 border-t-transparent',
         sizeMap[size],
         variantMap[variant],
-        className
+        className,
       )}
       animate={{ rotate: 360 }}
       transition={{
@@ -52,11 +52,7 @@ interface LoadingDotsProps {
   className?: string;
 }
 
-export function LoadingDots({
-  size = 'md',
-  variant = 'primary',
-  className
-}: LoadingDotsProps) {
+export function LoadingDots({ size = 'md', variant = 'primary', className }: LoadingDotsProps) {
   const dotSize = {
     sm: 'w-1.5 h-1.5',
     md: 'w-2 h-2',
@@ -101,11 +97,7 @@ interface LoadingPulseProps {
   className?: string;
 }
 
-export function LoadingPulse({
-  size = 'md',
-  variant = 'primary',
-  className
-}: LoadingPulseProps) {
+export function LoadingPulse({ size = 'md', variant = 'primary', className }: LoadingPulseProps) {
   const pulseSize = {
     sm: 'w-8 h-8',
     md: 'w-12 h-12',
@@ -123,10 +115,7 @@ export function LoadingPulse({
     <div className={cn('relative', pulseSize[size], className)}>
       {/* Outer pulse */}
       <motion.div
-        className={cn(
-          'absolute inset-0 rounded-full opacity-30',
-          pulseColor[variant]
-        )}
+        className={cn('absolute inset-0 rounded-full opacity-30', pulseColor[variant])}
         animate={{
           scale: [1, 1.5, 1.5, 1],
           opacity: [0.3, 0.1, 0, 0.3],
@@ -140,10 +129,7 @@ export function LoadingPulse({
 
       {/* Middle pulse */}
       <motion.div
-        className={cn(
-          'absolute inset-0 rounded-full opacity-40',
-          pulseColor[variant]
-        )}
+        className={cn('absolute inset-0 rounded-full opacity-40', pulseColor[variant])}
         animate={{
           scale: [1, 1.3, 1.3, 1],
           opacity: [0.4, 0.2, 0, 0.4],
@@ -158,10 +144,7 @@ export function LoadingPulse({
 
       {/* Inner core */}
       <motion.div
-        className={cn(
-          'absolute inset-0 rounded-full',
-          pulseColor[variant]
-        )}
+        className={cn('absolute inset-0 rounded-full', pulseColor[variant])}
         animate={{
           scale: [0.95, 1.05, 0.95],
           opacity: [0.8, 1, 0.8],
@@ -187,7 +170,7 @@ export function LoadingBar({
   progress = 0,
   variant = 'primary',
   animated = false,
-  className
+  className,
 }: LoadingBarProps) {
   const barColor = {
     primary: 'bg-primary',
@@ -231,7 +214,7 @@ export function LoadingOverlay({
   visible,
   message,
   variant = 'blur',
-  children
+  children,
 }: LoadingOverlayProps) {
   if (!visible) return null;
 
@@ -242,9 +225,7 @@ export function LoadingOverlay({
       exit={{ opacity: 0 }}
       className={cn(
         'absolute inset-0 z-50 flex flex-col items-center justify-center gap-4',
-        variant === 'blur'
-          ? 'backdrop-blur-sm bg-background/80'
-          : 'bg-background'
+        variant === 'blur' ? 'backdrop-blur-sm bg-background/80' : 'bg-background',
       )}
     >
       {children || (

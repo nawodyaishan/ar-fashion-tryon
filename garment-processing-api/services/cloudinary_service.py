@@ -1,6 +1,7 @@
 """
 Cloudinary upload and management service.
 """
+
 import io
 import logging
 from typing import Optional

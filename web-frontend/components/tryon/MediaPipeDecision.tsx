@@ -6,12 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import {
-  CheckCircle2,
-  XCircle,
-  FileText,
-  Download
-} from 'lucide-react';
+import { CheckCircle2, XCircle, FileText, Download } from 'lucide-react';
 
 interface DecisionData {
   decision: 'GO' | 'NO-GO';
@@ -41,17 +36,17 @@ export function MediaPipeDecision({ decision, successRate, testResults }: MediaP
     const decisionData: DecisionData = {
       decision,
       successRate,
-      testResults: testResults.map(t => ({
+      testResults: testResults.map((t) => ({
         scenario: t.name,
         passed: t.passed,
-        confidence: t.confidence
+        confidence: t.confidence,
       })),
       timestamp: new Date().toISOString(),
-      reasoning: reasoning || (
-        decision === 'GO'
+      reasoning:
+        reasoning ||
+        (decision === 'GO'
           ? 'Success rate meets 60% threshold. MediaPipe accuracy acceptable for hybrid mode.'
-          : 'Success rate below 60% threshold. Focusing on manual-only approach with polished controls.'
-      )
+          : 'Success rate below 60% threshold. Focusing on manual-only approach with polished controls.'),
     };
 
     // Create downloadable JSON file
@@ -80,11 +75,10 @@ export function MediaPipeDecision({ decision, successRate, testResults }: MediaP
           {decision === 'GO' ? (
             <div className="text-center">
               <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-3" />
-              <Badge className="bg-green-500 text-lg px-6 py-2">
-                GO: Proceed with MediaPipe
-              </Badge>
+              <Badge className="bg-green-500 text-lg px-6 py-2">GO: Proceed with MediaPipe</Badge>
               <p className="text-sm text-muted-foreground mt-3">
-                Success rate: <strong className="text-green-500">{successRate.toFixed(1)}%</strong> ≥ 60%
+                Success rate: <strong className="text-green-500">{successRate.toFixed(1)}%</strong>{' '}
+                ≥ 60%
               </p>
             </div>
           ) : (
@@ -94,7 +88,8 @@ export function MediaPipeDecision({ decision, successRate, testResults }: MediaP
                 NO-GO: Manual-Only Mode
               </Badge>
               <p className="text-sm text-muted-foreground mt-3">
-                Success rate: <strong className="text-red-500">{successRate.toFixed(1)}%</strong> &lt; 60%
+                Success rate: <strong className="text-red-500">{successRate.toFixed(1)}%</strong>{' '}
+                &lt; 60%
               </p>
             </div>
           )}
@@ -166,11 +161,7 @@ export function MediaPipeDecision({ decision, successRate, testResults }: MediaP
         </div>
 
         {/* Document Button */}
-        <Button
-          onClick={handleDocumentDecision}
-          disabled={documented}
-          className="w-full"
-        >
+        <Button onClick={handleDocumentDecision} disabled={documented} className="w-full">
           <Download className="mr-2 h-4 w-4" />
           {documented ? 'Decision Documented' : 'Download Decision Report'}
         </Button>

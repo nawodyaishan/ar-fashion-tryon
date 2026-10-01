@@ -1,6 +1,10 @@
 # CLAUDE.md
 
-This file gives coding-agent guidance for the AR Fashion Try-On monorepo.
+Start with [AGENTS.md](AGENTS.md) for canonical sources, CodeGraph and Agentic
+SDD approval/batch rules. Use [CONTRIBUTING.md](CONTRIBUTING.md) for current
+commands and the implementation status of planned workflow tooling.
+
+This file gives service-specific guidance for the AR Fashion Try-On monorepo.
 
 ## Active Services
 
@@ -16,7 +20,7 @@ Deprecated backend experiments live in `deprecated-backends/` and should not be 
 
 ```bash
 cd web-frontend
-pnpm install
+pnpm install --frozen-lockfile
 pnpm dev
 ```
 
@@ -24,9 +28,10 @@ pnpm dev
 
 ```bash
 cd garment-processing-api
-uv sync
-uv run uvicorn app:app --reload --host 0.0.0.0 --port 5000
-uv run python tests/test_model_load.py
+uv sync --locked
+uv run --no-sync uvicorn app:app --env-file .env --reload --host 127.0.0.1 --port 5000
+# Optional: requires restored model weights.
+uv run --no-sync python tests/test_model_load.py
 ```
 
 ### CatVTON Gradio

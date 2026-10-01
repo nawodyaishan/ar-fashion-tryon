@@ -42,7 +42,7 @@ export function Confetti({
       'oklch(0.60 0.25 270)', // primary
       'oklch(0.70 0.15 200)', // accent
       'oklch(0.65 0.20 140)', // success
-      'oklch(0.75 0.15 70)',  // warning
+      'oklch(0.75 0.15 70)', // warning
       'oklch(0.60 0.20 240)', // info
     ];
 

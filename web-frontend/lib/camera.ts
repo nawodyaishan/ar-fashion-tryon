@@ -50,11 +50,11 @@ export async function getCameraDevices(): Promise<CameraDevice[]> {
     // Enumerate devices
     const devices = await navigator.mediaDevices.enumerateDevices();
     const videoDevices = devices
-      .filter(device => device.kind === 'videoinput')
+      .filter((device) => device.kind === 'videoinput')
       .map((device, index) => ({
         deviceId: device.deviceId,
         label: device.label || `Camera ${index + 1}`,
-        groupId: device.groupId
+        groupId: device.groupId,
       }));
 
     console.log(`📹 Found ${videoDevices.length} camera device(s):`, videoDevices);
@@ -76,24 +76,26 @@ export async function requestCameraAccess(deviceId?: string): Promise<MediaStrea
         deviceId: { exact: deviceId },
         width: { ideal: 1280 },
         height: { ideal: 720 },
-        frameRate: { ideal: 30 }
+        frameRate: { ideal: 30 },
       }
     : {
         // Use default front camera
         width: { ideal: 1280 },
         height: { ideal: 720 },
         facingMode: 'user',
-        frameRate: { ideal: 30 }
+        frameRate: { ideal: 30 },
       };
 
   // First, try with ideal constraints
   try {
     const stream = await navigator.mediaDevices.getUserMedia({
       video: videoConstraints,
-      audio: false
+      audio: false,
     });
 
-    console.log(`✅ Camera access granted${deviceId ? ' (device: ' + deviceId + ')' : ' (ideal settings)'}`);
+    console.log(
+      `✅ Camera access granted${deviceId ? ' (device: ' + deviceId + ')' : ' (ideal settings)'}`,
+    );
     return stream;
   } catch {
     console.log('⚠️ Ideal settings failed, trying basic settings...');
@@ -102,7 +104,7 @@ export async function requestCameraAccess(deviceId?: string): Promise<MediaStrea
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: true,
-        audio: false
+        audio: false,
       });
 
       console.log('✅ Camera access granted (basic settings)');
@@ -111,16 +113,22 @@ export async function requestCameraAccess(deviceId?: string): Promise<MediaStrea
       const fallbackErr = fallbackError as { name?: string };
       const cameraError: CameraError = {
         type: 'unknown',
-        message: 'Failed to access camera'
+        message: 'Failed to access camera',
       };
 
       if (fallbackErr.name === 'NotAllowedError' || fallbackErr.name === 'PermissionDeniedError') {
         cameraError.type = 'permission-denied';
         cameraError.message = 'Camera permission denied. Please allow camera access.';
-      } else if (fallbackErr.name === 'NotFoundError' || fallbackErr.name === 'DevicesNotFoundError') {
+      } else if (
+        fallbackErr.name === 'NotFoundError' ||
+        fallbackErr.name === 'DevicesNotFoundError'
+      ) {
         cameraError.type = 'not-found';
         cameraError.message = 'No camera found on this device.';
-      } else if (fallbackErr.name === 'NotReadableError' || fallbackErr.name === 'TrackStartError') {
+      } else if (
+        fallbackErr.name === 'NotReadableError' ||
+        fallbackErr.name === 'TrackStartError'
+      ) {
         cameraError.type = 'not-readable';
         cameraError.message = 'Camera is already in use by another application.';
       } else if (fallbackErr.name === 'OverconstrainedError') {
@@ -136,7 +144,7 @@ export async function requestCameraAccess(deviceId?: string): Promise<MediaStrea
 
 export function stopCameraStream(stream: MediaStream | null) {
   if (stream) {
-    stream.getTracks().forEach(track => {
+    stream.getTracks().forEach((track) => {
       track.stop();
       console.log('🛑 Camera track stopped');
     });
@@ -156,10 +164,15 @@ export function checkCameraSupport(): boolean {
   }
 
   // Check for secure context (HTTPS or localhost)
-  if (window.location.protocol !== 'https:' &&
-      window.location.hostname !== 'localhost' &&
-      window.location.hostname !== '127.0.0.1') {
-    console.warn('⚠️ Camera requires HTTPS or localhost. Current:', window.location.protocol + '//' + window.location.hostname);
+  if (
+    window.location.protocol !== 'https:' &&
+    window.location.hostname !== 'localhost' &&
+    window.location.hostname !== '127.0.0.1'
+  ) {
+    console.warn(
+      '⚠️ Camera requires HTTPS or localhost. Current:',
+      window.location.protocol + '//' + window.location.hostname,
+    );
   }
 
   return true;
@@ -168,20 +181,24 @@ export function checkCameraSupport(): boolean {
 export function getSecurityWarning(): string | null {
   if (typeof window === 'undefined') return null;
 
-  if (window.location.protocol !== 'https:' &&
-      window.location.hostname !== 'localhost' &&
-      window.location.hostname !== '127.0.0.1' &&
-      !window.location.hostname.startsWith('192.168.') &&
-      !window.location.hostname.startsWith('10.') &&
-      !window.location.hostname.startsWith('172.')) {
+  if (
+    window.location.protocol !== 'https:' &&
+    window.location.hostname !== 'localhost' &&
+    window.location.hostname !== '127.0.0.1' &&
+    !window.location.hostname.startsWith('192.168.') &&
+    !window.location.hostname.startsWith('10.') &&
+    !window.location.hostname.startsWith('172.')
+  ) {
     return 'Camera access requires HTTPS. Please use https:// or access via localhost.';
   }
 
   // For local network IPs (192.168.x.x, 10.x.x.x)
-  if ((window.location.hostname.startsWith('192.168.') ||
-       window.location.hostname.startsWith('10.') ||
-       window.location.hostname.startsWith('172.')) &&
-      window.location.protocol !== 'https:') {
+  if (
+    (window.location.hostname.startsWith('192.168.') ||
+      window.location.hostname.startsWith('10.') ||
+      window.location.hostname.startsWith('172.')) &&
+    window.location.protocol !== 'https:'
+  ) {
     return 'Accessing via local network IP requires HTTPS. Please use https:// or access via http://localhost:3000';
   }
 

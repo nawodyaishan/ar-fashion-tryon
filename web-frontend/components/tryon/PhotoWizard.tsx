@@ -117,13 +117,15 @@ export default function PhotoWizard() {
 
   // Camera toggle functions
   const toggleBodyCamera = useCallback(() => {
-    setBodyFacingMode(prev => prev === 'user' ? 'environment' : 'user');
+    setBodyFacingMode((prev) => (prev === 'user' ? 'environment' : 'user'));
     toast.info(bodyFacingMode === 'user' ? 'Switched to back camera' : 'Switched to front camera');
   }, [bodyFacingMode]);
 
   const toggleGarmentCamera = useCallback(() => {
-    setGarmentFacingMode(prev => prev === 'user' ? 'environment' : 'user');
-    toast.info(garmentFacingMode === 'user' ? 'Switched to back camera' : 'Switched to front camera');
+    setGarmentFacingMode((prev) => (prev === 'user' ? 'environment' : 'user'));
+    toast.info(
+      garmentFacingMode === 'user' ? 'Switched to back camera' : 'Switched to front camera',
+    );
   }, [garmentFacingMode]);
 
   // Body Camera functions
@@ -154,7 +156,8 @@ export default function PhotoWizard() {
     let errorMessage = 'Failed to access camera';
     if (typeof error === 'object' && error.name) {
       if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-        errorMessage = 'Camera permission denied. Please allow camera access in your browser settings.';
+        errorMessage =
+          'Camera permission denied. Please allow camera access in your browser settings.';
       } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
         errorMessage = 'No camera found on this device.';
       } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
@@ -201,7 +204,8 @@ export default function PhotoWizard() {
     let errorMessage = 'Failed to access camera';
     if (typeof error === 'object' && error.name) {
       if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-        errorMessage = 'Camera permission denied. Please allow camera access in your browser settings.';
+        errorMessage =
+          'Camera permission denied. Please allow camera access in your browser settings.';
       } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
         errorMessage = 'No camera found on this device.';
       } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
@@ -390,11 +394,7 @@ export default function PhotoWizard() {
             </div>
 
             {/* Quick Tour Button */}
-            <Button
-              variant="outline"
-              onClick={openPhotoOnboarding}
-              className="w-full gap-2"
-            >
+            <Button variant="outline" onClick={openPhotoOnboarding} className="w-full gap-2">
               <HelpCircle className="h-4 w-4" />
               Take a Quick Tour
             </Button>
@@ -521,7 +521,12 @@ export default function PhotoWizard() {
                   </div>
                 </div>
 
-                <Button variant="outline" size="lg" className="w-full" onClick={() => setShowBodyCamera(true)}>
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="w-full"
+                  onClick={() => setShowBodyCamera(true)}
+                >
                   <Camera className="h-5 w-5 mr-2" />
                   Capture with Camera
                 </Button>
@@ -554,7 +559,9 @@ export default function PhotoWizard() {
                     {/* Instructions */}
                     <div className="absolute top-3 sm:top-4 left-0 right-0 text-center px-3">
                       <div className="inline-block bg-black/80 backdrop-blur-md px-3 sm:px-4 py-1.5 sm:py-2 rounded-full shadow-lg">
-                        <p className="text-white text-xs sm:text-sm font-medium">Position yourself in the frame</p>
+                        <p className="text-white text-xs sm:text-sm font-medium">
+                          Position yourself in the frame
+                        </p>
                       </div>
                     </div>
 
@@ -562,7 +569,9 @@ export default function PhotoWizard() {
                     <div className="absolute top-3 sm:top-4 right-3 sm:right-4">
                       <div className="flex items-center gap-1.5 sm:gap-2 bg-red-500/90 backdrop-blur-sm px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full shadow-lg">
                         <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-white rounded-full animate-pulse" />
-                        <span className="text-white text-[10px] sm:text-xs font-bold tracking-wide">LIVE</span>
+                        <span className="text-white text-[10px] sm:text-xs font-bold tracking-wide">
+                          LIVE
+                        </span>
                       </div>
                     </div>
 
@@ -607,7 +616,9 @@ export default function PhotoWizard() {
                   <div className="flex items-start gap-2 sm:gap-3">
                     <AlertCircle className="h-4 w-4 sm:h-5 sm:w-5 text-blue-500 mt-0.5 shrink-0" />
                     <div className="space-y-1 flex-1">
-                      <p className="text-sm sm:text-base font-semibold text-blue-700 dark:text-blue-300">Quick Tips</p>
+                      <p className="text-sm sm:text-base font-semibold text-blue-700 dark:text-blue-300">
+                        Quick Tips
+                      </p>
                       <ul className="text-xs sm:text-sm text-blue-600/90 dark:text-blue-300/90 space-y-1">
                         <li className="flex items-start gap-1.5">
                           <span className="text-blue-500 font-bold">•</span>
@@ -789,7 +800,9 @@ export default function PhotoWizard() {
                     <div className="absolute top-3 sm:top-4 left-0 right-0 text-center px-3">
                       <div className="inline-block bg-black/80 backdrop-blur-md px-3 sm:px-4 py-1.5 sm:py-2 rounded-full shadow-lg">
                         <p className="text-white text-xs sm:text-sm font-medium">
-                          {tryOnPath === 'REFERENCE' ? 'Center person in frame' : 'Center garment in frame'}
+                          {tryOnPath === 'REFERENCE'
+                            ? 'Center person in frame'
+                            : 'Center garment in frame'}
                         </p>
                       </div>
                     </div>
@@ -798,7 +811,9 @@ export default function PhotoWizard() {
                     <div className="absolute top-3 sm:top-4 right-3 sm:right-4">
                       <div className="flex items-center gap-1.5 sm:gap-2 bg-red-500/90 backdrop-blur-sm px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full shadow-lg">
                         <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-white rounded-full animate-pulse" />
-                        <span className="text-white text-[10px] sm:text-xs font-bold tracking-wide">LIVE</span>
+                        <span className="text-white text-[10px] sm:text-xs font-bold tracking-wide">
+                          LIVE
+                        </span>
                       </div>
                     </div>
 
@@ -1179,34 +1194,36 @@ export default function PhotoWizard() {
 
                 {/* Previews */}
                 <ProcessingOverlay
-                  isProcessing={status === 'processing' || status === 'classifying' || status === 'constructing'}
+                  isProcessing={
+                    status === 'processing' || status === 'classifying' || status === 'constructing'
+                  }
                   lockMessage="Preview locked"
                   showPulse={false}
                 >
                   <div className="grid grid-cols-2 gap-3">
                     <Card className="p-2 space-y-1">
-                    <p className="text-[10px] font-medium text-muted-foreground">Body</p>
-                    {body.previewUrl && (
-                      <div className="relative aspect-[3/4] rounded-md overflow-hidden border">
-                        <Image src={body.previewUrl} alt="Body" fill className="object-contain" />
-                      </div>
-                    )}
-                  </Card>
-                  <Card className="p-2 space-y-1">
-                    <p className="text-[10px] font-medium text-muted-foreground">
-                      {tryOnPath === 'FULL' ? 'Outfit' : 'Garment'}
-                    </p>
-                    {(tryOnPath === 'FULL' ? outfit.url : garment.previewUrl) && (
-                      <div className="relative aspect-[3/4] rounded-md overflow-hidden border bg-muted/20">
-                        <Image
-                          src={(tryOnPath === 'FULL' ? outfit.url : garment.previewUrl)!}
-                          alt="Garment"
-                          fill
-                          className="object-contain p-1"
-                        />
-                      </div>
-                    )}
-                  </Card>
+                      <p className="text-[10px] font-medium text-muted-foreground">Body</p>
+                      {body.previewUrl && (
+                        <div className="relative aspect-[3/4] rounded-md overflow-hidden border">
+                          <Image src={body.previewUrl} alt="Body" fill className="object-contain" />
+                        </div>
+                      )}
+                    </Card>
+                    <Card className="p-2 space-y-1">
+                      <p className="text-[10px] font-medium text-muted-foreground">
+                        {tryOnPath === 'FULL' ? 'Outfit' : 'Garment'}
+                      </p>
+                      {(tryOnPath === 'FULL' ? outfit.url : garment.previewUrl) && (
+                        <div className="relative aspect-[3/4] rounded-md overflow-hidden border bg-muted/20">
+                          <Image
+                            src={(tryOnPath === 'FULL' ? outfit.url : garment.previewUrl)!}
+                            alt="Garment"
+                            fill
+                            className="object-contain p-1"
+                          />
+                        </div>
+                      )}
+                    </Card>
                   </div>
                 </ProcessingOverlay>
 
@@ -1304,45 +1321,47 @@ export default function PhotoWizard() {
 
                 {/* Advanced - Collapsed on Mobile */}
                 <ProcessingOverlay
-                  isProcessing={status === 'processing' || status === 'classifying' || status === 'constructing'}
+                  isProcessing={
+                    status === 'processing' || status === 'classifying' || status === 'constructing'
+                  }
                   lockMessage="Settings locked"
                 >
                   <Accordion type="single" collapsible className="w-full">
-                  <AccordionItem value="options">
-                    <AccordionTrigger className="text-sm">Advanced Settings</AccordionTrigger>
-                    <AccordionContent className="space-y-3 pt-3">
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <Label className="text-xs">Inference Steps</Label>
-                          <span className="text-xs text-muted-foreground">
-                            {options.numInferenceSteps ?? 50}
-                          </span>
+                    <AccordionItem value="options">
+                      <AccordionTrigger className="text-sm">Advanced Settings</AccordionTrigger>
+                      <AccordionContent className="space-y-3 pt-3">
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-xs">Inference Steps</Label>
+                            <span className="text-xs text-muted-foreground">
+                              {options.numInferenceSteps ?? 50}
+                            </span>
+                          </div>
+                          <Slider
+                            value={[options.numInferenceSteps ?? 50]}
+                            onValueChange={([value]) => setOptions({ numInferenceSteps: value })}
+                            min={20}
+                            max={100}
+                            step={5}
+                          />
                         </div>
-                        <Slider
-                          value={[options.numInferenceSteps ?? 50]}
-                          onValueChange={([value]) => setOptions({ numInferenceSteps: value })}
-                          min={20}
-                          max={100}
-                          step={5}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <Label className="text-xs">Guidance Scale</Label>
-                          <span className="text-xs text-muted-foreground">
-                            {(options.guidanceScale ?? 2.5).toFixed(1)}
-                          </span>
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-xs">Guidance Scale</Label>
+                            <span className="text-xs text-muted-foreground">
+                              {(options.guidanceScale ?? 2.5).toFixed(1)}
+                            </span>
+                          </div>
+                          <Slider
+                            value={[options.guidanceScale ?? 2.5]}
+                            onValueChange={([value]) => setOptions({ guidanceScale: value })}
+                            min={1.0}
+                            max={10.0}
+                            step={0.5}
+                          />
                         </div>
-                        <Slider
-                          value={[options.guidanceScale ?? 2.5]}
-                          onValueChange={([value]) => setOptions({ guidanceScale: value })}
-                          min={1.0}
-                          max={10.0}
-                          step={0.5}
-                        />
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
+                      </AccordionContent>
+                    </AccordionItem>
                   </Accordion>
                 </ProcessingOverlay>
 
@@ -1359,97 +1378,101 @@ export default function PhotoWizard() {
                 {/* LEFT RAIL - Controls (3 cols, sticky) */}
                 <div className="col-span-3 space-y-4 sticky top-20 self-start">
                   <ProcessingOverlay
-                    isProcessing={status === 'processing' || status === 'classifying' || status === 'constructing'}
+                    isProcessing={
+                      status === 'processing' ||
+                      status === 'classifying' ||
+                      status === 'constructing'
+                    }
                     lockMessage="Options locked during processing"
                   >
                     <Card className="p-4 space-y-4">
                       <h3 className="text-lg font-semibold">Garment Options</h3>
 
-                    {/* Inline Detection + Cloth Type */}
-                    {garment.classification && tryOnPath === 'NORMAL' && (
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <span>Auto-selected:</span>
-                          <ClassificationChip
-                            label={garment.classification.label}
-                            confidence={garment.classification.confidence}
-                            size="sm"
-                          />
-                        </div>
-                      </div>
-                    )}
-
-                    <ClothTypeSelector
-                      value={options.clothType || 'upper'}
-                      onChange={(value) => setOptions({ clothType: value })}
-                      availableTypes={getAvailableClothTypes()}
-                      disabledTypes={getDisabledClothTypes()}
-                      preselectState={getPreselectState()}
-                      detectedLabel={garment.classification?.label}
-                      confidence={garment.classification?.confidence}
-                    />
-
-                    {/* Mini Preflight Checklist */}
-                    {(() => {
-                      const preflight = getPreflightChecks();
-                      if (tryOnPath === 'FULL' && !preflight.outfitReady) return null;
-
-                      return (
-                        <div className="space-y-1.5 text-xs">
-                          <p className="font-medium text-muted-foreground">Quick Checks</p>
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-2">
-                              {preflight.resolutionOK ? (
-                                <Check className="h-3 w-3 text-green-500" />
-                              ) : (
-                                <AlertCircle className="h-3 w-3 text-amber-500" />
-                              )}
-                              <span
-                                className={
-                                  preflight.resolutionOK
-                                    ? 'text-muted-foreground'
-                                    : 'text-amber-500'
-                                }
-                              >
-                                Resolution
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              {preflight.brightnessOK ? (
-                                <Check className="h-3 w-3 text-green-500" />
-                              ) : (
-                                <AlertCircle className="h-3 w-3 text-amber-500" />
-                              )}
-                              <span
-                                className={
-                                  preflight.brightnessOK
-                                    ? 'text-muted-foreground'
-                                    : 'text-amber-500'
-                                }
-                              >
-                                Brightness
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              {preflight.clothTypeSelected ? (
-                                <Check className="h-3 w-3 text-green-500" />
-                              ) : (
-                                <X className="h-3 w-3 text-red-500" />
-                              )}
-                              <span
-                                className={
-                                  preflight.clothTypeSelected
-                                    ? 'text-muted-foreground'
-                                    : 'text-red-500'
-                                }
-                              >
-                                Cloth type
-                              </span>
-                            </div>
+                      {/* Inline Detection + Cloth Type */}
+                      {garment.classification && tryOnPath === 'NORMAL' && (
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <span>Auto-selected:</span>
+                            <ClassificationChip
+                              label={garment.classification.label}
+                              confidence={garment.classification.confidence}
+                              size="sm"
+                            />
                           </div>
                         </div>
-                      );
-                    })()}
+                      )}
+
+                      <ClothTypeSelector
+                        value={options.clothType || 'upper'}
+                        onChange={(value) => setOptions({ clothType: value })}
+                        availableTypes={getAvailableClothTypes()}
+                        disabledTypes={getDisabledClothTypes()}
+                        preselectState={getPreselectState()}
+                        detectedLabel={garment.classification?.label}
+                        confidence={garment.classification?.confidence}
+                      />
+
+                      {/* Mini Preflight Checklist */}
+                      {(() => {
+                        const preflight = getPreflightChecks();
+                        if (tryOnPath === 'FULL' && !preflight.outfitReady) return null;
+
+                        return (
+                          <div className="space-y-1.5 text-xs">
+                            <p className="font-medium text-muted-foreground">Quick Checks</p>
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                {preflight.resolutionOK ? (
+                                  <Check className="h-3 w-3 text-green-500" />
+                                ) : (
+                                  <AlertCircle className="h-3 w-3 text-amber-500" />
+                                )}
+                                <span
+                                  className={
+                                    preflight.resolutionOK
+                                      ? 'text-muted-foreground'
+                                      : 'text-amber-500'
+                                  }
+                                >
+                                  Resolution
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {preflight.brightnessOK ? (
+                                  <Check className="h-3 w-3 text-green-500" />
+                                ) : (
+                                  <AlertCircle className="h-3 w-3 text-amber-500" />
+                                )}
+                                <span
+                                  className={
+                                    preflight.brightnessOK
+                                      ? 'text-muted-foreground'
+                                      : 'text-amber-500'
+                                  }
+                                >
+                                  Brightness
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {preflight.clothTypeSelected ? (
+                                  <Check className="h-3 w-3 text-green-500" />
+                                ) : (
+                                  <X className="h-3 w-3 text-red-500" />
+                                )}
+                                <span
+                                  className={
+                                    preflight.clothTypeSelected
+                                      ? 'text-muted-foreground'
+                                      : 'text-red-500'
+                                  }
+                                >
+                                  Cloth type
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </Card>
                   </ProcessingOverlay>
                 </div>
@@ -1457,63 +1480,72 @@ export default function PhotoWizard() {
                 {/* CENTER RAIL - Preview Stage (6 cols) */}
                 <div className="col-span-6">
                   <ProcessingOverlay
-                    isProcessing={status === 'processing' || status === 'classifying' || status === 'constructing'}
+                    isProcessing={
+                      status === 'processing' ||
+                      status === 'classifying' ||
+                      status === 'constructing'
+                    }
                     lockMessage="Preview locked during processing"
                     showPulse={false}
                   >
                     <div className="grid grid-cols-2 gap-4">
                       {/* Body Preview Frame */}
                       <Card className="p-3 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <p className="text-sm font-medium">Body Photo</p>
-                        {body.quality && (
-                          <Badge
-                            variant={
-                              body.quality === 'GOOD'
-                                ? 'default'
-                                : body.quality === 'OK'
-                                  ? 'outline'
-                                  : 'secondary'
-                            }
-                            className="text-[10px]"
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm font-medium">Body Photo</p>
+                          {body.quality && (
+                            <Badge
+                              variant={
+                                body.quality === 'GOOD'
+                                  ? 'default'
+                                  : body.quality === 'OK'
+                                    ? 'outline'
+                                    : 'secondary'
+                              }
+                              className="text-[10px]"
+                            >
+                              {body.quality}
+                            </Badge>
+                          )}
+                        </div>
+                        {body.previewUrl && (
+                          <div
+                            className="relative rounded-lg overflow-hidden border bg-muted/20"
+                            style={{ height: 'clamp(420px, 56vh, 680px)' }}
                           >
-                            {body.quality}
-                          </Badge>
+                            <Image
+                              src={body.previewUrl}
+                              alt="Body"
+                              fill
+                              className="object-contain"
+                            />
+                          </div>
                         )}
-                      </div>
-                      {body.previewUrl && (
-                        <div
-                          className="relative rounded-lg overflow-hidden border bg-muted/20"
-                          style={{ height: 'clamp(420px, 56vh, 680px)' }}
-                        >
-                          <Image src={body.previewUrl} alt="Body" fill className="object-contain" />
-                        </div>
-                      )}
-                    </Card>
+                      </Card>
 
-                    {/* Garment Preview Frame */}
-                    <Card className="p-3 space-y-2">
-                      <p className="text-sm font-medium">
-                        {tryOnPath === 'FULL'
-                          ? 'Outfit'
-                          : tryOnPath === 'REFERENCE'
-                            ? 'Reference'
-                            : 'Garment'}
-                      </p>
-                      {(tryOnPath === 'FULL' ? outfit.url : garment.previewUrl) && (
-                        <div
-                          className="relative rounded-lg overflow-hidden border bg-muted/20"
-                          style={{ height: 'clamp(420px, 56vh, 680px)' }}
-                        >
-                          <Image
-                            src={(tryOnPath === 'FULL' ? outfit.url : garment.previewUrl)!}
-                            alt="Garment"
-                            fill
-                            className="object-contain p-4"
-                          />
-                        </div>
-                      )}
-                    </Card>
+                      {/* Garment Preview Frame */}
+                      <Card className="p-3 space-y-2">
+                        <p className="text-sm font-medium">
+                          {tryOnPath === 'FULL'
+                            ? 'Outfit'
+                            : tryOnPath === 'REFERENCE'
+                              ? 'Reference'
+                              : 'Garment'}
+                        </p>
+                        {(tryOnPath === 'FULL' ? outfit.url : garment.previewUrl) && (
+                          <div
+                            className="relative rounded-lg overflow-hidden border bg-muted/20"
+                            style={{ height: 'clamp(420px, 56vh, 680px)' }}
+                          >
+                            <Image
+                              src={(tryOnPath === 'FULL' ? outfit.url : garment.previewUrl)!}
+                              alt="Garment"
+                              fill
+                              className="object-contain p-4"
+                            />
+                          </div>
+                        )}
+                      </Card>
                     </div>
                   </ProcessingOverlay>
                 </div>
@@ -1619,52 +1651,58 @@ export default function PhotoWizard() {
 
                     {/* Advanced Settings */}
                     <ProcessingOverlay
-                      isProcessing={status === 'processing' || status === 'classifying' || status === 'constructing'}
+                      isProcessing={
+                        status === 'processing' ||
+                        status === 'classifying' ||
+                        status === 'constructing'
+                      }
                       lockMessage="Settings locked during processing"
                     >
                       <Accordion type="single" collapsible className="w-full">
-                      <AccordionItem value="advanced" className="border-none">
-                        <AccordionTrigger className="text-sm py-2">
-                          Advanced Settings
-                        </AccordionTrigger>
-                        <AccordionContent className="space-y-3 pt-2">
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-between">
-                              <Label className="text-xs" title="Number of diffusion steps">
-                                Inference Steps
-                              </Label>
-                              <span className="text-xs text-muted-foreground">
-                                {options.numInferenceSteps ?? 50}
-                              </span>
+                        <AccordionItem value="advanced" className="border-none">
+                          <AccordionTrigger className="text-sm py-2">
+                            Advanced Settings
+                          </AccordionTrigger>
+                          <AccordionContent className="space-y-3 pt-2">
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between">
+                                <Label className="text-xs" title="Number of diffusion steps">
+                                  Inference Steps
+                                </Label>
+                                <span className="text-xs text-muted-foreground">
+                                  {options.numInferenceSteps ?? 50}
+                                </span>
+                              </div>
+                              <Slider
+                                value={[options.numInferenceSteps ?? 50]}
+                                onValueChange={([value]) =>
+                                  setOptions({ numInferenceSteps: value })
+                                }
+                                min={20}
+                                max={100}
+                                step={5}
+                              />
                             </div>
-                            <Slider
-                              value={[options.numInferenceSteps ?? 50]}
-                              onValueChange={([value]) => setOptions({ numInferenceSteps: value })}
-                              min={20}
-                              max={100}
-                              step={5}
-                            />
-                          </div>
 
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-between">
-                              <Label className="text-xs" title="Guidance strength">
-                                Guidance Scale
-                              </Label>
-                              <span className="text-xs text-muted-foreground">
-                                {(options.guidanceScale ?? 2.5).toFixed(1)}
-                              </span>
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between">
+                                <Label className="text-xs" title="Guidance strength">
+                                  Guidance Scale
+                                </Label>
+                                <span className="text-xs text-muted-foreground">
+                                  {(options.guidanceScale ?? 2.5).toFixed(1)}
+                                </span>
+                              </div>
+                              <Slider
+                                value={[options.guidanceScale ?? 2.5]}
+                                onValueChange={([value]) => setOptions({ guidanceScale: value })}
+                                min={1.0}
+                                max={10.0}
+                                step={0.5}
+                              />
                             </div>
-                            <Slider
-                              value={[options.guidanceScale ?? 2.5]}
-                              onValueChange={([value]) => setOptions({ guidanceScale: value })}
-                              min={1.0}
-                              max={10.0}
-                              step={0.5}
-                            />
-                          </div>
-                        </AccordionContent>
-                      </AccordionItem>
+                          </AccordionContent>
+                        </AccordionItem>
                       </Accordion>
                     </ProcessingOverlay>
 

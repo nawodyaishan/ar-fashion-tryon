@@ -179,3 +179,11 @@ htmlcov/
 .idea
 
 image-extraction-backend/static
+
+# Local code index and Python/test tooling outputs
+.codegraph/
+.venv/
+.ruff_cache/
+.pytest_cache/
+playwright-report/
+test-results/

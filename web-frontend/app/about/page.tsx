@@ -13,9 +13,7 @@ export default function AboutPage() {
       <div className="container mx-auto px-4 py-12 md:py-16 max-w-4xl">
         {/* Lead Section */}
         <div className="text-center mb-16 space-y-4">
-          <h1 className="text-4xl md:text-5xl font-bold">
-            {aboutContent.lead.title}
-          </h1>
+          <h1 className="text-4xl md:text-5xl font-bold">{aboutContent.lead.title}</h1>
           <p className="text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
             {aboutContent.lead.intro}
           </p>
@@ -39,9 +37,7 @@ export default function AboutPage() {
         <section className="mb-16">
           <div className="text-center mb-8">
             <h2 className="text-3xl font-bold mb-3">Our Principles</h2>
-            <p className="text-lg text-muted-foreground">
-              The values that guide our development
-            </p>
+            <p className="text-lg text-muted-foreground">The values that guide our development</p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-6">
@@ -63,16 +59,17 @@ export default function AboutPage() {
         <section className="mb-16">
           <div className="text-center mb-8">
             <h2 className="text-3xl font-bold mb-3">{aboutContent.technology.title}</h2>
-            <p className="text-lg text-muted-foreground">
-              {aboutContent.technology.intro}
-            </p>
+            <p className="text-lg text-muted-foreground">{aboutContent.technology.intro}</p>
           </div>
 
           <Card className="border-2">
             <CardContent className="pt-6">
               <div className="space-y-4">
                 {aboutContent.technology.stack.map((tech) => (
-                  <div key={tech.name} className="flex items-start gap-3 p-3 rounded-lg hover:bg-accent/50 transition-colors">
+                  <div
+                    key={tech.name}
+                    className="flex items-start gap-3 p-3 rounded-lg hover:bg-accent/50 transition-colors"
+                  >
                     <div className="flex-shrink-0 w-2 h-2 mt-2 rounded-full bg-primary" />
                     <div>
                       <span className="font-semibold">{tech.name}</span>
@@ -90,7 +87,8 @@ export default function AboutPage() {
           <Alert className="border-amber-500/50 bg-amber-500/10">
             <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
             <AlertDescription className="text-base">
-              <strong>{aboutContent.responsibleUse.title}:</strong> {aboutContent.responsibleUse.note}
+              <strong>{aboutContent.responsibleUse.title}:</strong>{' '}
+              {aboutContent.responsibleUse.note}
             </AlertDescription>
           </Alert>
         </section>
@@ -99,9 +97,7 @@ export default function AboutPage() {
         <section>
           <div className="text-center mb-8">
             <h2 className="text-3xl font-bold mb-3">{aboutContent.credits.title}</h2>
-            <p className="text-muted-foreground">
-              {aboutContent.credits.note}
-            </p>
+            <p className="text-muted-foreground">{aboutContent.credits.note}</p>
           </div>
 
           <Card className="border-2">
@@ -114,7 +110,11 @@ export default function AboutPage() {
                     asChild
                     className="justify-between h-auto py-3"
                   >
-                    <Link href={link.href} target={link.href.startsWith('http') ? '_blank' : undefined} rel={link.href.startsWith('http') ? 'noopener noreferrer' : undefined}>
+                    <Link
+                      href={link.href}
+                      target={link.href.startsWith('http') ? '_blank' : undefined}
+                      rel={link.href.startsWith('http') ? 'noopener noreferrer' : undefined}
+                    >
                       <span>{link.label}</span>
                       {link.href.startsWith('http') && <ExternalLink className="h-4 w-4 ml-2" />}
                     </Link>
@@ -134,9 +134,7 @@ export default function AboutPage() {
                 Experience the hybrid try-on system yourself
               </p>
               <Button size="lg" asChild>
-                <Link href="/try-on">
-                  Start Try-On
-                </Link>
+                <Link href="/try-on">Start Try-On</Link>
               </Button>
             </CardContent>
           </Card>

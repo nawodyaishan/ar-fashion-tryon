@@ -6,14 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import {
-  CheckCircle2,
-  XCircle,
-  AlertCircle,
-  User,
-  Sun,
-  Moon
-} from 'lucide-react';
+import { CheckCircle2, XCircle, AlertCircle, User, Sun, Moon } from 'lucide-react';
 import { useTryonStore } from '@/lib/tryon-store';
 import { MediaPipeDecision } from './MediaPipeDecision';
 
@@ -39,7 +32,7 @@ export function MediaPipeTestPanel() {
       minConfidence: 0.6,
       tested: false,
       passed: false,
-      confidence: 0
+      confidence: 0,
     },
     {
       id: 'person-1-dim',
@@ -49,7 +42,7 @@ export function MediaPipeTestPanel() {
       minConfidence: 0.5,
       tested: false,
       passed: false,
-      confidence: 0
+      confidence: 0,
     },
     {
       id: 'person-2-bright',
@@ -59,7 +52,7 @@ export function MediaPipeTestPanel() {
       minConfidence: 0.6,
       tested: false,
       passed: false,
-      confidence: 0
+      confidence: 0,
     },
     {
       id: 'person-2-dim',
@@ -69,7 +62,7 @@ export function MediaPipeTestPanel() {
       minConfidence: 0.5,
       tested: false,
       passed: false,
-      confidence: 0
+      confidence: 0,
     },
     {
       id: 'person-3-bright',
@@ -79,7 +72,7 @@ export function MediaPipeTestPanel() {
       minConfidence: 0.6,
       tested: false,
       passed: false,
-      confidence: 0
+      confidence: 0,
     },
     {
       id: 'person-3-dim',
@@ -89,8 +82,8 @@ export function MediaPipeTestPanel() {
       minConfidence: 0.5,
       tested: false,
       passed: false,
-      confidence: 0
-    }
+      confidence: 0,
+    },
   ]);
 
   const [currentTest, setCurrentTest] = useState<string | null>(null);
@@ -135,17 +128,19 @@ export function MediaPipeTestPanel() {
       // Calculate average confidence
       const avgConfidence = samples.reduce((a, b) => a + b, 0) / samples.length;
 
-      setScenarios(prev => prev.map(s => {
-        if (s.id === scenarioId) {
-          return {
-            ...s,
-            tested: true,
-            confidence: avgConfidence,
-            passed: avgConfidence >= s.minConfidence
-          };
-        }
-        return s;
-      }));
+      setScenarios((prev) =>
+        prev.map((s) => {
+          if (s.id === scenarioId) {
+            return {
+              ...s,
+              tested: true,
+              confidence: avgConfidence,
+              passed: avgConfidence >= s.minConfidence,
+            };
+          }
+          return s;
+        }),
+      );
 
       setCurrentTest(null);
     }, 3000);
@@ -156,15 +151,15 @@ export function MediaPipeTestPanel() {
     if (!currentTest) return;
 
     const interval = setInterval(() => {
-      setTestDuration(prev => prev + 100);
+      setTestDuration((prev) => prev + 100);
     }, 100);
 
     return () => clearInterval(interval);
   }, [currentTest]);
 
   // Calculate overall statistics
-  const testedCount = scenarios.filter(s => s.tested).length;
-  const passedCount = scenarios.filter(s => s.passed).length;
+  const testedCount = scenarios.filter((s) => s.tested).length;
+  const passedCount = scenarios.filter((s) => s.passed).length;
   const totalCount = scenarios.length;
   const successRate = testedCount > 0 ? (passedCount / testedCount) * 100 : 0;
 
@@ -189,16 +184,18 @@ export function MediaPipeTestPanel() {
         <div className="space-y-2">
           <div className="flex items-center justify-between text-xs">
             <span>Overall Progress</span>
-            <span className="font-medium">{testedCount}/{totalCount} tests</span>
+            <span className="font-medium">
+              {testedCount}/{totalCount} tests
+            </span>
           </div>
           <Progress value={(testedCount / totalCount) * 100} />
 
           {testedCount > 0 && (
             <div className="flex items-center justify-between text-xs">
               <span>Success Rate</span>
-              <span className={`font-medium ${
-                successRate >= 60 ? 'text-green-500' : 'text-red-500'
-              }`}>
+              <span
+                className={`font-medium ${successRate >= 60 ? 'text-green-500' : 'text-red-500'}`}
+              >
                 {successRate.toFixed(1)}%
               </span>
             </div>
@@ -213,14 +210,10 @@ export function MediaPipeTestPanel() {
               className="flex items-center justify-between gap-2 p-3 rounded-lg border bg-card"
             >
               <div className="flex items-center gap-3 flex-1">
-                <div className="text-muted-foreground">
-                  {scenario.icon}
-                </div>
+                <div className="text-muted-foreground">{scenario.icon}</div>
                 <div className="flex-1">
                   <div className="text-sm font-medium">{scenario.name}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {scenario.description}
-                  </div>
+                  <div className="text-xs text-muted-foreground">{scenario.description}</div>
                   {scenario.tested && (
                     <div className="text-xs mt-1">
                       Confidence: {(scenario.confidence * 100).toFixed(1)}%
@@ -263,11 +256,13 @@ export function MediaPipeTestPanel() {
 
         {/* Decision Panel */}
         {decision && (
-          <div className={`p-4 rounded-lg border-2 ${
-            decision === 'GO'
-              ? 'bg-green-500/10 border-green-500'
-              : 'bg-red-500/10 border-red-500'
-          }`}>
+          <div
+            className={`p-4 rounded-lg border-2 ${
+              decision === 'GO'
+                ? 'bg-green-500/10 border-green-500'
+                : 'bg-red-500/10 border-red-500'
+            }`}
+          >
             <div className="flex items-center gap-3">
               {decision === 'GO' ? (
                 <>
@@ -275,7 +270,8 @@ export function MediaPipeTestPanel() {
                   <div>
                     <div className="font-semibold text-green-500">GO: Proceed with MediaPipe</div>
                     <div className="text-xs text-muted-foreground mt-1">
-                      Success rate {successRate.toFixed(1)}% ≥ 60% threshold. Continue to Day 5 with automatic positioning.
+                      Success rate {successRate.toFixed(1)}% ≥ 60% threshold. Continue to Day 5 with
+                      automatic positioning.
                     </div>
                   </div>
                 </>
@@ -285,7 +281,8 @@ export function MediaPipeTestPanel() {
                   <div>
                     <div className="font-semibold text-red-500">NO-GO: Switch to Manual-Only</div>
                     <div className="text-xs text-muted-foreground mt-1">
-                      Success rate {successRate.toFixed(1)}% &lt; 60% threshold. Focus on polishing manual placement system.
+                      Success rate {successRate.toFixed(1)}% &lt; 60% threshold. Focus on polishing
+                      manual placement system.
                     </div>
                   </div>
                 </>
@@ -299,10 +296,10 @@ export function MediaPipeTestPanel() {
           <MediaPipeDecision
             decision={decision}
             successRate={successRate}
-            testResults={scenarios.map(s => ({
+            testResults={scenarios.map((s) => ({
               name: s.name,
               passed: s.passed,
-              confidence: s.confidence
+              confidence: s.confidence,
             }))}
           />
         )}

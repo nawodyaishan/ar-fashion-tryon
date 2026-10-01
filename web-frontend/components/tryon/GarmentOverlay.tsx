@@ -4,7 +4,7 @@
 import { useRef, useEffect, useState } from 'react';
 import { Rnd } from 'react-rnd';
 import { useTryonStore } from '@/lib/tryon-store';
-import type { DraggableData, ResizableDelta } from 'react-rnd';
+import type { DraggableData } from 'react-rnd';
 
 interface GarmentOverlayProps {
   containerWidth: number;
@@ -47,7 +47,7 @@ export function GarmentOverlay({
 
       setGarmentDimensions({
         width: baseWidth * transform.scale,
-        height: calculatedHeight * transform.scale
+        height: calculatedHeight * transform.scale,
       });
     };
   }, [selectedGarment, transform.scale]);
@@ -57,7 +57,7 @@ export function GarmentOverlay({
     const handleKeyPress = (e: KeyboardEvent) => {
       if (!selectedGarment) return;
 
-      const step = fineTuneMode ? 1 : (e.shiftKey ? 10 : 5);
+      const step = fineTuneMode ? 1 : e.shiftKey ? 10 : 5;
 
       switch (e.key) {
         case 'ArrowUp':
@@ -111,7 +111,7 @@ export function GarmentOverlay({
 
     setTransform({
       x: finalX,
-      y: finalY
+      y: finalY,
     });
   };
 
@@ -128,13 +128,7 @@ export function GarmentOverlay({
     lastClickTime.current = now;
   };
 
-  const handleResizeStop = (
-    _e: unknown,
-    _direction: unknown,
-    ref: HTMLElement,
-    _delta: ResizableDelta,
-    position: { x: number; y: number }
-  ) => {
+  const handleResizeStop = (_e: unknown, _direction: unknown, ref: HTMLElement) => {
     const newWidth = parseInt(ref.style.width);
     const newHeight = parseInt(ref.style.height);
     const newScale = newWidth / 200; // Calculate scale based on base width
@@ -150,12 +144,12 @@ export function GarmentOverlay({
     setTransform({
       x: newX,
       y: newY,
-      scale: newScale
+      scale: newScale,
     });
 
     setGarmentDimensions({
       width: newWidth,
-      height: newHeight
+      height: newHeight,
     });
   };
 
@@ -184,11 +178,11 @@ export function GarmentOverlay({
       <Rnd
         size={{
           width: garmentDimensions.width,
-          height: garmentDimensions.height
+          height: garmentDimensions.height,
         }}
         position={{
           x: transform.x,
-          y: transform.y
+          y: transform.y,
         }}
         onDragStop={handleDragStop}
         onResizeStop={handleResizeStop}
@@ -203,45 +197,45 @@ export function GarmentOverlay({
           topRight: true,
           bottomRight: true,
           bottomLeft: true,
-          topLeft: true
+          topLeft: true,
         }}
       >
-      <div
-        className="w-full h-full relative cursor-move"
-        onClick={handleClick}
-        style={{
-          opacity: transform.opacity / 100, // Convert 0-100 to 0-1
-          transform: `rotate(${transform.rotation}deg)`,
-          transformOrigin: 'center'
-        }}
-      >
-        {/* Garment Image */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          ref={imageRef}
-          src={selectedGarment.src}
-          alt={selectedGarment.name}
-          className="w-full h-full object-contain pointer-events-none select-none"
-          draggable={false}
-        />
+        <div
+          className="w-full h-full relative cursor-move"
+          onClick={handleClick}
+          style={{
+            opacity: transform.opacity / 100, // Convert 0-100 to 0-1
+            transform: `rotate(${transform.rotation}deg)`,
+            transformOrigin: 'center',
+          }}
+        >
+          {/* Garment Image */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            ref={imageRef}
+            src={selectedGarment.src}
+            alt={selectedGarment.name}
+            className="w-full h-full object-contain pointer-events-none select-none"
+            draggable={false}
+          />
 
-        {/* Resize Handles Visual Feedback */}
-        <div className="absolute inset-0 border-2 border-primary/30 rounded pointer-events-none" />
+          {/* Resize Handles Visual Feedback */}
+          <div className="absolute inset-0 border-2 border-primary/30 rounded pointer-events-none" />
 
-        {/* Corner Handles */}
-        <div className="absolute -top-1 -left-1 w-3 h-3 bg-primary rounded-full pointer-events-none" />
-        <div className="absolute -top-1 -right-1 w-3 h-3 bg-primary rounded-full pointer-events-none" />
-        <div className="absolute -bottom-1 -left-1 w-3 h-3 bg-primary rounded-full pointer-events-none" />
-        <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-primary rounded-full pointer-events-none" />
+          {/* Corner Handles */}
+          <div className="absolute -top-1 -left-1 w-3 h-3 bg-primary rounded-full pointer-events-none" />
+          <div className="absolute -top-1 -right-1 w-3 h-3 bg-primary rounded-full pointer-events-none" />
+          <div className="absolute -bottom-1 -left-1 w-3 h-3 bg-primary rounded-full pointer-events-none" />
+          <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-primary rounded-full pointer-events-none" />
 
-        {/* Fine-tune mode indicator */}
-        {fineTuneMode && (
-          <div className="absolute top-2 right-2 bg-primary text-primary-foreground text-xs px-2 py-1 rounded pointer-events-none">
-            Fine Tune
-          </div>
-        )}
-      </div>
-    </Rnd>
+          {/* Fine-tune mode indicator */}
+          {fineTuneMode && (
+            <div className="absolute top-2 right-2 bg-primary text-primary-foreground text-xs px-2 py-1 rounded pointer-events-none">
+              Fine Tune
+            </div>
+          )}
+        </div>
+      </Rnd>
     </>
   );
 }

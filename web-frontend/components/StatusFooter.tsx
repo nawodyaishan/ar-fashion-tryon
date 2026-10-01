@@ -42,7 +42,9 @@ export default function StatusFooter() {
               <Shield className="h-3 w-3 text-green-500" />
               <span>
                 Local processing
-                {activeMode === 'photo' && <span className="text-muted-foreground/70"> (HD mode may use server)</span>}
+                {activeMode === 'photo' && (
+                  <span className="text-muted-foreground/70"> (HD mode may use server)</span>
+                )}
               </span>
             </div>
             <Link

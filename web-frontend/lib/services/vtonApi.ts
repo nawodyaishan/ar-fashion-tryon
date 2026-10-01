@@ -99,7 +99,10 @@ export async function processImages(
 
     return data;
   } catch (error: unknown) {
-    const err = error as { response?: { status?: number; statusText?: string; data?: Blob }; message?: string };
+    const err = error as {
+      response?: { status?: number; statusText?: string; data?: Blob };
+      message?: string;
+    };
     const duration = Date.now() - startTime;
     console.error('❌ VTON API Error:', {
       duration: `${(duration / 1000).toFixed(2)}s`,
@@ -188,11 +191,7 @@ export async function virtualTryOn(
   const guidanceScale = payload.options?.guidanceScale ?? 2.5;
   const seed = payload.options?.seed ?? 42;
 
-  fd.append('num_inference_steps', numInferenceSteps.toString());
-  fd.append('guidance_scale', guidanceScale.toString());
-  fd.append('seed', seed.toString());
-  fd.append('show_type', 'result only'); // Options: "result only", "input & result", "input & mask & result"
-  fd.append('process_garment', processGarment.toString());
+  // FastAPI declares these as query parameters; only images/cloth_type are form fields.
 
   // Log request
   console.log('🚀 Virtual Try-On Request:', {
@@ -212,6 +211,13 @@ export async function virtualTryOn(
     // Backend returns JSON with Cloudinary URLs
     const { data } = await garmentHttp.post<VirtualTryonResponse>('/virtual_tryon', fd, {
       signal,
+      params: {
+        num_inference_steps: numInferenceSteps,
+        guidance_scale: guidanceScale,
+        seed,
+        show_type: 'result only',
+        process_garment: processGarment,
+      },
       headers: {
         Accept: 'application/json',
       },
@@ -227,7 +233,10 @@ export async function virtualTryOn(
 
     return data;
   } catch (error: unknown) {
-    const err = error as { response?: { status?: number; statusText?: string; data?: { detail?: string } }; message?: string };
+    const err = error as {
+      response?: { status?: number; statusText?: string; data?: { detail?: string } };
+      message?: string;
+    };
     const duration = Date.now() - startTime;
     console.error('❌ Virtual Try-On Error:', {
       duration: `${(duration / 1000).toFixed(2)}s`,

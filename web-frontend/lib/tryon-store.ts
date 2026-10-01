@@ -58,7 +58,11 @@ interface TryonState {
   canRedo: () => boolean;
   toggleFineTuneMode: () => void;
   toggleAlignmentGuides: () => void;
-  applyPreset: (preset: 'chest' | 'waist' | 'shoulders', containerWidth: number, containerHeight: number) => void;
+  applyPreset: (
+    preset: 'chest' | 'waist' | 'shoulders',
+    containerWidth: number,
+    containerHeight: number,
+  ) => void;
   centerGarment: (containerWidth: number, containerHeight: number, garmentWidth: number) => void;
   saveGarmentPosition: (garmentId: string) => void;
   loadGarmentPosition: (garmentId: string) => void;
@@ -89,11 +93,11 @@ interface TryonState {
 }
 
 const defaultTransform: Transform = {
-  x: 320,      // Center of typical video width
-  y: 180,      // Upper chest area
+  x: 320, // Center of typical video width
+  y: 180, // Upper chest area
   scale: 1.0,
   rotation: 0,
-  opacity: 90,  // 0-100 range
+  opacity: 90, // 0-100 range
   lockAspect: true,
 };
 
@@ -152,7 +156,10 @@ export const useTryonStore = create<TryonState>()(
 
           if (addToHistory) {
             // Add to history and truncate any forward history
-            const newHistory = [...state.positionHistory.slice(0, state.historyIndex + 1), newTransform];
+            const newHistory = [
+              ...state.positionHistory.slice(0, state.historyIndex + 1),
+              newTransform,
+            ];
             // Keep max 50 history items
             const trimmedHistory = newHistory.slice(-50);
 
@@ -299,7 +306,8 @@ export const useTryonStore = create<TryonState>()(
       setPoseConfidence: (confidence) => {
         // Accept either string or number (0-1)
         if (typeof confidence === 'number') {
-          const label: PoseConfidence = confidence >= 0.7 ? 'Good' : confidence >= 0.5 ? 'Okay' : 'Low';
+          const label: PoseConfidence =
+            confidence >= 0.7 ? 'Good' : confidence >= 0.5 ? 'Okay' : 'Low';
           set({ poseConfidence: label });
         } else {
           set({ poseConfidence: confidence });
@@ -324,10 +332,10 @@ export const useTryonStore = create<TryonState>()(
             y: Math.round(y),
             // Only update scale if not locked
             scale: state.lockScale ? state.transform.scale : Math.max(0.3, Math.min(3.0, scale)),
-            rotation: Math.max(-45, Math.min(45, Math.round(rotation))) // Clamp rotation: -45° to +45°
+            rotation: Math.max(-45, Math.min(45, Math.round(rotation))), // Clamp rotation: -45° to +45°
           },
           autoAlignInProgress: false,
-          lastAutoAlignTime: Date.now()
+          lastAutoAlignTime: Date.now(),
         })),
 
       setStatus: (status) =>

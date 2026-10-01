@@ -64,9 +64,7 @@ export interface KeypointAPIResponse {
 /**
  * Upload garment and detect keypoints
  */
-export async function uploadGarmentWithKeypoints(
-  file: File,
-): Promise<KeypointAPIResponse | null> {
+export async function uploadGarmentWithKeypoints(file: File): Promise<KeypointAPIResponse | null> {
   try {
     const formData = new FormData();
     formData.append('garment', file);

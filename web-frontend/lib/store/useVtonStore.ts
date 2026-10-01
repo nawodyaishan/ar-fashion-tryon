@@ -9,7 +9,15 @@ import { toast } from 'sonner';
 
 // Three different try-on paths
 export type TryOnPath = 'NORMAL' | 'FULL' | 'REFERENCE';
-export type VtonStep = 'PATH_SELECT' | 'BODY' | 'GARMENT' | 'UPPER' | 'LOWER' | 'PREVIEW' | 'GENERATE' | 'RESULT';
+export type VtonStep =
+  | 'PATH_SELECT'
+  | 'BODY'
+  | 'GARMENT'
+  | 'UPPER'
+  | 'LOWER'
+  | 'PREVIEW'
+  | 'GENERATE'
+  | 'RESULT';
 
 // Preselection states for cloth type
 export type PreselectState = 'LOCKED' | 'SUGGESTED' | 'UNKNOWN';
@@ -68,7 +76,15 @@ interface VtonState {
   preflight: PreflightChecks;
 
   // Status
-  status: 'idle' | 'valid' | 'uploading' | 'classifying' | 'constructing' | 'processing' | 'done' | 'error';
+  status:
+    | 'idle'
+    | 'valid'
+    | 'uploading'
+    | 'classifying'
+    | 'constructing'
+    | 'processing'
+    | 'done'
+    | 'error';
   resultUrl?: string;
   error?: string;
 
@@ -78,7 +94,10 @@ interface VtonState {
   setBody: (file: File | undefined) => Promise<void>;
 
   // Normal path - single garment
-  setGarmentFile: (file: File | undefined, skipClassification?: boolean) => Promise<{ ok: boolean; message?: string }>;
+  setGarmentFile: (
+    file: File | undefined,
+    skipClassification?: boolean,
+  ) => Promise<{ ok: boolean; message?: string }>;
 
   // Full mode - upper and lower garments
   setUpperGarment: (file: File | undefined) => Promise<{ ok: boolean; message?: string }>;
@@ -128,7 +147,10 @@ export const useVtonStore = create<VtonState>((set, get) => ({
       lowerGarment: {},
       outfit: {},
       // FULL and REFERENCE default to 'overall', NORMAL defaults to 'upper'
-      options: { ...get().options, clothType: (path === 'FULL' || path === 'REFERENCE') ? 'overall' : 'upper' }
+      options: {
+        ...get().options,
+        clothType: path === 'FULL' || path === 'REFERENCE' ? 'overall' : 'upper',
+      },
     });
   },
 
@@ -142,10 +164,16 @@ export const useVtonStore = create<VtonState>((set, get) => ({
 
     // Convert WebP to PNG if needed (backend doesn't support WebP)
     try {
-      const { file: processedFile, converted, originalFormat } = await ensureBackendCompatibleFormat(file);
+      const {
+        file: processedFile,
+        converted,
+        originalFormat,
+      } = await ensureBackendCompatibleFormat(file);
 
       if (converted) {
-        toast.success(`Converted ${originalFormat?.toUpperCase()} to PNG for backend compatibility`);
+        toast.success(
+          `Converted ${originalFormat?.toUpperCase()} to PNG for backend compatibility`,
+        );
         file = processedFile; // Use converted file
       }
     } catch (err) {
@@ -183,8 +211,8 @@ export const useVtonStore = create<VtonState>((set, get) => ({
           file: undefined,
           previewUrl: undefined,
           id: undefined,
-          classification: undefined
-        }
+          classification: undefined,
+        },
       });
       return { ok: false, message: 'No garment file' };
     }
@@ -207,10 +235,16 @@ export const useVtonStore = create<VtonState>((set, get) => ({
 
     // Convert WebP to PNG if needed (backend doesn't support WebP)
     try {
-      const { file: processedFile, converted, originalFormat } = await ensureBackendCompatibleFormat(file);
+      const {
+        file: processedFile,
+        converted,
+        originalFormat,
+      } = await ensureBackendCompatibleFormat(file);
 
       if (converted) {
-        toast.success(`Converted ${originalFormat?.toUpperCase()} to PNG for backend compatibility`);
+        toast.success(
+          `Converted ${originalFormat?.toUpperCase()} to PNG for backend compatibility`,
+        );
         file = processedFile; // Use converted file
       }
     } catch (err) {
@@ -244,9 +278,19 @@ export const useVtonStore = create<VtonState>((set, get) => ({
       let detectedType: 'upper' | 'lower' | 'full' | undefined;
 
       // Map common garment labels to types
-      if (label.includes('SHIRT') || label.includes('TOP') || label.includes('BLOUSE') || label.includes('JACKET')) {
+      if (
+        label.includes('SHIRT') ||
+        label.includes('TOP') ||
+        label.includes('BLOUSE') ||
+        label.includes('JACKET')
+      ) {
         detectedType = 'upper';
-      } else if (label.includes('TROUSER') || label.includes('PANT') || label.includes('JEAN') || label.includes('SHORT')) {
+      } else if (
+        label.includes('TROUSER') ||
+        label.includes('PANT') ||
+        label.includes('JEAN') ||
+        label.includes('SHORT')
+      ) {
         detectedType = 'lower';
       } else if (label.includes('DRESS') || label.includes('GOWN') || label.includes('SUIT')) {
         detectedType = 'full';
@@ -276,8 +320,7 @@ export const useVtonStore = create<VtonState>((set, get) => ({
 
       // Auto-preselect cloth type based on classification
       if (detectedType && classification.confidence >= 0.6) {
-        const autoClothType: ClothType =
-          detectedType === 'full' ? 'overall' : detectedType;
+        const autoClothType: ClothType = detectedType === 'full' ? 'overall' : detectedType;
 
         set({
           options: { ...get().options, clothType: autoClothType },
@@ -329,10 +372,16 @@ export const useVtonStore = create<VtonState>((set, get) => ({
 
     // Convert WebP to PNG if needed (backend doesn't support WebP)
     try {
-      const { file: processedFile, converted, originalFormat } = await ensureBackendCompatibleFormat(file);
+      const {
+        file: processedFile,
+        converted,
+        originalFormat,
+      } = await ensureBackendCompatibleFormat(file);
 
       if (converted) {
-        toast.success(`Converted ${originalFormat?.toUpperCase()} to PNG for backend compatibility`);
+        toast.success(
+          `Converted ${originalFormat?.toUpperCase()} to PNG for backend compatibility`,
+        );
         file = processedFile; // Use converted file
       }
     } catch (err) {
@@ -354,7 +403,12 @@ export const useVtonStore = create<VtonState>((set, get) => ({
       const label = classification.label.toUpperCase();
       let detectedType: 'upper' | 'lower' | 'full' | undefined;
 
-      if (label.includes('SHIRT') || label.includes('TOP') || label.includes('BLOUSE') || label.includes('JACKET')) {
+      if (
+        label.includes('SHIRT') ||
+        label.includes('TOP') ||
+        label.includes('BLOUSE') ||
+        label.includes('JACKET')
+      ) {
         detectedType = 'upper';
       }
 
@@ -402,10 +456,16 @@ export const useVtonStore = create<VtonState>((set, get) => ({
 
     // Convert WebP to PNG if needed (backend doesn't support WebP)
     try {
-      const { file: processedFile, converted, originalFormat } = await ensureBackendCompatibleFormat(file);
+      const {
+        file: processedFile,
+        converted,
+        originalFormat,
+      } = await ensureBackendCompatibleFormat(file);
 
       if (converted) {
-        toast.success(`Converted ${originalFormat?.toUpperCase()} to PNG for backend compatibility`);
+        toast.success(
+          `Converted ${originalFormat?.toUpperCase()} to PNG for backend compatibility`,
+        );
         file = processedFile; // Use converted file
       }
     } catch (err) {
@@ -427,7 +487,12 @@ export const useVtonStore = create<VtonState>((set, get) => ({
       const label = classification.label.toUpperCase();
       let detectedType: 'upper' | 'lower' | 'full' | undefined;
 
-      if (label.includes('TROUSER') || label.includes('PANT') || label.includes('JEAN') || label.includes('SHORT')) {
+      if (
+        label.includes('TROUSER') ||
+        label.includes('PANT') ||
+        label.includes('JEAN') ||
+        label.includes('SHORT')
+      ) {
         detectedType = 'lower';
       }
 
@@ -487,7 +552,7 @@ export const useVtonStore = create<VtonState>((set, get) => ({
       const error = err as Error;
       set({
         status: 'error',
-        error: error?.message || 'Failed to construct outfit'
+        error: error?.message || 'Failed to construct outfit',
       });
     }
   },
@@ -635,8 +700,10 @@ export const useVtonStore = create<VtonState>((set, get) => ({
     const old = get();
     if (old.body.previewUrl?.startsWith('blob:')) URL.revokeObjectURL(old.body.previewUrl);
     if (old.garment.previewUrl?.startsWith('blob:')) URL.revokeObjectURL(old.garment.previewUrl);
-    if (old.upperGarment.previewUrl?.startsWith('blob:')) URL.revokeObjectURL(old.upperGarment.previewUrl);
-    if (old.lowerGarment.previewUrl?.startsWith('blob:')) URL.revokeObjectURL(old.lowerGarment.previewUrl);
+    if (old.upperGarment.previewUrl?.startsWith('blob:'))
+      URL.revokeObjectURL(old.upperGarment.previewUrl);
+    if (old.lowerGarment.previewUrl?.startsWith('blob:'))
+      URL.revokeObjectURL(old.lowerGarment.previewUrl);
 
     set({
       tryOnPath: 'NORMAL',

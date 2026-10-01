@@ -3,7 +3,11 @@
 
 import { useEffect, useRef } from 'react';
 import { useTryonStore } from '@/lib/tryon-store';
-import { calculateShoulderPosition, calculateGarmentPosition, isConfidentPose } from '@/lib/pose-utils';
+import {
+  calculateShoulderPosition,
+  calculateGarmentPosition,
+  isConfidentPose,
+} from '@/lib/pose-utils';
 import type { PoseLandmark } from '@/lib/hooks/usePoseDetection';
 
 interface ContinuousTrackerProps {
@@ -15,9 +19,10 @@ interface ContinuousTrackerProps {
 export function ContinuousTracker({
   landmarks,
   containerWidth,
-  containerHeight
+  containerHeight,
 }: ContinuousTrackerProps) {
-  const { continuousTracking, autoAlignGarment, selectedGarmentId, lockScale, garments } = useTryonStore();
+  const { continuousTracking, autoAlignGarment, selectedGarmentId, lockScale, garments } =
+    useTryonStore();
   const lastUpdateRef = useRef(0);
 
   useEffect(() => {
@@ -33,25 +38,34 @@ export function ContinuousTracker({
     if (!shoulderPos) return;
 
     // Get the selected garment
-    const selectedGarment = garments.find(g => g.id === selectedGarmentId);
+    const selectedGarment = garments.find((g) => g.id === selectedGarmentId);
     if (!selectedGarment) return;
 
     const garmentSuggestion = calculateGarmentPosition(
       shoulderPos,
       selectedGarment,
       containerWidth,
-      containerHeight
+      containerHeight,
     );
 
     autoAlignGarment(
       garmentSuggestion.x,
       garmentSuggestion.y,
       garmentSuggestion.scale,
-      garmentSuggestion.rotation
+      garmentSuggestion.rotation,
     );
 
     lastUpdateRef.current = now;
-  }, [landmarks, containerWidth, containerHeight, continuousTracking, autoAlignGarment, selectedGarmentId, lockScale, garments]);
+  }, [
+    landmarks,
+    containerWidth,
+    containerHeight,
+    continuousTracking,
+    autoAlignGarment,
+    selectedGarmentId,
+    lockScale,
+    garments,
+  ]);
 
   return null; // No UI, just side effects
 }

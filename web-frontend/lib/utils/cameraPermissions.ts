@@ -311,10 +311,11 @@ export async function getFrontCamera(): Promise<CameraDevice | null> {
   const cameras = await enumerateCameraDevices();
 
   // Look for labels that indicate front camera
-  const frontCamera = cameras.find((camera) =>
-    camera.label.toLowerCase().includes('front') ||
-    camera.label.toLowerCase().includes('user') ||
-    camera.label.toLowerCase().includes('facing')
+  const frontCamera = cameras.find(
+    (camera) =>
+      camera.label.toLowerCase().includes('front') ||
+      camera.label.toLowerCase().includes('user') ||
+      camera.label.toLowerCase().includes('facing'),
   );
 
   return frontCamera || (cameras.length > 0 ? cameras[0] : null);
@@ -327,10 +328,11 @@ export async function getBackCamera(): Promise<CameraDevice | null> {
   const cameras = await enumerateCameraDevices();
 
   // Look for labels that indicate back camera
-  const backCamera = cameras.find((camera) =>
-    camera.label.toLowerCase().includes('back') ||
-    camera.label.toLowerCase().includes('rear') ||
-    camera.label.toLowerCase().includes('environment')
+  const backCamera = cameras.find(
+    (camera) =>
+      camera.label.toLowerCase().includes('back') ||
+      camera.label.toLowerCase().includes('rear') ||
+      camera.label.toLowerCase().includes('environment'),
   );
 
   return backCamera || (cameras.length > 1 ? cameras[1] : null);

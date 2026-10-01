@@ -1,6 +1,7 @@
 """
 Configuration and constants for the garment extraction API.
 """
+
 import os
 from pathlib import Path
 

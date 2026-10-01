@@ -34,14 +34,18 @@ export function ModeToggle() {
           <div className="absolute inset-0 bg-gradient-to-r from-primary/20 via-accent/20 to-primary/20 opacity-0 group-hover:opacity-100 transition-opacity animate-pulse" />
 
           {/* Sun icon */}
-          <Sun className={`h-5 w-5 transition-all duration-500 ${
-            isAnimating ? 'scale-150 opacity-0' : 'scale-100 opacity-100'
-          } rotate-0 dark:scale-0 dark:-rotate-180 dark:opacity-0`} />
+          <Sun
+            className={`h-5 w-5 transition-all duration-500 ${
+              isAnimating ? 'scale-150 opacity-0' : 'scale-100 opacity-100'
+            } rotate-0 dark:scale-0 dark:-rotate-180 dark:opacity-0`}
+          />
 
           {/* Moon icon */}
-          <Moon className={`absolute h-5 w-5 transition-all duration-500 ${
-            isAnimating ? 'scale-150 opacity-0' : 'scale-100 opacity-100'
-          } scale-0 rotate-180 opacity-0 dark:scale-100 dark:rotate-0 dark:opacity-100`} />
+          <Moon
+            className={`absolute h-5 w-5 transition-all duration-500 ${
+              isAnimating ? 'scale-150 opacity-0' : 'scale-100 opacity-100'
+            } scale-0 rotate-180 opacity-0 dark:scale-100 dark:rotate-0 dark:opacity-100`}
+          />
 
           <span className="sr-only">Toggle theme</span>
         </Button>
@@ -53,9 +57,7 @@ export function ModeToggle() {
         >
           <Sun className="h-4 w-4" />
           <span>Light</span>
-          {theme === 'light' && (
-            <span className="ml-auto text-xs text-primary">✓</span>
-          )}
+          {theme === 'light' && <span className="ml-auto text-xs text-primary">✓</span>}
         </DropdownMenuItem>
         <DropdownMenuItem
           onClick={() => handleThemeChange('dark')}
@@ -63,9 +65,7 @@ export function ModeToggle() {
         >
           <Moon className="h-4 w-4" />
           <span>Dark</span>
-          {theme === 'dark' && (
-            <span className="ml-auto text-xs text-primary">✓</span>
-          )}
+          {theme === 'dark' && <span className="ml-auto text-xs text-primary">✓</span>}
         </DropdownMenuItem>
         <DropdownMenuItem
           onClick={() => handleThemeChange('system')}
@@ -73,9 +73,7 @@ export function ModeToggle() {
         >
           <Monitor className="h-4 w-4" />
           <span>System</span>
-          {theme === 'system' && (
-            <span className="ml-auto text-xs text-primary">✓</span>
-          )}
+          {theme === 'system' && <span className="ml-auto text-xs text-primary">✓</span>}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

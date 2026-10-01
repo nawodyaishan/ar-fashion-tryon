@@ -15,7 +15,19 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Sparkles, Settings, HelpCircle, Info, Smartphone, MoreVertical, Moon, Sun, Github, Shield, Mail } from 'lucide-react';
+import {
+  Sparkles,
+  Settings,
+  HelpCircle,
+  Info,
+  Smartphone,
+  MoreVertical,
+  Moon,
+  Sun,
+  Github,
+  Shield,
+  Mail,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { navigationItems } from '@/lib/constants';
 import { useTryonStore } from '@/lib/tryon-store';
@@ -57,7 +69,9 @@ export default function NavBar() {
               <h1 className="text-base sm:text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                 AR Fashion
               </h1>
-              <p className="text-[10px] sm:text-xs text-muted-foreground -mt-0.5 sm:-mt-1">Try-On Studio</p>
+              <p className="text-[10px] sm:text-xs text-muted-foreground -mt-0.5 sm:-mt-1">
+                Try-On Studio
+              </p>
             </div>
           </Link>
 
@@ -85,7 +99,10 @@ export default function NavBar() {
                       <span className="hidden sm:inline">Live AR Preview</span>
                       <span className="inline sm:hidden">AR</span>
                       {isMobileDevice && (
-                        <Badge variant="secondary" className="ml-0.5 sm:ml-1 text-[10px] px-1 py-0 h-3.5 sm:h-4">
+                        <Badge
+                          variant="secondary"
+                          className="ml-0.5 sm:ml-1 text-[10px] px-1 py-0 h-3.5 sm:h-4"
+                        >
                           <Smartphone className="h-2 w-2 sm:h-2.5 sm:w-2.5" />
                         </Badge>
                       )}
@@ -112,7 +129,12 @@ export default function NavBar() {
             <div className="md:hidden">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0" aria-label="Navigation Menu">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    aria-label="Navigation Menu"
+                  >
                     <div className="w-4 h-4 flex flex-col justify-center space-y-0.5">
                       <div className="w-full h-0.5 bg-current" />
                       <div className="w-full h-0.5 bg-current" />
@@ -131,7 +153,7 @@ export default function NavBar() {
                           href={item.href}
                           className={cn(
                             'flex items-center gap-3 cursor-pointer',
-                            isActive && 'bg-accent'
+                            isActive && 'bg-accent',
                           )}
                         >
                           <Icon className="w-4 h-4 flex-shrink-0" />
@@ -139,12 +161,17 @@ export default function NavBar() {
                             <div className="flex items-center gap-1.5">
                               <span className="font-medium text-sm truncate">{item.title}</span>
                               {item.badge && (
-                                <Badge variant="secondary" className="h-3.5 px-1 text-[10px] flex-shrink-0">
+                                <Badge
+                                  variant="secondary"
+                                  className="h-3.5 px-1 text-[10px] flex-shrink-0"
+                                >
                                   {item.badge}
                                 </Badge>
                               )}
                             </div>
-                            <p className="text-xs text-muted-foreground truncate">{item.description}</p>
+                            <p className="text-xs text-muted-foreground truncate">
+                              {item.description}
+                            </p>
                           </div>
                         </Link>
                       </DropdownMenuItem>
@@ -178,7 +205,6 @@ export default function NavBar() {
               </DropdownMenu>
             </div>
           )}
-
 
           {/* Right Section */}
           <div className="flex items-center space-x-1 sm:space-x-2">
@@ -235,32 +261,21 @@ export default function NavBar() {
             {!isTryOnPage && (
               <div className="hidden lg:flex items-center gap-1">
                 <Link href="/privacy">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 px-2"
-                    title="Privacy Policy"
-                  >
+                  <Button variant="ghost" size="sm" className="h-8 px-2" title="Privacy Policy">
                     <Shield className="h-3.5 w-3.5" />
                   </Button>
                 </Link>
                 <Link href="/contact">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 px-2"
-                    title="Contact"
-                  >
+                  <Button variant="ghost" size="sm" className="h-8 px-2" title="Contact">
                     <Mail className="h-3.5 w-3.5" />
                   </Button>
                 </Link>
-                <a href="https://github.com/nawodyaishan/ar-fashion-tryon" target="_blank" rel="noopener noreferrer">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 px-2"
-                    title="Source Code"
-                  >
+                <a
+                  href="https://github.com/nawodyaishan/ar-fashion-tryon"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <Button variant="ghost" size="sm" className="h-8 px-2" title="Source Code">
                     <Github className="h-3.5 w-3.5" />
                   </Button>
                 </a>
@@ -277,12 +292,7 @@ export default function NavBar() {
               <div className="md:hidden">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 w-8 p-0"
-                      aria-label="Menu"
-                    >
+                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0" aria-label="Menu">
                       <MoreVertical className="h-4 w-4" />
                     </Button>
                   </DropdownMenuTrigger>

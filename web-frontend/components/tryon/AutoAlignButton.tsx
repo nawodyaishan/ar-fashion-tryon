@@ -5,7 +5,11 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Target, Loader2, CheckCircle2 } from 'lucide-react';
 import { useTryonStore } from '@/lib/tryon-store';
-import { calculateShoulderPosition, calculateGarmentPosition, isConfidentPose } from '@/lib/pose-utils';
+import {
+  calculateShoulderPosition,
+  calculateGarmentPosition,
+  isConfidentPose,
+} from '@/lib/pose-utils';
 import type { PoseLandmark } from '@/lib/hooks/usePoseDetection';
 import { toast } from 'sonner';
 
@@ -20,7 +24,7 @@ export function AutoAlignButton({
   landmarks,
   containerWidth,
   containerHeight,
-  disabled
+  disabled,
 }: AutoAlignButtonProps) {
   const { autoAlignGarment, selectedGarmentId, garments } = useTryonStore();
   const [isAligning, setIsAligning] = useState(false);
@@ -47,7 +51,7 @@ export function AutoAlignButton({
       }
 
       // Get the selected garment
-      const selectedGarment = garments.find(g => g.id === selectedGarmentId);
+      const selectedGarment = garments.find((g) => g.id === selectedGarmentId);
       if (!selectedGarment) {
         toast.error('No garment selected');
         setIsAligning(false);
@@ -58,14 +62,14 @@ export function AutoAlignButton({
         shoulderPos,
         selectedGarment,
         containerWidth,
-        containerHeight
+        containerHeight,
       );
 
       autoAlignGarment(
         garmentSuggestion.x,
         garmentSuggestion.y,
         garmentSuggestion.scale,
-        garmentSuggestion.rotation
+        garmentSuggestion.rotation,
       );
 
       setIsAligning(false);
@@ -92,7 +96,7 @@ export function AutoAlignButton({
     <Button
       onClick={handleAutoAlign}
       disabled={disabled || !canAutoAlign || isAligning}
-      variant={justAligned ? "default" : "secondary"}
+      variant={justAligned ? 'default' : 'secondary'}
       size="sm"
       className="backdrop-blur-sm bg-black/30 hover:bg-black/50"
     >

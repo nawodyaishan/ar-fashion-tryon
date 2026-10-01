@@ -83,8 +83,12 @@ export function TransformControls() {
         {/* Scale Control */}
         <div className="space-y-3 p-4 rounded-lg bg-muted/30 border border-border/50">
           <div className="flex items-center justify-between">
-            <Label htmlFor="scale" className="text-sm font-semibold">Size</Label>
-            <span className="text-sm font-mono font-bold text-primary">{(transform.scale * 100).toFixed(0)}%</span>
+            <Label htmlFor="scale" className="text-sm font-semibold">
+              Size
+            </Label>
+            <span className="text-sm font-mono font-bold text-primary">
+              {(transform.scale * 100).toFixed(0)}%
+            </span>
           </div>
           <Slider
             id="scale"
@@ -100,7 +104,9 @@ export function TransformControls() {
         {/* Rotation Control */}
         <div className="space-y-3 p-4 rounded-lg bg-muted/30 border border-border/50">
           <div className="flex items-center justify-between">
-            <Label htmlFor="rotation" className="text-sm font-semibold">Rotation</Label>
+            <Label htmlFor="rotation" className="text-sm font-semibold">
+              Rotation
+            </Label>
             <span className="text-sm font-mono font-bold text-accent">{transform.rotation}°</span>
           </div>
           <Slider
@@ -117,7 +123,9 @@ export function TransformControls() {
         {/* Opacity Control */}
         <div className="space-y-3 p-4 rounded-lg bg-muted/30 border border-border/50">
           <div className="flex items-center justify-between">
-            <Label htmlFor="opacity" className="text-sm font-semibold">Opacity</Label>
+            <Label htmlFor="opacity" className="text-sm font-semibold">
+              Opacity
+            </Label>
             <span className="text-sm font-mono font-bold text-success">{transform.opacity}%</span>
           </div>
           <Slider
@@ -153,11 +161,7 @@ export function TransformControls() {
               Fine-Tune Mode
             </Label>
           </div>
-          <Switch
-            id="fine-tune"
-            checked={fineTuneMode}
-            onCheckedChange={toggleFineTuneMode}
-          />
+          <Switch id="fine-tune" checked={fineTuneMode} onCheckedChange={toggleFineTuneMode} />
         </div>
 
         {/* Alignment Guides */}
@@ -180,9 +184,7 @@ export function TransformControls() {
           <p className="text-xs text-muted-foreground">
             Position: ({Math.round(transform.x)}, {Math.round(transform.y)})
           </p>
-          <p className="text-xs text-muted-foreground">
-            Garment: {selectedGarment.name}
-          </p>
+          <p className="text-xs text-muted-foreground">Garment: {selectedGarment.name}</p>
         </div>
       </CardContent>
     </Card>

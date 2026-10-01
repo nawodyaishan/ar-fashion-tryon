@@ -63,7 +63,8 @@ export function FinalCTA() {
                 Ready to Transform Your Look?
               </h2>
               <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-                Join hundreds of users experiencing the future of fashion with AI-powered virtual try-on
+                Join hundreds of users experiencing the future of fashion with AI-powered virtual
+                try-on
               </p>
             </div>
 

@@ -4,12 +4,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Info, Lock, HelpCircle } from 'lucide-react';
 import type { ClothType } from '@/lib/types';
 import type { PreselectState } from '@/lib/store/useVtonStore';
@@ -58,7 +53,10 @@ export default function ClothTypeSelector({
           <span className="font-medium">
             Auto-selected: {value.charAt(0).toUpperCase() + value.slice(1)}
           </span>
-          <Badge variant="default" className="text-xs bg-green-500/10 text-green-600 border-green-500/20">
+          <Badge
+            variant="default"
+            className="text-xs bg-green-500/10 text-green-600 border-green-500/20"
+          >
             {detectedLabel} · {confidencePercent}%
           </Badge>
           <TooltipProvider>
@@ -134,9 +132,7 @@ export default function ClothTypeSelector({
       </div>
 
       {preselectState === 'UNKNOWN' && (
-        <p className="text-xs text-muted-foreground">
-          Choose a cloth type to continue.
-        </p>
+        <p className="text-xs text-muted-foreground">Choose a cloth type to continue.</p>
       )}
 
       <RadioGroup value={value} onValueChange={onChange} className="grid grid-cols-1 gap-2">
@@ -171,17 +167,18 @@ export default function ClothTypeSelector({
                           </Badge>
                         )}
                         {preselected && preselectState === 'SUGGESTED' && (
-                          <Badge variant="outline" className="text-xs border-amber-500 text-amber-600">
+                          <Badge
+                            variant="outline"
+                            className="text-xs border-amber-500 text-amber-600"
+                          >
                             Suggested
                           </Badge>
                         )}
-                        {disabled && (
-                          <Info className="h-4 w-4 text-muted-foreground" />
-                        )}
+                        {disabled && <Info className="h-4 w-4 text-muted-foreground" />}
                       </div>
                     </Label>
                   </TooltipTrigger>
-                  {(disabled && reason) && (
+                  {disabled && reason && (
                     <TooltipContent>
                       <p className="text-xs max-w-xs">{reason}</p>
                     </TooltipContent>

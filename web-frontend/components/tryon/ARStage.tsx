@@ -26,7 +26,7 @@ export default function ARStage() {
     mediaPipeEnabled,
     landmarksVisible,
     toggleLandmarks,
-    setPoseConfidence
+    setPoseConfidence,
   } = useTryonStore();
 
   const selectedGarment = garments.find((g) => g.id === selectedGarmentId);
@@ -37,15 +37,12 @@ export default function ARStage() {
     confidence,
     fps,
     isLoading: mediaPipeLoading,
-    error: mediaPipeError
-  } = usePoseDetection(
-    mediaPipeEnabled ? videoRef.current : null,
-    {
-      modelComplexity: 'lite', // Use lite for real-time performance
-      minDetectionConfidence: 0.5,
-      minTrackingConfidence: 0.5
-    }
-  );
+    error: mediaPipeError,
+  } = usePoseDetection(mediaPipeEnabled ? videoRef.current : null, {
+    modelComplexity: 'lite', // Use lite for real-time performance
+    minDetectionConfidence: 0.5,
+    minTrackingConfidence: 0.5,
+  });
 
   // Update confidence in store
   useEffect(() => {
@@ -88,10 +85,7 @@ export default function ARStage() {
         )}
 
         {/* Video Background */}
-        <VideoPreview
-          onStreamReady={handleStreamReady}
-          className="w-full h-full"
-        />
+        <VideoPreview onStreamReady={handleStreamReady} className="w-full h-full" />
 
         {/* Pose Landmarks Overlay */}
         {mediaPipeEnabled && stream && (
@@ -180,10 +174,7 @@ export default function ARStage() {
                 </div>
               )}
               {!mediaPipeLoading && !mediaPipeError && (
-                <ConfidenceIndicator
-                  confidence={confidence}
-                  fps={fps}
-                />
+                <ConfidenceIndicator confidence={confidence} fps={fps} />
               )}
             </>
           )}

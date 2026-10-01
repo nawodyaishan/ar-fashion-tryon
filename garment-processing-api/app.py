@@ -1,38 +1,49 @@
 """
 FastAPI application for garment extraction and virtual try-on.
 """
+
 import io
 import logging
-import sys
 import secrets
+import sys
 import tempfile
 from pathlib import Path
 
-from fastapi import FastAPI, File, UploadFile, Request, HTTPException, Form
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
+from fastapi.responses import JSONResponse
 from PIL import Image
 from starlette.concurrency import run_in_threadpool
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 # Local imports
 from config import (
-    ALLOWED_EXTS, MAX_CONTENT_BYTES, MAX_CONTENT_MB,
-    CORS_ALLOW_ORIGINS, CORS_ALLOW_CREDENTIALS,
-    FOLDER_ORIG, FOLDER_CUT, FOLDER_TRYON
+    ALLOWED_EXTS,
+    CORS_ALLOW_CREDENTIALS,
+    CORS_ALLOW_ORIGINS,
+    FOLDER_CUT,
+    FOLDER_ORIG,
+    FOLDER_TRYON,
+    MAX_CONTENT_BYTES,
+    MAX_CONTENT_MB,
 )
-from models import HealthOut, UrlIn
 from middleware import RequestIDMiddleware
-from services.classifier import load_model_and_config, classify_image
-from services.cloudinary_service import upload_bytes, download_url_bytes
-from services.gradio_service import get_gradio_client, call_gradio_api
-from services.image_processing import remove_background, image_to_png_bytes, ensure_png_format, construct_outfit_image
+from models import HealthOut, UrlIn
+from services.classifier import classify_image, load_model_and_config
+from services.cloudinary_service import download_url_bytes, upload_bytes
+from services.gradio_service import call_gradio_api
+from services.image_processing import (
+    construct_outfit_image,
+    ensure_png_format,
+    image_to_png_bytes,
+    remove_background,
+)
 
 # -------------------- Logging Setup --------------------
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s | %(levelname)-8s | %(name)s | %(message)s',
-    handlers=[logging.StreamHandler(sys.stdout)]
+    format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
+    handlers=[logging.StreamHandler(sys.stdout)],
 )
 logger = logging.getLogger(__name__)
 
@@ -89,8 +100,7 @@ async def classify_garment(request: Request, garment: UploadFile = File(...)):
     filename = garment.filename or ""
     if not filename or not _allowed_file(filename):
         raise HTTPException(
-            status_code=400,
-            detail=f"Invalid file type. Allowed: {', '.join(sorted(ALLOWED_EXTS))}"
+            status_code=400, detail=f"Invalid file type. Allowed: {', '.join(sorted(ALLOWED_EXTS))}"
         )
 
     # Read and validate image
@@ -134,7 +144,9 @@ async def classify_garment(request: Request, garment: UploadFile = File(...)):
 
         # Upload cutout to Cloudinary
         cutout_public_id = f"cutout_{token}"
-        cutout_upload = await run_in_threadpool(upload_bytes, cutout_bytes, cutout_public_id, FOLDER_CUT, "png")
+        cutout_upload = await run_in_threadpool(
+            upload_bytes, cutout_bytes, cutout_public_id, FOLDER_CUT, "png"
+        )
         cutout_url = cutout_upload["secure_url"]
 
     except Exception as e:
@@ -144,15 +156,17 @@ async def classify_garment(request: Request, garment: UploadFile = File(...)):
         tmp_path.unlink(missing_ok=True)
 
     logger.info(f"[{request_id}] classify_garment completed: {label} ({conf:.2%})")
-    return JSONResponse({
-        "label": label,
-        "confidence": round(conf, 4),
-        "garment_url": garment_url,
-        "cutout_url": cutout_url,
-        "cutout_path": f"{FOLDER_CUT}/{cutout_public_id}.png",
-        "garment_public_id": f"{FOLDER_ORIG}/{orig_public_id}",
-        "cutout_public_id": f"{FOLDER_CUT}/{cutout_public_id}",
-    })
+    return JSONResponse(
+        {
+            "label": label,
+            "confidence": round(conf, 4),
+            "garment_url": garment_url,
+            "cutout_url": cutout_url,
+            "cutout_path": f"{FOLDER_CUT}/{cutout_public_id}.png",
+            "garment_public_id": f"{FOLDER_ORIG}/{orig_public_id}",
+            "cutout_public_id": f"{FOLDER_CUT}/{cutout_public_id}",
+        }
+    )
 
 
 @app.post("/classify_garment_by_url")
@@ -204,7 +218,9 @@ async def classify_garment_by_url(request: Request, payload: UrlIn):
 
         # Upload cutout to Cloudinary
         cutout_public_id = f"cutout_{token}"
-        cutout_upload = await run_in_threadpool(upload_bytes, cutout_bytes, cutout_public_id, FOLDER_CUT, "png")
+        cutout_upload = await run_in_threadpool(
+            upload_bytes, cutout_bytes, cutout_public_id, FOLDER_CUT, "png"
+        )
         cutout_url = cutout_upload["secure_url"]
 
     except Exception as e:
@@ -214,15 +230,17 @@ async def classify_garment_by_url(request: Request, payload: UrlIn):
         tmp_path.unlink(missing_ok=True)
 
     logger.info(f"[{request_id}] classify_garment_by_url completed: {label} ({conf:.2%})")
-    return JSONResponse({
-        "label": label,
-        "confidence": round(conf, 4),
-        "garment_url": garment_url,
-        "cutout_url": cutout_url,
-        "cutout_path": f"{FOLDER_CUT}/{cutout_public_id}.png",
-        "garment_public_id": f"{FOLDER_ORIG}/{orig_public_id}",
-        "cutout_public_id": f"{FOLDER_CUT}/{cutout_public_id}",
-    })
+    return JSONResponse(
+        {
+            "label": label,
+            "confidence": round(conf, 4),
+            "garment_url": garment_url,
+            "cutout_url": cutout_url,
+            "cutout_path": f"{FOLDER_CUT}/{cutout_public_id}.png",
+            "garment_public_id": f"{FOLDER_ORIG}/{orig_public_id}",
+            "cutout_public_id": f"{FOLDER_CUT}/{cutout_public_id}",
+        }
+    )
 
 
 @app.post("/detect_garment_type")
@@ -255,7 +273,7 @@ async def detect_garment_type(request: Request, garment: UploadFile = File(...))
     if not _allowed_file(filename):
         raise HTTPException(
             status_code=400,
-            detail=f"File type not allowed. Allowed: {', '.join(sorted(ALLOWED_EXTS))}"
+            detail=f"File type not allowed. Allowed: {', '.join(sorted(ALLOWED_EXTS))}",
         )
 
     # 4. Check MIME type (basic safety check)
@@ -267,10 +285,7 @@ async def detect_garment_type(request: Request, garment: UploadFile = File(...))
     # 5. Read file bytes and check size
     body = await garment.read()
     if len(body) > MAX_CONTENT_BYTES:
-        raise HTTPException(
-            status_code=413,
-            detail=f"File too large (>{int(MAX_CONTENT_MB)}MB)"
-        )
+        raise HTTPException(status_code=413, detail=f"File too large (>{int(MAX_CONTENT_MB)}MB)")
 
     # 6. Save to temporary file with secure tokenized name
     token = secrets.token_hex(4)
@@ -291,10 +306,7 @@ async def detect_garment_type(request: Request, garment: UploadFile = File(...))
             logger.info(f"[{request_id}] Image validation passed")
         except Exception as e:
             logger.error(f"[{request_id}] Invalid image: {e}")
-            raise HTTPException(
-                status_code=400,
-                detail="Uploaded file is not a valid image"
-            )
+            raise HTTPException(status_code=400, detail="Uploaded file is not a valid image")
 
         # 8. Run classification
         try:
@@ -302,10 +314,7 @@ async def detect_garment_type(request: Request, garment: UploadFile = File(...))
             logger.info(f"[{request_id}] Classification result: {label} (confidence={conf:.2%})")
         except Exception as e:
             logger.error(f"[{request_id}] Classification failed: {e}")
-            raise HTTPException(
-                status_code=500,
-                detail=f"Classification failed: {str(e)}"
-            )
+            raise HTTPException(status_code=500, detail=f"Classification failed: {str(e)}")
 
     finally:
         # 9. Cleanup: Always delete temp file
@@ -314,20 +323,20 @@ async def detect_garment_type(request: Request, garment: UploadFile = File(...))
 
     # 10. Return classification result
     logger.info(f"[{request_id}] detect_garment_type completed: {label} ({conf:.4f})")
-    return JSONResponse({
-        "label": label,
-        "confidence": round(conf, 4),
-        "filename": safe_filename,
-        "file_size_bytes": len(body),
-        "content_type": content_type
-    })
+    return JSONResponse(
+        {
+            "label": label,
+            "confidence": round(conf, 4),
+            "filename": safe_filename,
+            "file_size_bytes": len(body),
+            "content_type": content_type,
+        }
+    )
 
 
 @app.post("/construct_outfit")
 async def construct_outfit(
-    request: Request,
-    upper_garment: UploadFile = File(...),
-    lower_garment: UploadFile = File(...)
+    request: Request, upper_garment: UploadFile = File(...), lower_garment: UploadFile = File(...)
 ):
     """
     Construct a full outfit image from upper and lower garments.
@@ -364,7 +373,7 @@ async def construct_outfit(
     if not _allowed_file(upper_filename):
         raise HTTPException(
             status_code=400,
-            detail=f"Upper garment file type not allowed. Allowed: {', '.join(sorted(ALLOWED_EXTS))}"
+            detail=f"Upper garment file type not allowed. Allowed: {', '.join(sorted(ALLOWED_EXTS))}",
         )
 
     # Check MIME type
@@ -376,8 +385,7 @@ async def construct_outfit(
     upper_body = await upper_garment.read()
     if len(upper_body) > MAX_CONTENT_BYTES:
         raise HTTPException(
-            status_code=413,
-            detail=f"Upper garment too large (>{int(MAX_CONTENT_MB)}MB)"
+            status_code=413, detail=f"Upper garment too large (>{int(MAX_CONTENT_MB)}MB)"
         )
 
     # Validate with PIL
@@ -400,7 +408,7 @@ async def construct_outfit(
     if not _allowed_file(lower_filename):
         raise HTTPException(
             status_code=400,
-            detail=f"Lower garment file type not allowed. Allowed: {', '.join(sorted(ALLOWED_EXTS))}"
+            detail=f"Lower garment file type not allowed. Allowed: {', '.join(sorted(ALLOWED_EXTS))}",
         )
 
     # Check MIME type
@@ -412,8 +420,7 @@ async def construct_outfit(
     lower_body = await lower_garment.read()
     if len(lower_body) > MAX_CONTENT_BYTES:
         raise HTTPException(
-            status_code=413,
-            detail=f"Lower garment too large (>{int(MAX_CONTENT_MB)}MB)"
+            status_code=413, detail=f"Lower garment too large (>{int(MAX_CONTENT_MB)}MB)"
         )
 
     # Validate with PIL
@@ -443,23 +450,25 @@ async def construct_outfit(
         # Classify upper garment
         try:
             upper_label, upper_conf = await run_in_threadpool(classify_image, upper_tmp_path)
-            logger.info(f"[{request_id}] Upper garment classified: {upper_label} ({upper_conf:.2%})")
+            logger.info(
+                f"[{request_id}] Upper garment classified: {upper_label} ({upper_conf:.2%})"
+            )
         except Exception as e:
             logger.error(f"[{request_id}] Upper garment classification failed: {e}")
             raise HTTPException(
-                status_code=500,
-                detail=f"Upper garment classification failed: {str(e)}"
+                status_code=500, detail=f"Upper garment classification failed: {str(e)}"
             )
 
         # Classify lower garment
         try:
             lower_label, lower_conf = await run_in_threadpool(classify_image, lower_tmp_path)
-            logger.info(f"[{request_id}] Lower garment classified: {lower_label} ({lower_conf:.2%})")
+            logger.info(
+                f"[{request_id}] Lower garment classified: {lower_label} ({lower_conf:.2%})"
+            )
         except Exception as e:
             logger.error(f"[{request_id}] Lower garment classification failed: {e}")
             raise HTTPException(
-                status_code=500,
-                detail=f"Lower garment classification failed: {str(e)}"
+                status_code=500, detail=f"Lower garment classification failed: {str(e)}"
             )
 
         # Verify garment types
@@ -488,12 +497,16 @@ async def construct_outfit(
 
         # Upload upper garment
         upper_public_id = f"upper_{token}"
-        upper_upload = await run_in_threadpool(upload_bytes, upper_body, upper_public_id, FOLDER_ORIG, None)
+        upper_upload = await run_in_threadpool(
+            upload_bytes, upper_body, upper_public_id, FOLDER_ORIG, None
+        )
         upper_url = upper_upload["secure_url"]
 
         # Upload lower garment
         lower_public_id = f"lower_{token}"
-        lower_upload = await run_in_threadpool(upload_bytes, lower_body, lower_public_id, FOLDER_ORIG, None)
+        lower_upload = await run_in_threadpool(
+            upload_bytes, lower_body, lower_public_id, FOLDER_ORIG, None
+        )
         lower_url = lower_upload["secure_url"]
 
         # ========== BACKGROUND REMOVAL ==========
@@ -505,7 +518,9 @@ async def construct_outfit(
 
         # Upload upper cutout
         upper_cutout_public_id = f"upper_cutout_{token}"
-        upper_cutout_upload = await run_in_threadpool(upload_bytes, upper_cutout_bytes, upper_cutout_public_id, FOLDER_CUT, "png")
+        upper_cutout_upload = await run_in_threadpool(
+            upload_bytes, upper_cutout_bytes, upper_cutout_public_id, FOLDER_CUT, "png"
+        )
         upper_cutout_url = upper_cutout_upload["secure_url"]
         logger.info(f"Upper garment cutout created: {upper_cutout_url}")
 
@@ -515,18 +530,24 @@ async def construct_outfit(
 
         # Upload lower cutout
         lower_cutout_public_id = f"lower_cutout_{token}"
-        lower_cutout_upload = await run_in_threadpool(upload_bytes, lower_cutout_bytes, lower_cutout_public_id, FOLDER_CUT, "png")
+        lower_cutout_upload = await run_in_threadpool(
+            upload_bytes, lower_cutout_bytes, lower_cutout_public_id, FOLDER_CUT, "png"
+        )
         lower_cutout_url = lower_cutout_upload["secure_url"]
         logger.info(f"Lower garment cutout created: {lower_cutout_url}")
 
         # ========== CONSTRUCT OUTFIT IMAGE ==========
         logger.info(f"[{request_id}] Constructing full outfit image from cutouts...")
 
-        outfit_bytes = await run_in_threadpool(construct_outfit_image, upper_cutout_bytes, lower_cutout_bytes)
+        outfit_bytes = await run_in_threadpool(
+            construct_outfit_image, upper_cutout_bytes, lower_cutout_bytes
+        )
 
         # Upload constructed outfit
         outfit_public_id = f"outfit_{token}"
-        outfit_upload = await run_in_threadpool(upload_bytes, outfit_bytes, outfit_public_id, FOLDER_ORIG, "png")
+        outfit_upload = await run_in_threadpool(
+            upload_bytes, outfit_bytes, outfit_public_id, FOLDER_ORIG, "png"
+        )
         outfit_url = outfit_upload["secure_url"]
 
         logger.info(f"[{request_id}] Outfit constructed and uploaded: {outfit_url}")
@@ -538,31 +559,33 @@ async def construct_outfit(
 
     # ========== RETURN RESULT ==========
     logger.info(f"[{request_id}] construct_outfit completed successfully")
-    return JSONResponse({
-        "success": True,
-        "upper_garment": {
-            "label": upper_label,
-            "confidence": round(upper_conf, 4),
-            "url": upper_url,
-            "cutout_url": upper_cutout_url,
-            "public_id": f"{FOLDER_ORIG}/{upper_public_id}",
-            "cutout_public_id": f"{FOLDER_CUT}/{upper_cutout_public_id}"
-        },
-        "lower_garment": {
-            "label": lower_label,
-            "confidence": round(lower_conf, 4),
-            "url": lower_url,
-            "cutout_url": lower_cutout_url,
-            "public_id": f"{FOLDER_ORIG}/{lower_public_id}",
-            "cutout_public_id": f"{FOLDER_CUT}/{lower_cutout_public_id}"
-        },
-        "outfit": {
-            "url": outfit_url,
-            "public_id": f"{FOLDER_ORIG}/{outfit_public_id}",
-            "format": "png",
-            "description": "Merged outfit image from cutouts (transparent backgrounds)"
+    return JSONResponse(
+        {
+            "success": True,
+            "upper_garment": {
+                "label": upper_label,
+                "confidence": round(upper_conf, 4),
+                "url": upper_url,
+                "cutout_url": upper_cutout_url,
+                "public_id": f"{FOLDER_ORIG}/{upper_public_id}",
+                "cutout_public_id": f"{FOLDER_CUT}/{upper_cutout_public_id}",
+            },
+            "lower_garment": {
+                "label": lower_label,
+                "confidence": round(lower_conf, 4),
+                "url": lower_url,
+                "cutout_url": lower_cutout_url,
+                "public_id": f"{FOLDER_ORIG}/{lower_public_id}",
+                "cutout_public_id": f"{FOLDER_CUT}/{lower_cutout_public_id}",
+            },
+            "outfit": {
+                "url": outfit_url,
+                "public_id": f"{FOLDER_ORIG}/{outfit_public_id}",
+                "format": "png",
+                "description": "Merged outfit image from cutouts (transparent backgrounds)",
+            },
         }
-    })
+    )
 
 
 @app.post("/virtual_tryon")
@@ -575,11 +598,13 @@ async def virtual_tryon(
     guidance_scale: float = 2.5,
     seed: int = 42,
     show_type: str = "result only",
-    process_garment: bool = True
+    process_garment: bool = True,
 ):
     """Complete virtual try-on workflow."""
     request_id = getattr(request.state, "request_id", "unknown")
-    logger.info(f"[{request_id}] virtual_tryon started: type={cloth_type}, process={process_garment}")
+    logger.info(
+        f"[{request_id}] virtual_tryon started: type={cloth_type}, process={process_garment}"
+    )
 
     # Validate person image
     person_filename = person_image.filename or ""
@@ -588,7 +613,9 @@ async def virtual_tryon(
 
     person_body = await person_image.read()
     if len(person_body) > MAX_CONTENT_BYTES:
-        raise HTTPException(status_code=413, detail=f"Person image too large (>{int(MAX_CONTENT_MB)}MB)")
+        raise HTTPException(
+            status_code=413, detail=f"Person image too large (>{int(MAX_CONTENT_MB)}MB)"
+        )
 
     try:
         Image.open(io.BytesIO(person_body)).verify()
@@ -602,7 +629,9 @@ async def virtual_tryon(
 
     garment_body = await garment_image.read()
     if len(garment_body) > MAX_CONTENT_BYTES:
-        raise HTTPException(status_code=413, detail=f"Garment image too large (>{int(MAX_CONTENT_MB)}MB)")
+        raise HTTPException(
+            status_code=413, detail=f"Garment image too large (>{int(MAX_CONTENT_MB)}MB)"
+        )
 
     try:
         Image.open(io.BytesIO(garment_body)).verify()
@@ -614,7 +643,9 @@ async def virtual_tryon(
     person_public_id = f"person_{token}"
 
     try:
-        person_upload = await run_in_threadpool(upload_bytes, person_body, person_public_id, FOLDER_ORIG, None)
+        person_upload = await run_in_threadpool(
+            upload_bytes, person_body, person_public_id, FOLDER_ORIG, None
+        )
         person_url = person_upload["secure_url"]
         logger.info(f"Person image uploaded: {person_url}")
     except Exception as e:
@@ -637,7 +668,9 @@ async def virtual_tryon(
         try:
             # Upload original garment
             garment_public_id = f"garment_{token}"
-            garment_upload = await run_in_threadpool(upload_bytes, garment_body, garment_public_id, FOLDER_ORIG, None)
+            garment_upload = await run_in_threadpool(
+                upload_bytes, garment_body, garment_public_id, FOLDER_ORIG, None
+            )
             garment_url = garment_upload["secure_url"]
 
             # Background removal (classification already done on frontend)
@@ -645,7 +678,9 @@ async def virtual_tryon(
             cutout_bytes = await run_in_threadpool(image_to_png_bytes, cutout_im)
 
             cutout_public_id = f"cutout_{token}"
-            cutout_upload = await run_in_threadpool(upload_bytes, cutout_bytes, cutout_public_id, FOLDER_CUT, "png")
+            cutout_upload = await run_in_threadpool(
+                upload_bytes, cutout_bytes, cutout_public_id, FOLDER_CUT, "png"
+            )
             cutout_url = cutout_upload["secure_url"]
             logger.info(f"Garment cutout created: {cutout_url}")
 
@@ -657,7 +692,9 @@ async def virtual_tryon(
     else:
         # Just upload original garment
         garment_public_id = f"garment_{token}"
-        garment_upload = await run_in_threadpool(upload_bytes, garment_body, garment_public_id, FOLDER_ORIG, None)
+        garment_upload = await run_in_threadpool(
+            upload_bytes, garment_body, garment_public_id, FOLDER_ORIG, None
+        )
         garment_url = garment_upload["secure_url"]
 
     # Convert images to PNG format for Gradio (eliminates RGBA->JPEG errors)
@@ -676,7 +713,9 @@ async def virtual_tryon(
         garment_tmp.write(garment_body_png)
         garment_tmp_path = garment_tmp.name
 
-    logger.debug(f"[{request_id}] Temp files created: person={person_tmp_path}, garment={garment_tmp_path}")
+    logger.debug(
+        f"[{request_id}] Temp files created: person={person_tmp_path}, garment={garment_tmp_path}"
+    )
 
     try:
         # Call Gradio API
@@ -688,12 +727,14 @@ async def virtual_tryon(
             num_inference_steps=num_inference_steps,
             guidance_scale=guidance_scale,
             seed=seed,
-            show_type=show_type
+            show_type=show_type,
         )
 
         # Upload result to Cloudinary
         result_public_id = f"tryon_{token}"
-        result_upload = await run_in_threadpool(upload_bytes, result_bytes, result_public_id, FOLDER_TRYON, "png")
+        result_upload = await run_in_threadpool(
+            upload_bytes, result_bytes, result_public_id, FOLDER_TRYON, "png"
+        )
         result_url = result_upload["secure_url"]
         logger.info(f"Try-on result uploaded: {result_url}")
 
@@ -715,8 +756,8 @@ async def virtual_tryon(
             "num_inference_steps": num_inference_steps,
             "guidance_scale": guidance_scale,
             "seed": seed,
-            "show_type": show_type
-        }
+            "show_type": show_type,
+        },
     }
 
     logger.info(f"[{request_id}] virtual_tryon completed successfully")
@@ -729,10 +770,4 @@ async def unhandled_exc_handler(request: Request, exc: Exception):
     """Global exception handler with request tracking."""
     request_id = getattr(request.state, "request_id", "unknown")
     logger.error(f"Unhandled error [req_id={request_id}]: {exc}", exc_info=True)
-    return JSONResponse(
-        status_code=500,
-        content={
-            "error": str(exc),
-            "request_id": request_id
-        }
-    )
+    return JSONResponse(status_code=500, content={"error": str(exc), "request_id": request_id})

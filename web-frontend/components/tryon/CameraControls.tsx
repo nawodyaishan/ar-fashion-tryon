@@ -24,7 +24,7 @@ export function CameraControls({
   currentDeviceId,
   onDeviceChange,
   onReset,
-  disabled = false
+  disabled = false,
 }: CameraControlsProps) {
   const [devices, setDevices] = useState<CameraDevice[]>([]);
   const [isLoading, setIsLoading] = useState(true);

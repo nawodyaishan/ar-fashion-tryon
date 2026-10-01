@@ -24,7 +24,7 @@ export interface PoseDetectionConfig {
 
 export function usePoseDetection(
   videoElement: HTMLVideoElement | null,
-  config: PoseDetectionConfig = {}
+  config: PoseDetectionConfig = {},
 ) {
   const [poseLandmarker, setPoseLandmarker] = useState<PoseLandmarker | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -45,7 +45,7 @@ export function usePoseDetection(
         console.log('🚀 Initializing MediaPipe PoseLandmarker...');
 
         const vision = await FilesetResolver.forVisionTasks(
-          'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm'
+          'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm',
         );
 
         const modelComplexity = config.modelComplexity || 'lite';
@@ -54,13 +54,13 @@ export function usePoseDetection(
         const landmarker = await PoseLandmarker.createFromOptions(vision, {
           baseOptions: {
             modelAssetPath: modelPath,
-            delegate: 'GPU'
+            delegate: 'GPU',
           },
           runningMode: config.runningMode || 'VIDEO',
           numPoses: 1,
           minPoseDetectionConfidence: config.minDetectionConfidence || 0.5,
           minTrackingConfidence: config.minTrackingConfidence || 0.5,
-          minPosePresenceConfidence: 0.5
+          minPosePresenceConfidence: 0.5,
         });
 
         if (mounted) {
@@ -85,7 +85,12 @@ export function usePoseDetection(
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, [config.modelComplexity, config.minDetectionConfidence, config.minTrackingConfidence, config.runningMode]);
+  }, [
+    config.modelComplexity,
+    config.minDetectionConfidence,
+    config.minTrackingConfidence,
+    config.runningMode,
+  ]);
 
   // Detection loop
   const detectPose = useCallback(async () => {
@@ -115,25 +120,25 @@ export function usePoseDetection(
           const worldLandmarks = result.worldLandmarks ? result.worldLandmarks[0] : [];
 
           // Calculate overall confidence from visible landmarks
-          const visibleLandmarks = landmarks.filter(l => (l.visibility || 0) > 0.5);
+          const visibleLandmarks = landmarks.filter((l) => (l.visibility || 0) > 0.5);
           const confidence = visibleLandmarks.length / landmarks.length;
 
           // Mirror landmarks to match mirrored video (selfie view)
           // Video is mirrored with scale-x-[-1], so flip X coordinates
           setLastResult({
-            landmarks: landmarks.map(l => ({
+            landmarks: landmarks.map((l) => ({
               x: 1 - l.x, // Flip X coordinate for mirrored video
               y: l.y,
               z: l.z,
-              visibility: l.visibility
+              visibility: l.visibility,
             })),
-            worldLandmarks: worldLandmarks.map(l => ({
+            worldLandmarks: worldLandmarks.map((l) => ({
               x: -l.x, // Flip world X coordinate
               y: l.y,
               z: l.z,
-              visibility: l.visibility
+              visibility: l.visibility,
             })),
-            confidence
+            confidence,
           });
         } else {
           setLastResult(null);
@@ -165,6 +170,6 @@ export function usePoseDetection(
     landmarks: lastResult?.landmarks || null,
     worldLandmarks: lastResult?.worldLandmarks || null,
     confidence: lastResult?.confidence || 0,
-    fps
+    fps,
   };
 }

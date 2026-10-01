@@ -49,20 +49,26 @@ The deprecated backend experiments are preserved under `deprecated-backends/` fo
 
 ## Active Services
 
-| Service | Directory | Stack | Default Port |
-| --- | --- | --- | --- |
-| Frontend | `web-frontend/` | Next.js, TypeScript, Tailwind | `3000` |
-| Garment API | `garment-processing-api/` | FastAPI, TensorFlow, rembg, uv | `5000` |
-| CatVTON service | `catvton-gradio/` | Gradio, PyTorch | `7860` |
-| Cloudinary | external | Managed CDN | N/A |
+| Service         | Directory                 | Stack                          | Default Port |
+| --------------- | ------------------------- | ------------------------------ | ------------ |
+| Frontend        | `web-frontend/`           | Next.js, TypeScript, Tailwind  | `3000`       |
+| Garment API     | `garment-processing-api/` | FastAPI, TensorFlow, rembg, uv | `5000`       |
+| CatVTON service | `catvton-gradio/`         | Gradio, PyTorch                | `7860`       |
+| Cloudinary      | external                  | Managed CDN                    | N/A          |
 
 ## Quick Start
+
+Start with `make help` and [CONTRIBUTING.md](CONTRIBUTING.md) to select the
+pinned runtime/tools, then `make doctor` and `make setup`. Model restoration
+and live credentials are separate operations. `make dev-frontend` and
+`make dev-api` start the configured services. Direct equivalents follow.
 
 Frontend:
 
 ```bash
 cd web-frontend
-pnpm install
+pnpm install --frozen-lockfile
+[ -e .env.local ] || cp .env.example .env.local
 pnpm dev
 ```
 
@@ -70,9 +76,10 @@ Garment Processing API:
 
 ```bash
 cd garment-processing-api
-uv sync
-uv run bash scripts/download_models_local.sh
-uv run uvicorn app:app --reload --host 0.0.0.0 --port 5000
+uv sync --locked
+[ -e .env ] || cp .env.example .env
+# Fill .env and restore models explicitly for live inference; see CONTRIBUTING.md.
+uv run --no-sync uvicorn app:app --env-file .env --reload --host 127.0.0.1 --port 5000
 ```
 
 CatVTON local inference:
@@ -83,6 +90,14 @@ python app.py
 ```
 
 Local CatVTON inference can require significant GPU memory. The project can also use a configured Hugging Face Space.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, verification and the
+[Agentic SDD](https://github.com/nawodyaishan/agentic-sdd) workflow.
+Coding agents should start with [AGENTS.md](AGENTS.md). The
+[engineering foundation](specs/001-engineering-foundation/tasks.md) records
+Makefile commands, hooks and CI validation.
 
 ## Documentation
 

@@ -178,11 +178,7 @@ function checkBrightness(img: HTMLImageElement) {
 /**
  * Check if aspect ratio is within expected range
  */
-function checkAspectRatio(
-  actualRatio: number,
-  expectedRatio: number,
-  tolerance: number,
-) {
+function checkAspectRatio(actualRatio: number, expectedRatio: number, tolerance: number) {
   const diff = Math.abs(actualRatio - expectedRatio);
   const ok = diff <= tolerance;
 

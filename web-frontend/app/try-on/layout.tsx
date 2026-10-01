@@ -16,8 +16,7 @@ export const metadata: Metadata = {
   ],
   openGraph: {
     title: 'Virtual Try-On | AR Fashion Try-On',
-    description:
-      'Try on clothes virtually with AI. Live AR preview and HD photo try-on available.',
+    description: 'Try on clothes virtually with AI. Live AR preview and HD photo try-on available.',
     url: '/try-on',
     images: [
       {

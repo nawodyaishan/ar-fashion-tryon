@@ -8,7 +8,8 @@ import { useState, useEffect } from 'react';
 export function isMobileDevice(): boolean {
   if (typeof window === 'undefined') return false;
 
-  const userAgent = navigator.userAgent || navigator.vendor || (window as Window & { opera?: string }).opera;
+  const userAgent =
+    navigator.userAgent || navigator.vendor || (window as Window & { opera?: string }).opera;
 
   // Check for mobile device patterns
   const mobileRegex = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i;
@@ -21,7 +22,8 @@ export function isMobileDevice(): boolean {
 export function isTabletDevice(): boolean {
   if (typeof window === 'undefined') return false;
 
-  const userAgent = navigator.userAgent || navigator.vendor || (window as Window & { opera?: string }).opera;
+  const userAgent =
+    navigator.userAgent || navigator.vendor || (window as Window & { opera?: string }).opera;
 
   // Check for tablet-specific patterns
   const tabletRegex = /iPad|Android(?!.*Mobile)|Tablet/i;

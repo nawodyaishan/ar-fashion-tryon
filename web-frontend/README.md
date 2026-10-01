@@ -1,42 +1,37 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [
-`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AR Fashion Try-On Frontend
 
-## Getting Started
+The active Next.js application provides live AR and photo try-on workflows.
+Use pnpm 10.13.1, as declared in package.json.
 
-First, run the development server:
+## Local setup
+
+From this directory:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+pnpm install --frozen-lockfile
+[ -e .env.local ] || cp .env.example .env.local
 pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open http://localhost:3000. The environment example points the active garment
+and photo try-on client to FastAPI at http://127.0.0.1:5000. That API owns
+Cloudinary credentials and the hosted CatVTON connection. Port 7860 belongs to
+a separately configured local Gradio service; it is not the active HTTP API.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Optional browser Cloudinary uploads use public cloud-name/upload-preset values.
+Leave both empty for direct API uploads. Never place private API keys or HF
+tokens in NEXT_PUBLIC_ variables. Legacy clients remain in the codebase and are
+identified separately in .env.example; their endpoints are not active API routes.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically
-optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Current commands
 
-## Learn More
+```bash
+pnpm lint
+pnpm build
+pnpm start
+```
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions
-are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use
-the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme)
-from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for
-more details.
+pnpm format writes source files. Repository Makefile, hooks and isolated tests
+are implemented in the [engineering foundation](../specs/001-engineering-foundation/tasks.md).
+See [CONTRIBUTING.md](../CONTRIBUTING.md) for current prerequisites, checks,
+Agentic SDD workflow and the availability of planned commands.

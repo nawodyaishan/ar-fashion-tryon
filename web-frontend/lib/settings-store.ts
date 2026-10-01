@@ -7,10 +7,7 @@ interface SettingsState {
 }
 
 export const useSettingsStore = create<SettingsState>()(
-  persist(
-    () => ({}),
-    {
-      name: 'settings-store',
-    },
-  ),
+  persist(() => ({}), {
+    name: 'settings-store',
+  }),
 );

@@ -10,12 +10,7 @@ interface UploadCardProps {
   icon?: React.ReactNode;
 }
 
-export default function UploadCard({
-  title,
-  subtitle,
-  onUpload,
-  icon,
-}: UploadCardProps) {
+export default function UploadCard({ title, subtitle, onUpload, icon }: UploadCardProps) {
   return (
     <Card
       className="border-2 border-dashed cursor-pointer hover:border-primary/50 transition-all active:scale-[0.98]"

@@ -9,7 +9,7 @@ import {
   getSecurityWarning,
   checkCameraPermission,
   type CameraError,
-  type PermissionState
+  type PermissionState,
 } from '@/lib/camera';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -52,7 +52,7 @@ export function VideoPreview({ onStreamReady, className = '' }: VideoPreviewProp
       if (!mediaStream.getVideoTracks().length) {
         throw {
           type: 'not-found',
-          message: 'No video track found in media stream'
+          message: 'No video track found in media stream',
         } as CameraError;
       }
 
@@ -93,7 +93,12 @@ export function VideoPreview({ onStreamReady, className = '' }: VideoPreviewProp
     // 2. Video element exists
     // 3. We're in active state
     // 4. This stream hasn't been attached yet (prevent duplicates)
-    if (stream && videoRef.current && setupState === 'active' && streamAttachedRef.current !== stream) {
+    if (
+      stream &&
+      videoRef.current &&
+      setupState === 'active' &&
+      streamAttachedRef.current !== stream
+    ) {
       let isCancelled = false;
 
       const attachStream = async () => {
@@ -163,11 +168,15 @@ export function VideoPreview({ onStreamReady, className = '' }: VideoPreviewProp
             console.error('❌ Failed to play video:', error);
 
             // Only show error if it's a real error, not a cancellation
-            const errorMessage = error instanceof Error ? error.message : 'Failed to play video stream';
-            if (!errorMessage.includes('interrupted') && !errorMessage.includes('removed from the document')) {
+            const errorMessage =
+              error instanceof Error ? error.message : 'Failed to play video stream';
+            if (
+              !errorMessage.includes('interrupted') &&
+              !errorMessage.includes('removed from the document')
+            ) {
               setError({
                 type: 'not-readable',
-                message: errorMessage
+                message: errorMessage,
               });
               setSetupState('idle');
               streamAttachedRef.current = null; // Reset on error
@@ -286,7 +295,9 @@ export function VideoPreview({ onStreamReady, className = '' }: VideoPreviewProp
   // Security warning (HTTPS required for network access)
   if (securityWarning) {
     return (
-      <div className={`flex items-center justify-center bg-black/20 backdrop-blur-sm rounded-lg ${className}`}>
+      <div
+        className={`flex items-center justify-center bg-black/20 backdrop-blur-sm rounded-lg ${className}`}
+      >
         <div className="text-center p-6 space-y-4 max-w-md">
           <Alert variant="destructive">
             <Shield className="h-4 w-4" />
@@ -295,7 +306,9 @@ export function VideoPreview({ onStreamReady, className = '' }: VideoPreviewProp
           <div className="text-xs text-muted-foreground space-y-2">
             <p>To use camera features:</p>
             <ul className="list-disc list-inside text-left space-y-1">
-              <li>Access via <code className="bg-black/20 px-1 rounded">http://localhost:3000</code></li>
+              <li>
+                Access via <code className="bg-black/20 px-1 rounded">http://localhost:3000</code>
+              </li>
               <li>Or enable HTTPS for network access</li>
             </ul>
           </div>
@@ -307,11 +320,14 @@ export function VideoPreview({ onStreamReady, className = '' }: VideoPreviewProp
   // Browser not supported
   if (!isSupported) {
     return (
-      <div className={`flex items-center justify-center bg-black/20 backdrop-blur-sm rounded-lg ${className}`}>
+      <div
+        className={`flex items-center justify-center bg-black/20 backdrop-blur-sm rounded-lg ${className}`}
+      >
         <Alert variant="destructive" className="max-w-md">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            Your browser doesn&apos;t support camera access. Please use a modern browser like Chrome, Firefox, or Edge.
+            Your browser doesn&apos;t support camera access. Please use a modern browser like
+            Chrome, Firefox, or Edge.
           </AlertDescription>
         </Alert>
       </div>
@@ -321,7 +337,9 @@ export function VideoPreview({ onStreamReady, className = '' }: VideoPreviewProp
   // Idle state - Show "Start Camera" button
   if (setupState === 'idle' && !stream && !error) {
     return (
-      <div className={`flex items-center justify-center bg-black/20 backdrop-blur-sm rounded-lg ${className}`}>
+      <div
+        className={`flex items-center justify-center bg-black/20 backdrop-blur-sm rounded-lg ${className}`}
+      >
         <div className="text-center p-6 space-y-4">
           <div className="mx-auto h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center">
             <Camera className="h-10 w-10 text-primary" />
@@ -354,7 +372,9 @@ export function VideoPreview({ onStreamReady, className = '' }: VideoPreviewProp
   // Error state
   if (error) {
     return (
-      <div className={`flex items-center justify-center bg-black/20 backdrop-blur-sm rounded-lg ${className}`}>
+      <div
+        className={`flex items-center justify-center bg-black/20 backdrop-blur-sm rounded-lg ${className}`}
+      >
         <div className="text-center p-6 space-y-4">
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
@@ -375,9 +395,15 @@ export function VideoPreview({ onStreamReady, className = '' }: VideoPreviewProp
   }
 
   // Loading state
-  if (setupState === 'checking-permission' || setupState === 'requesting-permission' || setupState === 'loading') {
+  if (
+    setupState === 'checking-permission' ||
+    setupState === 'requesting-permission' ||
+    setupState === 'loading'
+  ) {
     return (
-      <div className={`flex items-center justify-center bg-black/20 backdrop-blur-sm rounded-lg ${className}`}>
+      <div
+        className={`flex items-center justify-center bg-black/20 backdrop-blur-sm rounded-lg ${className}`}
+      >
         <div className="text-center space-y-4">
           <Camera className="mx-auto h-12 w-12 animate-pulse text-primary" />
           <p className="text-sm text-muted-foreground">

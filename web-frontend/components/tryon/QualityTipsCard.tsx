@@ -15,7 +15,11 @@ interface QualityTipsCardProps {
   defaultOpen?: boolean;
 }
 
-export default function QualityTipsCard({ title, tips, defaultOpen = false }: QualityTipsCardProps) {
+export default function QualityTipsCard({
+  title,
+  tips,
+  defaultOpen = false,
+}: QualityTipsCardProps) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
 
   const tipTexts = tips.map((tip) => (typeof tip === 'string' ? tip : tip.text));

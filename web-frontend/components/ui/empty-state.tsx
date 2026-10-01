@@ -31,8 +31,14 @@ export function EmptyState({
       <div className="relative mb-6">
         {/* Pulsing background */}
         <div className="absolute inset-0 -m-4 rounded-full bg-primary/5 animate-pulse" />
-        <div className="absolute inset-0 -m-8 rounded-full bg-primary/3 animate-pulse" style={{ animationDelay: '150ms' }} />
-        <div className="absolute inset-0 -m-12 rounded-full bg-primary/2 animate-pulse" style={{ animationDelay: '300ms' }} />
+        <div
+          className="absolute inset-0 -m-8 rounded-full bg-primary/3 animate-pulse"
+          style={{ animationDelay: '150ms' }}
+        />
+        <div
+          className="absolute inset-0 -m-12 rounded-full bg-primary/2 animate-pulse"
+          style={{ animationDelay: '300ms' }}
+        />
 
         {/* Icon with float animation */}
         <div className="relative w-20 h-20 rounded-2xl bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center animate-float">
@@ -42,9 +48,7 @@ export function EmptyState({
 
       {/* Content */}
       <h3 className="text-xl font-bold mb-2">{title}</h3>
-      <p className="text-muted-foreground max-w-sm mb-6">
-        {description}
-      </p>
+      <p className="text-muted-foreground max-w-sm mb-6">{description}</p>
 
       {/* Action or Custom Children */}
       {action && (
@@ -56,7 +60,8 @@ export function EmptyState({
 
       <style jsx>{`
         @keyframes float {
-          0%, 100% {
+          0%,
+          100% {
             transform: translateY(0px);
           }
           50% {

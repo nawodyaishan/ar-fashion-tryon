@@ -179,7 +179,10 @@ export default function PhotoOnboardingModal() {
 
   return (
     <Dialog open={photoOnboardingOpen} onOpenChange={closePhotoOnboarding}>
-      <DialogContent className="sm:max-w-[650px] max-h-[90vh] overflow-y-auto glassmorphic-card border-2" aria-describedby="photo-onboarding-description">
+      <DialogContent
+        className="sm:max-w-[650px] max-h-[90vh] overflow-y-auto glassmorphic-card border-2"
+        aria-describedby="photo-onboarding-description"
+      >
         <VisuallyHidden>
           <DialogTitle>Photo Try-On HD Onboarding</DialogTitle>
           <DialogDescription id="photo-onboarding-description">
@@ -235,12 +238,11 @@ export default function PhotoOnboardingModal() {
               {step.modes?.map((mode, index) => {
                 const ModeIcon = mode.icon;
                 return (
-                  <div
-                    key={index}
-                    className="bg-background/60 backdrop-blur rounded-lg p-4"
-                  >
+                  <div key={index} className="bg-background/60 backdrop-blur rounded-lg p-4">
                     <div className="flex items-start gap-3">
-                      <div className={`h-10 w-10 rounded-lg bg-background flex items-center justify-center flex-shrink-0`}>
+                      <div
+                        className={`h-10 w-10 rounded-lg bg-background flex items-center justify-center flex-shrink-0`}
+                      >
                         <ModeIcon className={`h-5 w-5 ${mode.color}`} />
                       </div>
                       <div className="flex-1">
@@ -263,10 +265,7 @@ export default function PhotoOnboardingModal() {
           {step.id === 'workflow' && (
             <div className="space-y-4 mt-6">
               {step.steps?.map((item, index) => (
-                <div
-                  key={index}
-                  className="bg-background/60 backdrop-blur rounded-lg p-4"
-                >
+                <div key={index} className="bg-background/60 backdrop-blur rounded-lg p-4">
                   <div className="flex gap-3 mb-3">
                     <div className="h-8 w-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-sm flex-shrink-0">
                       {item.number}
@@ -294,10 +293,7 @@ export default function PhotoOnboardingModal() {
               {step.features?.map((feature, index) => {
                 const FeatureIcon = feature.icon;
                 return (
-                  <div
-                    key={index}
-                    className="bg-background/60 backdrop-blur rounded-lg p-4"
-                  >
+                  <div key={index} className="bg-background/60 backdrop-blur rounded-lg p-4">
                     <div className="flex items-start gap-3">
                       <FeatureIcon className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
                       <div className="flex-1">

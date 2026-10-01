@@ -145,7 +145,10 @@ export default function AROnboardingModal() {
 
   return (
     <Dialog open={arOnboardingOpen} onOpenChange={closeAROnboarding}>
-      <DialogContent className="sm:max-w-[650px] max-h-[90vh] overflow-y-auto glassmorphic-card border-2" aria-describedby="onboarding-description">
+      <DialogContent
+        className="sm:max-w-[650px] max-h-[90vh] overflow-y-auto glassmorphic-card border-2"
+        aria-describedby="onboarding-description"
+      >
         <VisuallyHidden>
           <DialogTitle>AR Try-On Onboarding</DialogTitle>
           <DialogDescription id="onboarding-description">
@@ -159,9 +162,7 @@ export default function AROnboardingModal() {
             <div
               key={index}
               className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${
-                index <= currentStep
-                  ? 'bg-primary'
-                  : 'bg-muted'
+                index <= currentStep ? 'bg-primary' : 'bg-muted'
               }`}
             />
           ))}
@@ -227,10 +228,7 @@ export default function AROnboardingModal() {
               {step.controls.map((control, index) => {
                 const ControlIcon = control.icon;
                 return (
-                  <div
-                    key={index}
-                    className="bg-background/60 backdrop-blur rounded-lg p-4"
-                  >
+                  <div key={index} className="bg-background/60 backdrop-blur rounded-lg p-4">
                     <div className="flex items-center gap-2 mb-2">
                       <ControlIcon className="h-4 w-4 text-primary" />
                       <span className="font-bold text-sm">{control.key}</span>
@@ -247,10 +245,7 @@ export default function AROnboardingModal() {
               {step.features.map((feature, index) => {
                 if ('title' in feature && 'description' in feature && 'badge' in feature) {
                   return (
-                    <div
-                      key={index}
-                      className="bg-background/60 backdrop-blur rounded-lg p-4"
-                    >
+                    <div key={index} className="bg-background/60 backdrop-blur rounded-lg p-4">
                       <div className="flex items-start justify-between gap-3 mb-2">
                         <h3 className="font-semibold">{feature.title}</h3>
                         <Badge variant="secondary" className="text-xs flex-shrink-0">

@@ -11,16 +11,16 @@ Keep the current Next.js/FastAPI/CatVTON application architecture. Build a
 repository workflow around the two owned CPU application services. Tests
 exercise real frontend and API logic with external boundaries replaced.
 
-| Decision | Proposed implementation and reason |
-| --- | --- |
-| Command interface | Root Makefile only, compatible with macOS system make and Linux GNU make. Service scripts hold tool details; no Taskfile or duplicate command graph. |
-| Runtime baseline | Node 22 LTS and Python 3.11, subject to frozen-lock compatibility verification in B2. Preserve pnpm 10.13.1. Pin uv, Lefthook and other CI tooling to tested versions during implementation; do not guess hashes. An incompatible major baseline returns for review. |
-| Python tooling | uv development group with Ruff, pytest and HTTPX; Ruff lint/format on owned API modules. Defer mypy until API typing is a separately bounded improvement. |
-| Frontend tooling | Existing ESLint, Prettier and TypeScript; add read-only format/typecheck scripts. Use Vitest for state/client tests and Playwright for one browser journey. |
-| Hooks | Lefthook installed explicitly; staged scoped format/lint/secret checks, no automatic fixes. Use a pinned Gitleaks version for staged and CI scans. |
-| CI | GitHub Actions for PRs and pushes to main, read-only tokens, timeouts, concurrency cancellation and pinned actions. No deployment, registry push, write tokens or repository secrets. |
-| Source scope | web-frontend owned application sources, garment-processing-api owned Python modules, and repository workflow/documentation. Exclude generated assets, binary models, vendored CatVTON and deprecated backends. Document exact excludes. |
-| Setup safety | pnpm install --frozen-lockfile and uv sync --locked; explicit browser dependency step. Environment templates contain placeholders; never overwrite a contributor's .env or install agent skills automatically. |
+| Decision          | Proposed implementation and reason                                                                                                                                                                                                                                   |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Command interface | Root Makefile only, compatible with macOS system make and Linux GNU make. Service scripts hold tool details; no Taskfile or duplicate command graph.                                                                                                                 |
+| Runtime baseline  | Node 22 LTS and Python 3.11, subject to frozen-lock compatibility verification in B2. Preserve pnpm 10.13.1. Pin uv, Lefthook and other CI tooling to tested versions during implementation; do not guess hashes. An incompatible major baseline returns for review. |
+| Python tooling    | uv development group with Ruff, pytest and HTTPX; Ruff lint/format on owned API modules. Defer mypy until API typing is a separately bounded improvement.                                                                                                            |
+| Frontend tooling  | Existing ESLint, Prettier and TypeScript; add read-only format/typecheck scripts. Use Vitest for state/client tests and Playwright for one browser journey.                                                                                                          |
+| Hooks             | Lefthook installed explicitly; staged scoped format/lint/secret checks, no automatic fixes. Use a pinned Gitleaks version for staged and CI scans.                                                                                                                   |
+| CI                | GitHub Actions for PRs and pushes to main, read-only tokens, timeouts, concurrency cancellation and pinned actions. No deployment, registry push, write tokens or repository secrets.                                                                                |
+| Source scope      | web-frontend owned application sources, garment-processing-api owned Python modules, and repository workflow/documentation. Exclude generated assets, binary models, vendored CatVTON and deprecated backends. Document exact excludes.                              |
+| Setup safety      | pnpm install --frozen-lockfile and uv sync --locked; explicit browser dependency step. Environment templates contain placeholders; never overwrite a contributor's .env or install agent skills automatically.                                                       |
 
 Only dependency additions necessary for this feature update lockfiles. Runtime
 service dependencies stay in their existing project declarations. CI supplies
@@ -28,19 +28,19 @@ non-secret environment placeholders and local URLs for mocked checks.
 
 ## Command contract
 
-| Target | Behavior |
-| --- | --- |
-| help | List public commands and prerequisites; requires no installed service dependencies. |
-| doctor | Report required tools, versions and optional live-model prerequisites without exposing environment values. |
-| setup | Frozen frontend/API dependency installation; no model restoration or hook installation. |
-| dev-frontend / dev-api | Start the named local service in foreground; API live use still requires documented credentials/models. |
-| lint / format-check / typecheck / lock-check | Read-only checks; TypeScript check applies to frontend; lock check must not resolve/update locks. |
-| format | Explicit source formatting in owned scope. |
-| test | Frontend unit/client tests and isolated API tests. |
-| test-e2e | Browser smoke with mocked external calls and managed local frontend server. |
-| build | Frontend production build, using documented non-secret build configuration. |
-| verify | Aggregate lint, format-check, typecheck, lock-check and test; stop on failures. |
-| hooks-install | Install committed Lefthook hooks explicitly. |
+| Target                                       | Behavior                                                                                                   |
+| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| help                                         | List public commands and prerequisites; requires no installed service dependencies.                        |
+| doctor                                       | Report required tools, versions and optional live-model prerequisites without exposing environment values. |
+| setup                                        | Frozen frontend/API dependency installation; no model restoration or hook installation.                    |
+| dev-frontend / dev-api                       | Start the named local service in foreground; API live use still requires documented credentials/models.    |
+| lint / format-check / typecheck / lock-check | Read-only checks; TypeScript check applies to frontend; lock check must not resolve/update locks.          |
+| format                                       | Explicit source formatting in owned scope.                                                                 |
+| test                                         | Frontend unit/client tests and isolated API tests.                                                         |
+| test-e2e                                     | Browser smoke with mocked external calls and managed local frontend server.                                |
+| build                                        | Frontend production build, using documented non-secret build configuration.                                |
+| verify                                       | Aggregate lint, format-check, typecheck, lock-check and test; stop on failures.                            |
+| hooks-install                                | Install committed Lefthook hooks explicitly.                                                               |
 
 Use service-specific subtargets where useful; public aggregates delegate to
 those commands. CI invokes these targets rather than reconstructing them.
@@ -140,3 +140,55 @@ and [fork secret behavior](https://docs.github.com/en/actions/security-for-githu
 Use pull_request on GitHub-hosted runners; avoid privileged pull_request_target
 execution of untrusted contributions. Cache downloads, not secret-bearing
 environments or arbitrary executable build outputs.
+
+## B2 implementation selections
+
+Selected Node reference patch 22.23.3 from the official release index; verified
+its archive against the official SHA256 list before staging validation. Local
+checks accept Node 22 patches; .nvmrc is the reference for reproducible runs.
+pnpm remains 10.13.1, uv is pinned to the tested 0.11.1, and uv provisions the
+declared Python 3.11 family (staging used 3.11.15). No dependency locks changed.
+Frontend lock freshness is checked with pnpm's frozen/offline/lockfile-only
+mode against a temporary copy. A negative control proved stale metadata fails.
+The existing build fetches Google font assets on an uncached run; it remains
+fully lint/type checked and does not make live inference calls.
+
+## B4 implementation selections
+
+Vitest 5.0.3 and Playwright 1.63.0 are explicit frontend development pins;
+pytest 9.1.1 and HTTPX 0.28.1 are locked API development tools. Vitest's installed
+engine declaration requires Node 22.12+; the reference patch remains 22.23.3.
+Use vitest.config.mts to declare the configuration's ESM syntax explicitly.
+Playwright owns a loopback frontend on port 3100, with local API stubs on port
+5100 and blank public provider settings. Context7 primary documentation confirms
+context routing and blocking service workers for complete request interception:
+[Playwright network mocking](https://github.com/microsoft/playwright/blob/main/docs/src/network.md).
+API tests replace startup's model-loader function without disabling startup;
+rembg imports at background-removal use rather than module import. The existing
+query-parameter API contract is asserted on both sides and the frontend transport
+is corrected to match it. The browser asserts the existing result viewer/download
+button; actual file saving and live provider behavior remain outside this smoke.
+
+## B5 implementation selections and primary references
+
+The workflow uses one Ubuntu 24.04 **Foundation checks** job, calling Makefile
+gates directly. Shared tool outputs are read from the committed version file;
+setup-uv caches/prunes downloads and the pnpm cache keys include runtime, manager,
+architecture and lock digest. New CI installers use the existing Bash specialist
+guidance; scripts are portable to the declared Bash baseline.
+
+Exa primary references confirm using unprivileged pull_request for fork code:
+[GitHub event security](https://docs.github.com/en/actions/reference/security/securely-using-pull_request_target).
+Context7 confirms explicit version/cache/pruning controls:
+[setup-uv caching](https://github.com/astral-sh/setup-uv/blob/main/docs/caching.md).
+Release metadata verified the full action commits:
+[checkout v7.0.1](https://github.com/actions/checkout/releases/tag/v7.0.1),
+[setup-node v7.0.0](https://github.com/actions/setup-node/releases/tag/v7.0.0),
+[cache v6.1.0](https://github.com/actions/cache/releases/tag/v6.1.0),
+[setup-uv v10.2.0](https://github.com/astral-sh/setup-uv/releases/tag/v10.2.0).
+Exa located official actionlint archive/checksum evidence:
+[actionlint v1.7.12](https://github.com/rhysd/actionlint/releases/tag/v1.7.12).
+Gitleaks checksums came from its
+[official v8.30.1 release](https://github.com/gitleaks/gitleaks/releases/tag/v8.30.1).
+The tested local Ubuntu command run is distinct from hosted GitHub execution;
+no workflow publication or branch-protection change is part of this batch.

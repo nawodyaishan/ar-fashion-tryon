@@ -245,7 +245,7 @@ export async function uploadToCloudinary(
 ): Promise<CloudinaryUploadResponse> {
   if (!CLOUD_NAME || !UPLOAD_PRESET) {
     throw new Error(
-      'Cloudinary not configured. Set NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME and NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET'
+      'Cloudinary not configured. Set NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME and NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET',
     );
   }
 
@@ -262,14 +262,11 @@ export async function uploadToCloudinary(
 
   const start = performance.now();
 
-  const response = await fetch(
-    `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`,
-    {
-      method: 'POST',
-      body: formData,
-      signal,
-    }
-  );
+  const response = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
+    method: 'POST',
+    body: formData,
+    signal,
+  });
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -277,7 +274,7 @@ export async function uploadToCloudinary(
     throw new Error(`Cloudinary upload failed: ${response.status} ${errorText}`);
   }
 
-  const data = await response.json() as CloudinaryUploadResponse;
+  const data = (await response.json()) as CloudinaryUploadResponse;
   const took = performance.now() - start;
 
   console.log('✅ Cloudinary upload success:', {
@@ -317,7 +314,7 @@ export async function extractGarmentByUrl(
           'Content-Type': 'application/json',
           Accept: 'application/json',
         },
-      }
+      },
     );
 
     const took = performance.now() - start;
@@ -466,14 +463,10 @@ export async function detectGarmentType(
       filename: string;
       file_size_bytes: number;
       content_type: string;
-    }>(
-      `${GARMENT_API_BASE}/detect_garment_type`,
-      formData,
-      {
-        signal,
-        headers: { Accept: 'application/json' },
-      },
-    );
+    }>(`${GARMENT_API_BASE}/detect_garment_type`, formData, {
+      signal,
+      headers: { Accept: 'application/json' },
+    });
 
     const took = performance.now() - start;
 
@@ -576,14 +569,10 @@ export async function constructOutfit(
         public_id: string;
         format: string;
       };
-    }>(
-      `${GARMENT_API_BASE}/construct_outfit`,
-      formData,
-      {
-        signal,
-        headers: { Accept: 'application/json' },
-      },
-    );
+    }>(`${GARMENT_API_BASE}/construct_outfit`, formData, {
+      signal,
+      headers: { Accept: 'application/json' },
+    });
 
     const took = performance.now() - start;
 
@@ -639,8 +628,7 @@ export async function extractGarmentSmart(
 }> {
   // Determine which method to use
   const useCloudinary =
-    forceMethod === 'cloudinary' ||
-    (forceMethod !== 'direct' && isCloudinaryConfigured());
+    forceMethod === 'cloudinary' || (forceMethod !== 'direct' && isCloudinaryConfigured());
 
   if (useCloudinary) {
     console.log('🌩️ Using Cloudinary pipeline (production mode)');

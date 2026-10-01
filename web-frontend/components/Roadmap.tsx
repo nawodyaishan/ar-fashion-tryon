@@ -4,7 +4,7 @@ import { Progress } from '@/components/ui/progress';
 import { roadmapItems } from '@/lib/constants';
 
 export function Roadmap() {
-  const doneCount = roadmapItems.filter(item => item.status === 'done').length;
+  const doneCount = roadmapItems.filter((item) => item.status === 'done').length;
   const totalCount = roadmapItems.length;
   const progressPercent = (doneCount / totalCount) * 100;
 
@@ -18,14 +18,19 @@ export function Roadmap() {
         <div className="space-y-2">
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">Overall Progress</span>
-            <span className="font-medium">{doneCount}/{totalCount}</span>
+            <span className="font-medium">
+              {doneCount}/{totalCount}
+            </span>
           </div>
           <Progress value={progressPercent} className="h-2" />
         </div>
 
         <div className="space-y-3">
           {roadmapItems.map((item) => (
-            <div key={item.label} className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent/50 transition-colors">
+            <div
+              key={item.label}
+              className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent/50 transition-colors"
+            >
               <div className="flex-shrink-0">
                 {item.status === 'done' && (
                   <div className="w-6 h-6 rounded-full bg-green-500/20 flex items-center justify-center">

@@ -43,17 +43,17 @@ maintainers retain approval and repository administration authority.
 
 ## Acceptance criteria
 
-| ID | Observable result |
-| --- | --- |
-| AC1 | A fresh checkout exposes make help; documented setup uses declared runtimes and existing locks without changing them. Check mode never fixes source or installs dependencies implicitly. |
-| AC2 | make verify runs format checks, lint, frontend typecheck, lock validation, and unit/API tests; make build and make test-e2e are separate documented gates. Every gate fails on a relevant violation and succeeds on the completed feature. |
-| AC3 | CPU tests and browser smoke run with no cloud secrets, model weight download or paid request. API tests cover invalid type/image, oversize input, one successful orchestration and one dependency failure; frontend tests cover state transitions and client success/error behavior. |
-| AC4 | The browser smoke completes a representative photo upload/try-on/result journey against mocked responses with a deterministic image fixture. It fails for a broken expected interaction. |
-| AC5 | make hooks-install installs committed Lefthook configuration. Hooks check staged owned text/code and obvious secrets without rewriting files or invoking build, browser tests, GPU inference or model downloads. CI checks the full owned scope independently of hook installation. |
+| ID  | Observable result                                                                                                                                                                                                                                                                                                |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| AC1 | A fresh checkout exposes make help; documented setup uses declared runtimes and existing locks without changing them. Check mode never fixes source or installs dependencies implicitly.                                                                                                                         |
+| AC2 | make verify runs format checks, lint, frontend typecheck, lock validation, and unit/API tests; make build and make test-e2e are separate documented gates. Every gate fails on a relevant violation and succeeds on the completed feature.                                                                       |
+| AC3 | CPU tests and browser smoke run with no cloud secrets, model weight download or paid request. API tests cover invalid type/image, oversize input, one successful orchestration and one dependency failure; frontend tests cover state transitions and client success/error behavior.                             |
+| AC4 | The browser smoke completes a representative photo upload/try-on/result journey against mocked responses with a deterministic image fixture. It fails for a broken expected interaction.                                                                                                                         |
+| AC5 | make hooks-install installs committed Lefthook configuration. Hooks check staged owned text/code and obvious secrets without rewriting files or invoking build, browser tests, GPU inference or model downloads. CI checks the full owned scope independently of hook installation.                              |
 | AC6 | PR and main-push workflows run frozen installs, AC2, build and browser smoke, plus a current-tree secret scan. Jobs have explicit timeouts and read-only permissions by default, pin third-party actions to full commit SHAs, and cache only appropriate dependency data. Fork PR checks do not require secrets. |
-| AC7 | CONTRIBUTING.md documents supported setup, environment examples, all gates, hooks, PR expectations and Agentic SDD installation/use. AGENTS.md links canonical sources, defines feature/approval/batch conventions, and preserves the user's CodeGraph instructions. |
-| AC8 | Canonical roadmap and runtime documentation describe the active architecture and correct upload fields/ports. Generated outputs and local .codegraph data are ignored; untracked user files are preserved. |
-| AC9 | Verification evidence identifies the tested revision, commands, outcomes and omissions. Administrative protection recommendations are documented without claiming settings were applied. |
+| AC7 | CONTRIBUTING.md documents supported setup, environment examples, all gates, hooks, PR expectations and Agentic SDD installation/use. AGENTS.md links canonical sources, defines feature/approval/batch conventions, and preserves the user's CodeGraph instructions.                                             |
+| AC8 | Canonical roadmap and runtime documentation describe the active architecture and correct upload fields/ports. Generated outputs and local .codegraph data are ignored; untracked user files are preserved.                                                                                                       |
+| AC9 | Verification evidence identifies the tested revision, commands, outcomes and omissions. Administrative protection recommendations are documented without claiming settings were applied.                                                                                                                         |
 
 ## Boundaries
 
@@ -86,9 +86,11 @@ Material behavior changes return for review.
 
 ## Combined approval — sole approval record
 
-Decision: draft/pending.
-Human approver: not yet recorded.
-Approval evidence: not yet recorded.
+Decision: approved.
+Human approver: repository user in this conversation.
+Approval evidence: user message “i approve all”, responding to the R1 package
+and explicit request to authorize B1, on 2026-10-01.
 Revisions submitted: spec R1, plan R1, tasks R1, and roadmap R1.
 Scope: engineering foundation as defined here; five batches in tasks.md.
-The user selected scope and tooling; that is not approval of these documents.
+The approval covers the submitted R1 documents and authorizes B1. Later batches
+retain the batch review and authorization boundaries defined in tasks.md.

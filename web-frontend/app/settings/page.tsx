@@ -75,9 +75,7 @@ export default function SettingsPage() {
                   <Palette className="w-5 h-5 text-primary" />
                   <CardTitle>Appearance</CardTitle>
                 </div>
-                <CardDescription>
-                  Customize the look and feel of the application
-                </CardDescription>
+                <CardDescription>Customize the look and feel of the application</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 {/* Theme Selection */}
@@ -101,7 +99,6 @@ export default function SettingsPage() {
                     ))}
                   </div>
                 </div>
-
               </CardContent>
             </Card>
           </section>
@@ -114,9 +111,7 @@ export default function SettingsPage() {
                   <Shield className="w-5 h-5 text-primary" />
                   <CardTitle>{privacyContent.title}</CardTitle>
                 </div>
-                <CardDescription>
-                  Manage your data and privacy settings
-                </CardDescription>
+                <CardDescription>Manage your data and privacy settings</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 {/* Privacy Notice */}
@@ -150,10 +145,7 @@ export default function SettingsPage() {
                         {control.variant === 'destructive' ? (
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
-                              <Button
-                                variant={control.variant}
-                                className="w-full justify-start"
-                              >
+                              <Button variant={control.variant} className="w-full justify-start">
                                 <Trash2 className="w-4 h-4 mr-2" />
                                 {control.label}
                               </Button>
@@ -162,7 +154,8 @@ export default function SettingsPage() {
                               <AlertDialogHeader>
                                 <AlertDialogTitle>Are you sure?</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  This action will permanently delete your recent uploads from our server. This cannot be undone.
+                                  This action will permanently delete your recent uploads from our
+                                  server. This cannot be undone.
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
@@ -201,9 +194,7 @@ export default function SettingsPage() {
             <Card className="border-2">
               <CardHeader>
                 <CardTitle>Settings Management</CardTitle>
-                <CardDescription>
-                  Backup or reset your settings
-                </CardDescription>
+                <CardDescription>Backup or reset your settings</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="flex flex-col sm:flex-row gap-3">
@@ -222,14 +213,13 @@ export default function SettingsPage() {
                       <AlertDialogHeader>
                         <AlertDialogTitle>Reset all settings?</AlertDialogTitle>
                         <AlertDialogDescription>
-                          This will restore all settings to their default values. This action cannot be undone.
+                          This will restore all settings to their default values. This action cannot
+                          be undone.
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={resetSettings}>
-                          Reset
-                        </AlertDialogAction>
+                        <AlertDialogAction onClick={resetSettings}>Reset</AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>
                   </AlertDialog>

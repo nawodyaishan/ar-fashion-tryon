@@ -24,7 +24,9 @@ export default function PrivacyPage() {
         <Alert className="mb-8 border-primary/50 bg-primary/5">
           <Lock className="h-5 w-5" />
           <AlertDescription className="text-base">
-            <strong>TL;DR:</strong> Live AR runs locally on your device. Photo HD uploads images to our server for processing only, then deletes them. We don&apos;t store your photos permanently.
+            <strong>TL;DR:</strong> Live AR runs locally on your device. Photo HD uploads images to
+            our server for processing only, then deletes them. We don&apos;t store your photos
+            permanently.
           </AlertDescription>
         </Alert>
 
@@ -93,15 +95,21 @@ export default function PrivacyPage() {
                 </li>
                 <li className="flex items-start gap-2">
                   <X className="h-5 w-5 text-red-500 mt-0.5 shrink-0" />
-                  <span>We <strong>never</strong> sell or share your images with third parties</span>
+                  <span>
+                    We <strong>never</strong> sell or share your images with third parties
+                  </span>
                 </li>
                 <li className="flex items-start gap-2">
                   <X className="h-5 w-5 text-red-500 mt-0.5 shrink-0" />
-                  <span>We <strong>never</strong> use your photos for model training</span>
+                  <span>
+                    We <strong>never</strong> use your photos for model training
+                  </span>
                 </li>
                 <li className="flex items-start gap-2">
                   <X className="h-5 w-5 text-red-500 mt-0.5 shrink-0" />
-                  <span>We <strong>never</strong> store your images permanently</span>
+                  <span>
+                    We <strong>never</strong> store your images permanently
+                  </span>
                 </li>
               </ul>
             </CardContent>
@@ -127,14 +135,16 @@ export default function PrivacyPage() {
                     Uploaded Images
                   </h3>
                   <p className="text-sm text-muted-foreground">
-                    Deleted within <strong>5 minutes</strong> after processing completes. Our cleanup service runs every minute to ensure timely deletion.
+                    Deleted within <strong>5 minutes</strong> after processing completes. Our
+                    cleanup service runs every minute to ensure timely deletion.
                   </p>
                 </div>
 
                 <div className="p-4 rounded-lg bg-muted/30">
                   <h3 className="font-semibold mb-2">Technical Logs</h3>
                   <p className="text-sm text-muted-foreground">
-                    Retained for <strong>30 days</strong> for debugging and performance optimization. Contains no personal or image data.
+                    Retained for <strong>30 days</strong> for debugging and performance
+                    optimization. Contains no personal or image data.
                   </p>
                 </div>
               </div>
@@ -151,10 +161,23 @@ export default function PrivacyPage() {
             </CardHeader>
             <CardContent>
               <ul className="space-y-2 text-muted-foreground">
-                <li>• <strong>Access:</strong> Request information about data we may have</li>
-                <li>• <strong>Deletion:</strong> Images are automatically deleted; logs can be cleared on request</li>
-                <li>• <strong>Opt-out:</strong> Don&apos;t use Photo HD mode if you prefer local-only processing</li>
-                <li>• <strong>Questions:</strong> Contact us at <a href="mailto:nawodyain@gmail.com" className="text-primary hover:underline">nawodyain@gmail.com</a></li>
+                <li>
+                  • <strong>Access:</strong> Request information about data we may have
+                </li>
+                <li>
+                  • <strong>Deletion:</strong> Images are automatically deleted; logs can be cleared
+                  on request
+                </li>
+                <li>
+                  • <strong>Opt-out:</strong> Don&apos;t use Photo HD mode if you prefer local-only
+                  processing
+                </li>
+                <li>
+                  • <strong>Questions:</strong> Contact us at{' '}
+                  <a href="mailto:nawodyain@gmail.com" className="text-primary hover:underline">
+                    nawodyain@gmail.com
+                  </a>
+                </li>
               </ul>
             </CardContent>
           </Card>
@@ -167,9 +190,7 @@ export default function PrivacyPage() {
               <CardTitle className="text-2xl">Cookies & Analytics</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 text-muted-foreground">
-              <p>
-                We use minimal cookies for:
-              </p>
+              <p>We use minimal cookies for:</p>
               <ul className="space-y-1 ml-4">
                 <li>• Session management</li>
                 <li>• User preferences (theme, settings)</li>
@@ -210,11 +231,27 @@ export default function PrivacyPage() {
             </CardHeader>
             <CardContent className="text-muted-foreground">
               <p className="mb-4">
-                If you have any questions about this privacy policy or how we handle your data, please reach out:
+                If you have any questions about this privacy policy or how we handle your data,
+                please reach out:
               </p>
               <div className="space-y-2">
-                <p>📧 Email: <a href="mailto:nawodyain@gmail.com" className="text-primary hover:underline">nawodyain@gmail.com</a></p>
-                <p>💻 GitHub: <a href="https://github.com/nawodyaishan" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">@nawodyaishan</a></p>
+                <p>
+                  📧 Email:{' '}
+                  <a href="mailto:nawodyain@gmail.com" className="text-primary hover:underline">
+                    nawodyain@gmail.com
+                  </a>
+                </p>
+                <p>
+                  💻 GitHub:{' '}
+                  <a
+                    href="https://github.com/nawodyaishan"
+                    className="text-primary hover:underline"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    @nawodyaishan
+                  </a>
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -223,7 +260,9 @@ export default function PrivacyPage() {
         {/* Research Disclaimer */}
         <Alert className="border-amber-500/50 bg-amber-500/10">
           <AlertDescription className="text-base">
-            <strong>Research Project Notice:</strong> This is a research and demonstration project. Results are synthetic previews and not production-quality product photos. Colors, fit, and appearance may vary from actual products. Do not upload sensitive or private images.
+            <strong>Research Project Notice:</strong> This is a research and demonstration project.
+            Results are synthetic previews and not production-quality product photos. Colors, fit,
+            and appearance may vary from actual products. Do not upload sensitive or private images.
           </AlertDescription>
         </Alert>
       </div>

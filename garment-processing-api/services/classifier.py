@@ -4,17 +4,18 @@ TensorFlow model loading and classification service.
 Based on predict_clothing.py - tries loading models in order with proper
 fallback handling and supports both softmax and sigmoid_ovr head types.
 """
-import os
+
 import json
 import logging
+import os
 from pathlib import Path
-from typing import Tuple, Optional, Dict, Any
+from typing import Any, Dict, Optional, Tuple
 
-import numpy as np
 import cv2
+import numpy as np
 from PIL import Image
 
-from config import MODELS_DIR, LABELS_PATH, CONFIG_PATH, REJECTION_PATH
+from config import CONFIG_PATH, LABELS_PATH, MODELS_DIR, REJECTION_PATH
 
 logger = logging.getLogger(__name__)
 
@@ -56,16 +57,17 @@ def load_model_and_config():
 
     try:
         import tensorflow as tf
+
         os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
 
-        logger.info("="*60)
+        logger.info("=" * 60)
         logger.info("Loading TensorFlow Model")
-        logger.info("="*60)
+        logger.info("=" * 60)
         logger.info(f"TensorFlow version: {tf.__version__}")
         logger.info(f"Models directory: {MODELS_DIR}")
 
         # Try loading models in order (same as predict_clothing.py)
-        model_files = ['best_clothing_model.h5', 'clothing_model_final.h5']
+        model_files = ["best_clothing_model.h5", "clothing_model_final.h5"]
 
         for fname in model_files:
             model_path = MODELS_DIR / fname
@@ -102,51 +104,56 @@ def load_model_and_config():
             # Model was trained with: {"trousers": 0, "tshirt": 1, "other": 2}
             # Index 0 = trousers (lower body), Index 1 = tshirt (upper body), Index 2 = other
             num_classes = model.output_shape[-1]
-            default_labels = ['trousers', 'tshirt', 'other']  # CORRECT ORDER!
+            default_labels = ["trousers", "tshirt", "other"]  # CORRECT ORDER!
 
             if num_classes == len(default_labels):
                 class_labels = {i: default_labels[i] for i in range(num_classes)}
                 class_names = default_labels
-                logger.warning(f"  No class_labels.json found, using training default: {class_names}")
+                logger.warning(
+                    f"  No class_labels.json found, using training default: {class_names}"
+                )
             else:
                 # If model has different number of classes, use generic labels
                 class_labels = {i: f"class_{i}" for i in range(num_classes)}
                 class_names = [f"class_{i}" for i in range(num_classes)]
-                logger.warning(f"  Model has {num_classes} classes, expected 3. Using generic: {class_names}")
+                logger.warning(
+                    f"  Model has {num_classes} classes, expected 3. Using generic: {class_names}"
+                )
 
         # Load model config (head_type: softmax or sigmoid_ovr)
         cfg = _load_json(CONFIG_PATH, {})
-        head_type = str(cfg.get('head_type', 'softmax')).lower()
-        img_size = int(cfg.get('img_size', cfg.get('IMG_SIZE', 224)))
+        head_type = str(cfg.get("head_type", "softmax")).lower()
+        img_size = int(cfg.get("img_size", cfg.get("IMG_SIZE", 224)))
         logger.info(f"  Head type: {head_type}")
         logger.info(f"  Image size: {img_size}")
 
         # Load rejection threshold (uses 'tau' key, not 'threshold')
         tau_config = _load_json(REJECTION_PATH, {})
-        tau = float(tau_config.get('tau', tau_config.get('threshold', 0.75)))
+        tau = float(tau_config.get("tau", tau_config.get("threshold", 0.75)))
         logger.info(f"  Rejection threshold (tau): {tau:.4f}")
 
-        logger.info(f"✅ Model loaded successfully!")
+        logger.info("✅ Model loaded successfully!")
         logger.info(f"   Model: {model_name}")
         logger.info(f"   Classes: {len(class_names)}")
         logger.info(f"   Input shape: {model.input_shape}")
         logger.info(f"   Output shape: {model.output_shape}")
-        logger.info("="*60)
+        logger.info("=" * 60)
 
     except Exception as e:
-        logger.error("="*60)
+        logger.error("=" * 60)
         logger.error("❌ MODEL LOADING FAILED")
-        logger.error("="*60)
+        logger.error("=" * 60)
         logger.error(f"Error: {e}")
         logger.error(f"Error type: {type(e).__name__}")
         import traceback
+
         logger.error(f"Traceback:\n{traceback.format_exc()}")
         logger.error("")
         logger.error("API will run in degraded mode:")
         logger.error("  - Classification will return 'UNKNOWN'")
         logger.error("  - Background removal will still work")
         logger.error("  - Virtual try-on will still work")
-        logger.error("="*60)
+        logger.error("=" * 60)
         _tf_err = e
 
 
@@ -197,22 +204,22 @@ def _decide_label(probs: np.ndarray) -> Tuple[str, float]:
     """
     # Mapping from internal labels to frontend-compatible labels
     LABEL_MAP = {
-        'trouser': 'trousers',   # Frontend expects plural
-        'trousers': 'trousers',  # Already plural, keep as-is
-        'other': 'unknown',      # Frontend expects 'unknown' for unrecognized items
-        'tshirt': 'tshirt',      # Keep as-is
+        "trouser": "trousers",  # Frontend expects plural
+        "trousers": "trousers",  # Already plural, keep as-is
+        "other": "unknown",  # Frontend expects 'unknown' for unrecognized items
+        "tshirt": "tshirt",  # Keep as-is
     }
 
     p = probs.reshape(-1)
 
-    if head_type == 'softmax':
+    if head_type == "softmax":
         # Standard softmax: pick argmax, check if above tau
         idx = int(np.argmax(p))
         conf = float(p[idx])
 
         if conf < tau:
             logger.debug(f"Confidence {conf:.4f} below tau {tau:.4f}, returning UNKNOWN")
-            return 'UNKNOWN', conf
+            return "UNKNOWN", conf
 
         raw_label = class_labels.get(idx, f"class_{idx}")
         # Map to frontend-compatible label
@@ -228,13 +235,15 @@ def _decide_label(probs: np.ndarray) -> Tuple[str, float]:
         cond_tee = p_tee >= tau and p_trou < tau
 
         if cond_trou:
-            return 'trousers', p_trou  # Already using frontend-compatible 'trousers'
+            return "trousers", p_trou  # Already using frontend-compatible 'trousers'
         if cond_tee:
-            return 'tshirt', p_tee
+            return "tshirt", p_tee
 
         # Ambiguous or both below tau
-        logger.debug(f"Sigmoid reject: p_trousers={p_trou:.4f}, p_tshirt={p_tee:.4f}, tau={tau:.4f}")
-        return 'UNKNOWN', max(p_trou, p_tee)
+        logger.debug(
+            f"Sigmoid reject: p_trousers={p_trou:.4f}, p_tshirt={p_tee:.4f}, tau={tau:.4f}"
+        )
+        return "UNKNOWN", max(p_trou, p_tee)
 
 
 def classify_image(img_path: Path) -> Tuple[str, float]:

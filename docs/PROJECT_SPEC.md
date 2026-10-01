@@ -137,15 +137,15 @@ Full Reference Mode:
 
 ## Service Details
 
-| Service | Technology | Port | Purpose | Status |
-| --- | --- | --- | --- | --- |
-| Frontend | Next.js, TypeScript | `3000` | UI, AR preview, photo wizard | Active |
-| Garment Processing API | FastAPI, Python, TensorFlow | `5000` | Classification, background removal, outfit construction | Active |
-| Virtual Try-On | Gradio, PyTorch | `7860` | CatVTON inference | Active / hosted option |
-| Cloudinary | Cloud CDN | N/A | Image storage, optimization, delivery | Active |
-| Legacy Web Backend | NestJS, TypeScript | `3001` | Historical REST API experiments | Deprecated |
-| Legacy ML Backend | FastAPI/Flask, YOLO | varies | Historical ML experiments | Deprecated |
-| AR Module | Three.js, MediaPipe | client-side | Pose-driven AR | Active in frontend |
+| Service                | Technology                  | Port        | Purpose                                                 | Status                 |
+| ---------------------- | --------------------------- | ----------- | ------------------------------------------------------- | ---------------------- |
+| Frontend               | Next.js, TypeScript         | `3000`      | UI, AR preview, photo wizard                            | Active                 |
+| Garment Processing API | FastAPI, Python, TensorFlow | `5000`      | Classification, background removal, outfit construction | Active                 |
+| Virtual Try-On         | Gradio, PyTorch             | `7860`      | CatVTON inference                                       | Active / hosted option |
+| Cloudinary             | Cloud CDN                   | N/A         | Image storage, optimization, delivery                   | Active                 |
+| Legacy Web Backend     | NestJS, TypeScript          | `3001`      | Historical REST API experiments                         | Deprecated             |
+| Legacy ML Backend      | FastAPI/Flask, YOLO         | varies      | Historical ML experiments                               | Deprecated             |
+| AR Module              | Three.js, MediaPipe         | client-side | Pose-driven AR                                          | Active in frontend     |
 
 ## Quick Start
 
@@ -153,8 +153,8 @@ Full Reference Mode:
 
 Required:
 
-- Node.js 18+
-- Python 3.10+
+- Node.js 22 (foundation target; compatibility validation in batch B2)
+- Python 3.11 recommended; API supports >=3.10,<3.13
 - `pnpm`
 - `uv`
 
@@ -169,15 +169,17 @@ Optional:
 
 ```bash
 cd web-frontend
-pnpm install
+pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-Set frontend API URLs in `web-frontend/.env.local`:
+Copy `web-frontend/.env.example` to `.env.local` only if it does not already
+exist. The active photo try-on client uses the garment API; the legacy
+VTON base does not point directly to local Gradio. Optional browser Cloudinary
+values below enable that upload path; leave them empty for direct API uploads:
 
 ```bash
 NEXT_PUBLIC_GARMENT_API_BASE=http://127.0.0.1:5000
-NEXT_PUBLIC_VTON_API_BASE=http://127.0.0.1:7860
 NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=your_cloud_name
 NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET=your_preset
 ```
@@ -188,13 +190,11 @@ Open `http://localhost:3000`.
 
 ```bash
 cd garment-processing-api
-uv sync
-uv run bash scripts/download_models_local.sh
-
-cp .env.example .env
+uv sync --locked
+[ -e .env ] || cp .env.example .env
 # Fill in Cloudinary credentials and optional HF_TOKEN.
-
-uv run uvicorn app:app --reload --host 0.0.0.0 --port 5000
+# Restore model weights separately for live classification (see API README).
+uv run --no-sync uvicorn app:app --env-file .env --reload --host 127.0.0.1 --port 5000
 ```
 
 Open `http://localhost:5000/docs`.
@@ -215,6 +215,8 @@ python app.py
 ```
 
 Open `http://localhost:7860`. Local inference can require 8-10 GB or more of GPU memory.
+The active API currently selects the hosted Space in its configuration; starting
+a local Gradio process does not automatically redirect the API.
 
 ## Technology Stack
 
@@ -486,8 +488,8 @@ pnpm format
 
 ```bash
 cd garment-processing-api
-uv sync
-uv run uvicorn app:app --reload --host 0.0.0.0 --port 5000
+uv sync --locked
+uv run --no-sync uvicorn app:app --env-file .env --reload --host 127.0.0.1 --port 5000
 uv run python tests/test_model_load.py
 uv run python -m py_compile app.py config.py middleware.py models.py services/*.py
 ```
@@ -576,22 +578,26 @@ AR Mode:
 
 ### API Smoke Tests
 
+These are live calls requiring restored models and configured external services.
+The current API binds inference steps, guidance scale, seed, show type and
+process garment as query parameters; files and cloth type use multipart form.
+See [CONTRIBUTING.md](../CONTRIBUTING.md) for isolated-check delivery status.
+
 ```bash
 curl -X POST "http://localhost:5000/detect_garment_type" \
-  -F "image=@test_shirt.jpg"
+  -F "garment=@test_shirt.jpg"
 
 curl -X POST "http://localhost:5000/classify_garment" \
-  -F "image=@test_shirt.jpg"
+  -F "garment=@test_shirt.jpg"
 
 curl -X POST "http://localhost:5000/construct_outfit" \
   -F "upper_garment=@shirt.jpg" \
   -F "lower_garment=@pants.jpg"
 
-curl -X POST "http://localhost:5000/virtual_tryon" \
+curl -X POST "http://localhost:5000/virtual_tryon?num_inference_steps=50" \
   -F "person_image=@person.jpg" \
   -F "garment_image=@garment.jpg" \
-  -F "cloth_type=upper" \
-  -F "num_inference_steps=50"
+  -F "cloth_type=upper"
 ```
 
 ## Known Limitations

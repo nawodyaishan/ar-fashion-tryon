@@ -111,16 +111,13 @@ export default function ARPanel() {
 
         const confidence = Math.round(apiResponse.detection_confidence * 100);
         const confidenceEmoji = confidence >= 70 ? '🎯' : confidence >= 50 ? '✓' : '⚠️';
-        toast.success(
-          `${confidenceEmoji} Garment added with ${confidence}% keypoint confidence`,
-          {
-            id: 'upload',
-            description:
-              confidence < 60
-                ? 'Low confidence - alignment may be less accurate'
-                : 'High quality alignment enabled',
-          },
-        );
+        toast.success(`${confidenceEmoji} Garment added with ${confidence}% keypoint confidence`, {
+          id: 'upload',
+          description:
+            confidence < 60
+              ? 'Low confidence - alignment may be less accurate'
+              : 'High quality alignment enabled',
+        });
 
         console.log('✅ Garment added with keypoints:', garment);
         return;
@@ -185,11 +182,7 @@ export default function ARPanel() {
   return (
     <div className="w-full h-full p-4 space-y-6 overflow-y-auto">
       {/* Quick Tour Button */}
-      <Button
-        variant="outline"
-        onClick={openAROnboarding}
-        className="w-full gap-2"
-      >
+      <Button variant="outline" onClick={openAROnboarding} className="w-full gap-2">
         <HelpCircle className="h-4 w-4" />
         Take a Quick Tour
       </Button>
@@ -239,9 +232,7 @@ export default function ARPanel() {
                   <Label htmlFor="tracking-toggle" className="text-sm cursor-pointer">
                     Continuous Tracking
                   </Label>
-                  <p className="text-xs text-muted-foreground">
-                    Garment follows your movements
-                  </p>
+                  <p className="text-xs text-muted-foreground">Garment follows your movements</p>
                 </div>
                 <Switch
                   id="tracking-toggle"
@@ -431,12 +422,7 @@ export default function ARPanel() {
 
       {/* Actions */}
       <section className="space-y-2">
-        <Button
-          variant="outline"
-          onClick={clearAll}
-          disabled={!selectedGarment}
-          className="w-full"
-        >
+        <Button variant="outline" onClick={clearAll} disabled={!selectedGarment} className="w-full">
           <Trash2 className="h-4 w-4 mr-2" />
           Clear All
         </Button>

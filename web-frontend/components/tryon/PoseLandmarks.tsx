@@ -13,11 +13,41 @@ interface PoseLandmarksProps {
 
 // MediaPipe pose landmark indices
 const POSE_CONNECTIONS = [
-  [0, 1], [1, 2], [2, 3], [3, 7], [0, 4], [4, 5], [5, 6], [6, 8],
-  [9, 10], [11, 12], [11, 13], [13, 15], [15, 17], [15, 19], [15, 21],
-  [17, 19], [12, 14], [14, 16], [16, 18], [16, 20], [16, 22], [18, 20],
-  [11, 23], [12, 24], [23, 24], [23, 25], [25, 27], [27, 29], [29, 31],
-  [27, 31], [24, 26], [26, 28], [28, 30], [28, 32], [30, 32]
+  [0, 1],
+  [1, 2],
+  [2, 3],
+  [3, 7],
+  [0, 4],
+  [4, 5],
+  [5, 6],
+  [6, 8],
+  [9, 10],
+  [11, 12],
+  [11, 13],
+  [13, 15],
+  [15, 17],
+  [15, 19],
+  [15, 21],
+  [17, 19],
+  [12, 14],
+  [14, 16],
+  [16, 18],
+  [16, 20],
+  [16, 22],
+  [18, 20],
+  [11, 23],
+  [12, 24],
+  [23, 24],
+  [23, 25],
+  [25, 27],
+  [27, 29],
+  [29, 31],
+  [27, 31],
+  [24, 26],
+  [26, 28],
+  [28, 30],
+  [28, 32],
+  [30, 32],
 ];
 
 // Landmark categories for color coding
@@ -48,9 +78,7 @@ export function PoseLandmarks({ landmarks, width, height, visible }: PoseLandmar
       const start = landmarks[startIdx];
       const end = landmarks[endIdx];
 
-      if (start && end &&
-          (start.visibility || 0) > 0.5 &&
-          (end.visibility || 0) > 0.5) {
+      if (start && end && (start.visibility || 0) > 0.5 && (end.visibility || 0) > 0.5) {
         ctx.beginPath();
         ctx.moveTo(start.x * width, start.y * height);
         ctx.lineTo(end.x * width, end.y * height);

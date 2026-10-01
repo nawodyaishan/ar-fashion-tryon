@@ -122,7 +122,7 @@ exposing your API secret in client-side code.
 curl -X POST \
   https://api.cloudinary.com/v1_1/YOUR_CLOUD_NAME/upload_presets \
   -H "Content-Type: application/json" \
-  -u "API_KEY:API_SECRET" \
+  --user "${CLOUDINARY_API_KEY}:${CLOUDINARY_API_SECRET}" \
   -d '{
     "name": "ar_fashion_unsigned",
     "unsigned": true,

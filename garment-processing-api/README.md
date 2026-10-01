@@ -19,26 +19,22 @@ This service is the Python image-processing backend for the AR Fashion Try-On pr
 
 Prerequisites:
 
-- Python 3.10+
+- Python 3.11 recommended; supported range >=3.10,<3.13
 - `uv`
 - Cloudinary credentials
 - Optional Hugging Face token for private Gradio spaces
 
 ```bash
-uv sync
-
-# Required once per fresh clone: restore local TensorFlow model files.
-uv run bash scripts/download_models_local.sh
-
-export CLOUDINARY_CLOUD_NAME=your-cloud-name
-export CLOUDINARY_API_KEY=your-api-key
-export CLOUDINARY_API_SECRET=your-api-secret
-export HF_TOKEN=hf_your_token
-
-uv run uvicorn app:app --reload --host 0.0.0.0 --port 5000
+uv sync --locked
+[ -e .env ] || cp .env.example .env
+# Fill .env with your private Cloudinary credentials; HF_TOKEN is optional.
+# Restore models explicitly using the Model Files section before live classification.
+uv run --no-sync uvicorn app:app --env-file .env --reload --host 127.0.0.1 --port 5000
 ```
 
-Open `http://localhost:5000/docs` for the interactive FastAPI docs.
+Open `http://localhost:5000/docs` for the interactive FastAPI docs. The
+--env-file flag explicitly loads local settings. See
+[CONTRIBUTING.md](../CONTRIBUTING.md) for workflow and check availability.
 
 ## Dependency Model
 
@@ -102,7 +98,10 @@ garment-processing-api/models/
 
 ### Restore Models With Script
 
-The same placement can be automated with the existing downloader:
+The same placement can be automated with the existing downloader. It requires
+Bash 4+, GNU timeout, unzip and curl. On macOS, install modern Bash/coreutils
+and make bash/timeout resolve to them; default system Bash 3.2 is incompatible.
+Manual restoration above is also available:
 
 ```bash
 cd garment-processing-api
@@ -122,10 +121,10 @@ The script downloads `trained_models.zip`, copies the `.h5` files into `models/`
 
 ```bash
 # Install or update the local environment
-uv sync
+uv sync --locked
 
 # Run the API locally
-uv run uvicorn app:app --reload --host 0.0.0.0 --port 5000
+uv run --no-sync uvicorn app:app --env-file .env --reload --host 127.0.0.1 --port 5000
 
 # Check the lockfile
 uv lock --check
@@ -133,6 +132,10 @@ uv lock --check
 # Validate Python syntax
 uv run python -m py_compile app.py config.py middleware.py models.py services/*.py tests/test_model_load.py scripts/convert_model.py
 
+# Isolated unit/API suite: no cloud credentials or model weights
+uv run --no-sync pytest
+
+# Optional live check: requires restored weights; not an isolated unit suite.
 # Validate TensorFlow model loading
 uv run python tests/test_model_load.py
 ```

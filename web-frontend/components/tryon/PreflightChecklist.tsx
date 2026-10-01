@@ -54,9 +54,7 @@ export function PreflightCheckItem({ label, passed, message }: PreflightCheck) {
       )}
       <div className="flex-1">
         <p className={passed ? 'text-green-600' : 'text-muted-foreground'}>{label}</p>
-        {message && !passed && (
-          <p className="text-xs text-muted-foreground mt-0.5">{message}</p>
-        )}
+        {message && !passed && <p className="text-xs text-muted-foreground mt-0.5">{message}</p>}
       </div>
     </div>
   );

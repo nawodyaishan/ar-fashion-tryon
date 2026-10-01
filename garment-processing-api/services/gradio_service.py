@@ -1,10 +1,11 @@
 """
 Gradio API client service for virtual try-on.
 """
+
 import asyncio
 import logging
 from pathlib import Path
-from typing import Optional, Any
+from typing import Any, Optional
 
 from fastapi import HTTPException
 from gradio_client import Client, handle_file
@@ -29,17 +30,14 @@ async def get_gradio_client() -> Client:
             logger.info(f"Connecting to Gradio Space: {GRADIO_SPACE}")
             # Create client with specific version compatibility
             gradio_client = await asyncio.to_thread(
-                Client,
-                GRADIO_SPACE,
-                hf_token=HF_TOKEN if HF_TOKEN else None
+                Client, GRADIO_SPACE, hf_token=HF_TOKEN if HF_TOKEN else None
             )
             logger.info("✅ Gradio client connected successfully")
         except Exception as e:
             logger.error(f"❌ Gradio client connection failed: {e}")
             # Don't set gradio_client = None, let it retry next time
             raise HTTPException(
-                status_code=503,
-                detail=f"Unable to connect to AI service: {str(e)}"
+                status_code=503, detail=f"Unable to connect to AI service: {str(e)}"
             )
 
     return gradio_client
@@ -66,7 +64,7 @@ async def _download_gradio_result(result_data: Any, base_url: str) -> bytes:
     # Handle different result types
     if isinstance(result_data, dict):
         # Dict: look for 'url', 'path', or 'name' keys
-        file_path = result_data.get('url') or result_data.get('path') or result_data.get('name')
+        file_path = result_data.get("url") or result_data.get("path") or result_data.get("name")
         logger.debug(f"Extracted from dict: {file_path}")
 
     elif isinstance(result_data, (list, tuple)):
@@ -76,7 +74,7 @@ async def _download_gradio_result(result_data: Any, base_url: str) -> bytes:
             logger.info(f"Result is list/tuple with {len(result_data)} items, using last item")
 
             if isinstance(last_item, dict):
-                file_path = last_item.get('url') or last_item.get('path') or last_item.get('name')
+                file_path = last_item.get("url") or last_item.get("path") or last_item.get("name")
             else:
                 file_path = str(last_item)
 
@@ -93,7 +91,7 @@ async def _download_gradio_result(result_data: Any, base_url: str) -> bytes:
         logger.warning(f"Unknown result type {type(result_data)}, converted to string: {file_path}")
 
     # Validate file path
-    if not file_path or file_path == 'None':
+    if not file_path or file_path == "None":
         raise ValueError(f"No valid file path in Gradio response. Result data: {result_data}")
 
     logger.info(f"Final extracted file path: {file_path}")
@@ -102,12 +100,13 @@ async def _download_gradio_result(result_data: Any, base_url: str) -> bytes:
     image_bytes = None
 
     # Check if file_path is a local file that gradio_client already downloaded
-    if file_path.startswith('/') and Path(file_path).exists():
+    if file_path.startswith("/") and Path(file_path).exists():
         # Gradio client already downloaded the file locally
         logger.info(f"Reading locally downloaded file: {file_path}")
         try:
+
             def read_local_file(path: str) -> bytes:
-                with open(path, 'rb') as f:
+                with open(path, "rb") as f:
                     return f.read()
 
             image_bytes = await run_in_threadpool(read_local_file, file_path)
@@ -119,11 +118,11 @@ async def _download_gradio_result(result_data: Any, base_url: str) -> bytes:
     # If local read failed or file doesn't exist, download from URL
     if image_bytes is None:
         # Construct download URL
-        if file_path.startswith('/'):
+        if file_path.startswith("/"):
             # Local file path → construct Gradio file URL
             image_url = f"{base_url}/gradio_api/file={file_path}"
             logger.info(f"Constructed URL from local path: {image_url}")
-        elif file_path.startswith('http'):
+        elif file_path.startswith("http"):
             # Already a full URL
             image_url = file_path
             logger.info(f"Using full URL: {image_url}")
@@ -152,7 +151,7 @@ async def call_gradio_api(
     guidance_scale: float,
     seed: int,
     show_type: str,
-    max_retries: int = 3
+    max_retries: int = 3,
 ) -> bytes:
     """
     Call Gradio API with retry logic.
@@ -185,14 +184,18 @@ async def call_gradio_api(
             # Call Gradio API
             result = await asyncio.to_thread(
                 client.predict,
-                person_image={"background": handle_file(person_img_path), "layers": [], "composite": None},
+                person_image={
+                    "background": handle_file(person_img_path),
+                    "layers": [],
+                    "composite": None,
+                },
                 cloth_image=handle_file(cloth_img_path),
                 cloth_type=cloth_type,
                 num_inference_steps=num_inference_steps,
                 guidance_scale=guidance_scale,
                 seed=seed,
                 show_type=show_type,
-                api_name="/submit_function"
+                api_name="/submit_function",
             )
 
             logger.info("Gradio API call successful")
@@ -210,10 +213,10 @@ async def call_gradio_api(
             if attempt == max_retries - 1:
                 raise HTTPException(
                     status_code=500,
-                    detail=f"Virtual try-on failed after {max_retries} attempts: {str(e)}"
+                    detail=f"Virtual try-on failed after {max_retries} attempts: {str(e)}",
                 )
 
             # Exponential backoff
-            wait_time = 2 ** attempt
+            wait_time = 2**attempt
             logger.info(f"Retrying in {wait_time} seconds...")
             await asyncio.sleep(wait_time)

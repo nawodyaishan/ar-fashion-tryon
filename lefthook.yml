@@ -1,0 +1,7 @@
+# The wrapper disables Lefthook's implicit stash as well as automatic staging.
+lefthook: bash scripts/run-lefthook.sh
+pre-commit:
+  commands:
+    staged-quality:
+      run: make check-staged
+      stage_fixed: false

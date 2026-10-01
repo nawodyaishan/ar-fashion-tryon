@@ -1,13 +1,12 @@
 """
 Image processing service for background removal and format conversion.
 """
+
 import io
 import logging
 from pathlib import Path
-from typing import Optional
 
 from PIL import Image
-from rembg import remove
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +21,9 @@ def remove_background(img_path: Path) -> Image.Image:
     Returns:
         RGBA Image with transparent background
     """
+    # Load inference tooling only when background removal is requested.
+    from rembg import remove
+
     with Image.open(img_path).convert("RGBA") as im:
         cutout = remove(im)  # rembg (downloads model on first call)
     return cutout
@@ -64,42 +66,44 @@ def convert_to_rgb_png(image_bytes: bytes) -> bytes:
         img = Image.open(io.BytesIO(image_bytes))
 
         # Log original format and mode for debugging
-        original_format = img.format or 'UNKNOWN'
+        original_format = img.format or "UNKNOWN"
         original_mode = img.mode
         logger.info(f"Converting image: format={original_format}, mode={original_mode} → PNG (RGB)")
 
         # Convert to RGB mode (remove alpha channel if present)
-        if img.mode in ('RGBA', 'LA', 'PA'):
+        if img.mode in ("RGBA", "LA", "PA"):
             # Create white background for transparency
-            background = Image.new('RGB', img.size, (255, 255, 255))
-            if img.mode == 'RGBA':
+            background = Image.new("RGB", img.size, (255, 255, 255))
+            if img.mode == "RGBA":
                 # Use alpha channel as mask
                 background.paste(img, mask=img.split()[3])
-            elif img.mode == 'LA':
+            elif img.mode == "LA":
                 # Luminance + Alpha
                 background.paste(img, mask=img.split()[1])
             else:
                 # PA (Palette + Alpha)
-                img = img.convert('RGBA')
+                img = img.convert("RGBA")
                 background.paste(img, mask=img.split()[3])
             img = background
-        elif img.mode == 'P':
+        elif img.mode == "P":
             # Palette mode - convert to RGB
-            img = img.convert('RGB')
-        elif img.mode not in ('RGB', 'L'):
+            img = img.convert("RGB")
+        elif img.mode not in ("RGB", "L"):
             # Other modes (CMYK, YCbCr, etc.)
-            img = img.convert('RGB')
+            img = img.convert("RGB")
 
         # Ensure RGB mode (convert grayscale to RGB for consistency)
-        if img.mode == 'L':
-            img = img.convert('RGB')
+        if img.mode == "L":
+            img = img.convert("RGB")
 
         # Save as PNG in RGB mode
         buf = io.BytesIO()
-        img.save(buf, format='PNG', optimize=True)
+        img.save(buf, format="PNG", optimize=True)
 
         png_bytes = buf.getvalue()
-        logger.info(f"Conversion successful: {original_format}/{original_mode} → PNG/RGB, {len(image_bytes)} bytes → {len(png_bytes)} bytes")
+        logger.info(
+            f"Conversion successful: {original_format}/{original_mode} → PNG/RGB, {len(image_bytes)} bytes → {len(png_bytes)} bytes"
+        )
 
         return png_bytes
 
@@ -151,7 +155,9 @@ def compress_image_for_upload(image_bytes: bytes, max_size_mb: float = 9.5) -> b
         logger.info(f"Image already under {max_size_mb}MB limit: {len(image_bytes)} bytes")
         return image_bytes
 
-    logger.info(f"Image too large ({len(image_bytes)} bytes), compressing to under {max_size_mb}MB...")
+    logger.info(
+        f"Image too large ({len(image_bytes)} bytes), compressing to under {max_size_mb}MB..."
+    )
 
     try:
         img = Image.open(io.BytesIO(image_bytes))
@@ -159,21 +165,21 @@ def compress_image_for_upload(image_bytes: bytes, max_size_mb: float = 9.5) -> b
         original_mode = img.mode
 
         # Convert RGBA to RGB with white background for JPEG compatibility
-        if img.mode in ('RGBA', 'LA', 'PA'):
-            background = Image.new('RGB', img.size, (255, 255, 255))
-            if img.mode == 'RGBA':
+        if img.mode in ("RGBA", "LA", "PA"):
+            background = Image.new("RGB", img.size, (255, 255, 255))
+            if img.mode == "RGBA":
                 background.paste(img, mask=img.split()[3])
             else:
-                img_rgba = img.convert('RGBA')
+                img_rgba = img.convert("RGBA")
                 background.paste(img_rgba, mask=img_rgba.split()[3])
             img = background
-        elif img.mode != 'RGB':
-            img = img.convert('RGB')
+        elif img.mode != "RGB":
+            img = img.convert("RGB")
 
         # Try progressive JPEG compression with decreasing quality
         for quality in [95, 85, 75, 65, 55, 45]:
             buf = io.BytesIO()
-            img.save(buf, format='JPEG', quality=quality, optimize=True)
+            img.save(buf, format="JPEG", quality=quality, optimize=True)
             compressed = buf.getvalue()
 
             if len(compressed) <= max_bytes:
@@ -184,7 +190,7 @@ def compress_image_for_upload(image_bytes: bytes, max_size_mb: float = 9.5) -> b
                 return compressed
 
         # If still too large, resize image
-        logger.warning(f"Image still too large after JPEG compression, resizing...")
+        logger.warning("Image still too large after JPEG compression, resizing...")
         scale_factors = [0.9, 0.8, 0.7, 0.6, 0.5]
 
         for scale in scale_factors:
@@ -192,7 +198,7 @@ def compress_image_for_upload(image_bytes: bytes, max_size_mb: float = 9.5) -> b
             resized = img.resize(new_size, Image.LANCZOS)
 
             buf = io.BytesIO()
-            resized.save(buf, format='JPEG', quality=85, optimize=True)
+            resized.save(buf, format="JPEG", quality=85, optimize=True)
             compressed = buf.getvalue()
 
             if len(compressed) <= max_bytes:
@@ -237,8 +243,8 @@ def construct_outfit_image(upper_bytes: bytes, lower_bytes: bytes) -> bytes:
         logger.info(f"Lower garment: {lower_img.size}, mode={lower_img.mode}")
 
         # Convert to RGBA for consistent handling
-        upper_img = upper_img.convert('RGBA')
-        lower_img = lower_img.convert('RGBA')
+        upper_img = upper_img.convert("RGBA")
+        lower_img = lower_img.convert("RGBA")
 
         # Calculate dimensions for the merged image
         # Use the maximum width and sum of heights
@@ -262,21 +268,23 @@ def construct_outfit_image(upper_bytes: bytes, lower_bytes: bytes) -> bytes:
 
         # Recalculate total height after resizing
         total_height = upper_img.height + lower_img.height
-        outfit_img = Image.new('RGB', (max_width, total_height), (255, 255, 255))
+        outfit_img = Image.new("RGB", (max_width, total_height), (255, 255, 255))
 
         # Paste upper garment at top
         # Center horizontally if needed
         upper_x = (max_width - upper_img.width) // 2
-        outfit_img.paste(upper_img, (upper_x, 0), upper_img if upper_img.mode == 'RGBA' else None)
+        outfit_img.paste(upper_img, (upper_x, 0), upper_img if upper_img.mode == "RGBA" else None)
 
         # Paste lower garment below upper
         lower_x = (max_width - lower_img.width) // 2
         lower_y = upper_img.height
-        outfit_img.paste(lower_img, (lower_x, lower_y), lower_img if lower_img.mode == 'RGBA' else None)
+        outfit_img.paste(
+            lower_img, (lower_x, lower_y), lower_img if lower_img.mode == "RGBA" else None
+        )
 
         # Convert to PNG bytes
         buf = io.BytesIO()
-        outfit_img.save(buf, format='PNG', optimize=True)
+        outfit_img.save(buf, format="PNG", optimize=True)
 
         png_bytes = buf.getvalue()
         logger.info(f"Outfit constructed successfully: {len(png_bytes)} bytes")

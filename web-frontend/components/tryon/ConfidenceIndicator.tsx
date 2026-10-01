@@ -21,7 +21,12 @@ export function ConfidenceIndicator({ confidence, fps, className }: ConfidenceIn
   const percentage = Math.round(confidence * 100);
 
   return (
-    <div className={cn('flex items-center gap-2 bg-black/30 backdrop-blur-sm px-3 py-2 rounded', className)}>
+    <div
+      className={cn(
+        'flex items-center gap-2 bg-black/30 backdrop-blur-sm px-3 py-2 rounded',
+        className,
+      )}
+    >
       <Activity className={cn('h-4 w-4', level.color)} />
       <div className="flex flex-col">
         <div className="flex items-center gap-2">
