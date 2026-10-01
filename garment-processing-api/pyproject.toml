@@ -25,6 +25,8 @@ dependencies = [
 
 [tool.uv]
 package = false
+# GHSA-82r6-8w77-94w6: require the patched transitive TLS implementation.
+constraint-dependencies = ["anyio>=4.14.2"]
 
 [dependency-groups]
 dev = [

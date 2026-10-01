@@ -1,0 +1,67 @@
+name: Bug report
+description: Report a reproducible problem with the application or development workflow.
+title: '[Bug]: '
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Search existing issues before opening a report. For vulnerabilities, use [private security reporting](https://github.com/nawodyaishan/ar-fashion-tryon/security/advisories/new).
+        Use synthetic images and redact credentials, private URLs, and personal data from examples and logs.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected area
+      options:
+        - Live AR preview
+        - Photo try-on
+        - Garment API
+        - CatVTON integration
+        - Setup, checks, or CI
+        - Documentation
+        - Other or unsure
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Include the command or UI workflow and a minimal example using synthetic inputs.
+      placeholder: |
+        1. Start with...
+        2. Run or open...
+        3. Observe...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Include the error message or visible result.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include the commit or version, OS and architecture, browser, and relevant tool versions. State whether providers are live or mocked. Do not paste environment files.
+      placeholder: |
+        Commit/version:
+        OS/architecture:
+        Browser/version:
+        Node/pnpm or Python/uv versions:
+        Local or hosted services:
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Verification and evidence
+      description: List checks you ran and their results, or say none. Include sanitized logs or screenshots if useful.
+    validations:
+      required: true

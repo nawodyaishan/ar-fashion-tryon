@@ -1812,17 +1812,16 @@
     get-stream "^6.0.1"
     yauzl "^3.1.2"
 
-"@xhmikosr/decompress@^10.1.0":
-  version "10.1.0"
-  resolved "https://registry.yarnpkg.com/@xhmikosr/decompress/-/decompress-10.1.0.tgz#106025372c96747832168da72ffc30a0fbb2afc0"
-  integrity sha512-jmVnzuJYX4f89Ls63CRI5s0GrWpLUqo+vY+8YrXuFiebDcF3xFwiSVCie68LrJNltSYMLcDY60JN51H/lVTw6Q==
+"@xhmikosr/decompress@10.2.2", "@xhmikosr/decompress@^10.1.0":
+  version "10.2.2"
+  resolved "https://registry.yarnpkg.com/@xhmikosr/decompress/-/decompress-10.2.2.tgz#dc1639a230a7433a89354e25179cf27ac2ec87fb"
+  integrity sha512-naYc2D/KCUDBx5VkohXp++TQB0IxLlUh8lbPX8DBTXB3HsDOsrp4pWP4V0cxBNEIhXEeN+Xma1hr9nuEGGW4TQ==
   dependencies:
     "@xhmikosr/decompress-tar" "^8.1.0"
     "@xhmikosr/decompress-tarbz2" "^8.1.0"
     "@xhmikosr/decompress-targz" "^8.1.0"
     "@xhmikosr/decompress-unzip" "^7.1.0"
     graceful-fs "^4.2.11"
-    make-dir "^4.0.0"
     strip-dirs "^3.0.0"
 
 "@xhmikosr/downloader@^15.1.0":
@@ -5128,6 +5127,10 @@ string-width@^4.1.0, string-width@^4.2.0, string-width@^4.2.3:
   version "4.2.3"
   resolved "https://registry.yarnpkg.com/string-width/-/string-width-4.2.3.tgz#269c7117d27b05ad2e536830a8ec895ef9c6d010"
   integrity sha512-wKyQRQpjJ0sIp62ErSZdGsjMJWsap5oRNihHhu6G7JVO/9jIB6UyevL+tXuOqrng8j/cxKTWyWUwvSTriiZz/g==
+  dependencies:
+    emoji-regex "^8.0.0"
+    is-fullwidth-code-point "^3.0.0"
+    strip-ansi "^6.0.1"
 
 string-width@^5.0.1, string-width@^5.1.2:
   version "5.1.2"

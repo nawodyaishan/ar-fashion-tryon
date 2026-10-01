@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Report a security vulnerability privately
+    url: https://github.com/nawodyaishan/ar-fashion-tryon/security/advisories/new
+    about: Send vulnerability details privately to the maintainers. Do not include them in public issues.
+  - name: Contributor guide
+    url: https://github.com/nawodyaishan/ar-fashion-tryon/blob/main/CONTRIBUTING.md
+    about: Setup, verification commands, and the Agentic SDD contribution workflow.

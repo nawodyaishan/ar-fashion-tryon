@@ -1,8 +1,10 @@
 # AR Fashion Try-On
 
+[![Engineering foundation](https://github.com/nawodyaishan/ar-fashion-tryon/actions/workflows/engineering-foundation.yml/badge.svg?branch=main&event=push)](https://github.com/nawodyaishan/ar-fashion-tryon/actions/workflows/engineering-foundation.yml)
+
 Preview clothing with live camera overlays or generate a photo try-on from person and garment images. The application combines a Next.js interface, a FastAPI garment-processing API, and CatVTON inference through a hosted Gradio service.
 
-[Product specification](docs/PROJECT_SPEC.md) · [Contributor guide](CONTRIBUTING.md) · [Roadmap](docs/ROADMAP.md)
+[Product specification](docs/PROJECT_SPEC.md) · [Contributor guide](CONTRIBUTING.md) · [Roadmap](docs/ROADMAP.md) · [Security reporting](SECURITY.md)
 
 ## What you can do
 

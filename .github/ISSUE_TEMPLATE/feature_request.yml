@@ -1,0 +1,34 @@
+name: Feature request
+description: Propose an improvement with a concrete use case and success criteria.
+title: '[Feature]: '
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Check the [roadmap](https://github.com/nawodyaishan/ar-fashion-tryon/blob/main/docs/ROADMAP.md) and existing issues first. An issue starts discussion; feature implementation follows the contributor guide's spec, plan, and tasks approval workflow.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or use case
+      description: Describe who is affected and what they are trying to achieve.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Explain the expected experience or workflow, with an example.
+    validations:
+      required: true
+  - type: textarea
+    id: success
+    attributes:
+      label: How would we verify success?
+      description: Suggest observable acceptance criteria or a demonstration.
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Alternatives and context
+      description: Include workarounds, relevant environment constraints, or links to related issues and roadmap stages.

@@ -11,9 +11,11 @@ experiments; Compose does not start the active application.
 Use macOS or Linux, Git, Bash 3.2+, make, Node 22.12+ (reference .nvmrc), pnpm 10.13.1 and uv 0.11.1.
 The pinned Node patch is in .nvmrc; shared tool declarations are in
 scripts/tool-versions.env. Python 3.11 is declared in .python-version and
-make setup-api provisions it through uv if needed. Linux will be the CI
-reference platform. Setup compatibility has been exercised on macOS ARM;
-Linux CI validation is delivered in B5.
+make setup-api provisions it through uv if needed. Ubuntu 24.04 is the CI
+reference platform. Setup and verification have also been exercised on macOS ARM.
+The [hosted foundation run](https://github.com/nawodyaishan/ar-fashion-tryon/actions/runs/36876555480)
+at commit 7ab2fe7 passed source checks, isolated tests, the production build, and
+the mocked browser journey.
 
 Select the runtime and install package tooling explicitly (example with nvm):
 
@@ -56,7 +58,7 @@ does not exist:
 
 The frontend example points to the local API on port 5000. Leave optional public
 Cloudinary values empty for direct API upload, or use your own cloud name and
-restricted unsigned upload preset to enable browser uploads. NEXT*PUBLIC* values
+restricted unsigned upload preset to enable browser uploads. `NEXT_PUBLIC_` values
 are browser-visible; keep Cloudinary API secrets and HF tokens in the API's
 private environment. The API example contains placeholders that must be filled
 for live upload/inference. Never commit local environment files or real photos.
@@ -192,9 +194,10 @@ runs on pull requests and pushes to main. Its job is **Foundation checks** on
 Ubuntu 24.04, with a 35-minute timeout, concurrency cancellation and contents:read
 permissions. It runs make workflow-check, setup, verify, build and test-e2e.
 Browser system libraries/downloads are installed explicitly before the smoke.
-No repository secrets or private model weights are needed. Hosted job execution
-starts only after the workflow is committed/published; local validation is
-recorded in the feature task ledger.
+No repository secrets or private model weights are needed. The workflow is
+published and has passed on GitHub-hosted runners; consult the
+[workflow runs](https://github.com/nawodyaishan/ar-fashion-tryon/actions/workflows/engineering-foundation.yml)
+for current status. Local validation is recorded in the feature task ledger.
 
 To install local workflow validators explicitly:
 
@@ -258,6 +261,12 @@ Example requests:
 See [AGENTS.md](AGENTS.md) for canonical pointers and CodeGraph instructions.
 
 ## Pull requests and maintenance
+
+Use the [issue forms](https://github.com/nawodyaishan/ar-fashion-tryon/issues/new/choose)
+for bug reports and feature requests. Include reproduction steps, environment
+details, expected behavior, and verification evidence where applicable. The PR
+template prompts for scope, related work, checks, and remaining limitations.
+Report vulnerabilities through the private channel in [SECURITY.md](SECURITY.md).
 
 Keep the diff scoped to the authorized feature/batch or direct fix. Explain the
 behavior or workflow change, the relevant acceptance criteria, checks actually
