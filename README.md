@@ -128,7 +128,7 @@ make browser-install  # Once per browser installation; Linux also needs system l
 make test-e2e
 ```
 
-The [GitHub Actions workflow](.github/workflows/engineering-foundation.yml) runs equivalent checks, the build, and the browser journey. Hooks inspect staged content without formatting, staging, or stashing changes. Formatting and linting cover owned application and workflow code; vendored and deprecated runtimes have separate scope.
+The [GitHub Actions workflow](.github/workflows/engineering-foundation.yml) runs equivalent checks and the build. The browser journey is temporarily disabled in CI; run `make test-e2e` locally. Hooks inspect staged content without formatting, staging, or stashing changes. Formatting and linting cover owned application and workflow code; vendored and deprecated runtimes have separate scope.
 
 ### What verification proves
 
