@@ -91,7 +91,16 @@ export default function AboutModal() {
                 className="flex items-center gap-2 text-sm text-primary hover:underline"
               >
                 <ExternalLink className="h-4 w-4" />
-                Documentation
+                Repository Docs
+              </a>
+              <a
+                href="https://ar-fashion-tryon.vercel.app/docs"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 text-sm text-primary hover:underline"
+              >
+                <ExternalLink className="h-4 w-4" />
+                Online Documentation
               </a>
             </div>
           </div>
