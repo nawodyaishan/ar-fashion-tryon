@@ -136,6 +136,13 @@ test('offline backend blocks photo modes and points to the Hugging Face Space', 
     await expect(page.locator('input[type=file]')).toHaveCount(0);
   }
 
+  // A link that opens a new tab never navigates this page, so it must not trigger the page loader
+  await page.getByText('Single Garment', { exact: true }).click();
+  const popupPromise = page.waitForEvent('popup');
+  await page.getByRole('link', { name: 'Open Hugging Face Space' }).click();
+  await (await popupPromise).close();
+  await expect(page.getByText('Loading Experience')).toBeHidden();
+
   const before = healthChecks;
   await page.getByText('Single Garment', { exact: true }).click();
   await page.getByRole('alertdialog').getByRole('button', { name: 'Retry' }).click();
