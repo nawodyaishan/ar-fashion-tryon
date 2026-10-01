@@ -1,115 +1,161 @@
 # AR Fashion Try-On
 
-AR Fashion Try-On is a full-stack augmented reality and AI-powered virtual garment try-on platform for fashion retail, e-commerce, and computer-vision research. It combines browser-based live AR preview, photo-realistic virtual try-on, garment classification, background removal, Cloudinary image delivery, and CatVTON inference through Gradio or Hugging Face Spaces.
+Preview clothing with live camera overlays or generate a photo try-on from person and garment images. The application combines a Next.js interface, a FastAPI garment-processing API, and CatVTON inference through a hosted Gradio service.
 
-This repository is optimized for modern AI discovery and developer onboarding around keywords such as virtual try-on, augmented reality fashion, AI fashion retail, garment classification, CatVTON, Stable Diffusion inpainting, FastAPI, Next.js, MediaPipe, TensorFlow, Cloudinary, Gradio, and Hugging Face Spaces.
+[Product specification](docs/PROJECT_SPEC.md) · [Contributor guide](CONTRIBUTING.md) · [Roadmap](docs/ROADMAP.md)
 
-## Main Specification
+## What you can do
 
-For the complete product, architecture, workflow, API, testing, and implementation specification, read:
+| Experience          | Workflow                                                                                                    |
+| ------------------- | ----------------------------------------------------------------------------------------------------------- |
+| **Live AR preview** | Use browser camera input and MediaPipe pose tracking to position, scale, and rotate garment overlays.       |
+| **Single garment**  | Upload a person and garment image, classify the garment, remove its background, and request a photo try-on. |
+| **Full outfit**     | Combine separate upper and lower garments, preview the constructed outfit, and generate a try-on.           |
+| **Full reference**  | Use a reference image with manual garment-type selection for an experimental photo workflow.                |
 
-- [Project specification](docs/PROJECT_SPEC.md)
+Photo workflows expose inference controls and a result viewer with download options. Live AR overlays and generated photo results are separate experiences; their behavior is detailed in the [product specification](docs/PROJECT_SPEC.md).
 
-The specification keeps the original full README-level detail while this root README stays focused on repository positioning, active services, and high-level navigation.
+## Architecture
 
-## What This Project Does
-
-- Live AR garment preview using browser camera input and pose-aware overlays
-- Photo-based AI virtual try-on using person and garment images
-- Three photo workflows: single garment, complete outfit, and full reference image
-- TensorFlow garment classification for upper/lower/unknown detection
-- Background removal for transparent garment cutouts
-- Outfit construction from separate upper and lower garments
-- Cloudinary-backed upload, CDN delivery, and result persistence
-- CatVTON-based try-on inference through Gradio or Hugging Face Spaces
-
-## Active System
-
-```text
-web-frontend
-  -> garment-processing-api
-    -> CatVTON Gradio / Hugging Face Space
-      -> Cloudinary
+```mermaid
+flowchart LR
+    User[Browser] --> Web[Next.js frontend]
+    Web --> AR[MediaPipe camera overlays]
+    Web --> API[FastAPI garment API]
+    API --> Processing[TensorFlow classification and rembg cutouts]
+    API --> GPU[Hosted CatVTON / Gradio inference]
+    API --> Storage[Cloudinary image storage and delivery]
 ```
 
-The deprecated backend experiments are preserved under `deprecated-backends/` for reference, but they are not part of the active runtime path.
+| Component                | Location                                                      | Role                                                                                                         |
+| ------------------------ | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Frontend                 | [`web-frontend/`](web-frontend/README.md)                     | Next.js, TypeScript, and Tailwind UI; local development on port **3000**.                                    |
+| Garment API              | [`garment-processing-api/`](garment-processing-api/README.md) | FastAPI orchestration, classification, cutouts, and outfit construction; local development on port **5000**. |
+| Inference implementation | [`catvton-gradio/`](catvton-gradio/README.md)                 | CatVTON and Gradio model pipeline; requires separate GPU setup for local inference.                          |
+| Image service            | Cloudinary                                                    | Uploads, persisted results, and image delivery.                                                              |
 
-## Repository Layout
+The API currently selects a hosted Hugging Face Space. Starting a local Gradio server does not automatically switch the API's provider. The root `docker-compose.yml` contains supporting PostgreSQL/Redis experiments and does not launch this application. Historical services live in [`deprecated-backends/`](deprecated-backends/README.md).
 
-```text
-.
-├── web-frontend/                 # Active Next.js app
-├── garment-processing-api/       # Active FastAPI garment API
-├── catvton-gradio/               # CatVTON Gradio service and model pipeline
-├── deprecated-backends/          # Preserved legacy backend experiments
-├── docs/                         # Project specification and roadmap
-├── vton-api-notebook/            # Notebook experiments
-└── docker-compose.yml
-```
+## Getting started
 
-## Active Services
+### 1. Select the tools
 
-| Service         | Directory                 | Stack                          | Default Port |
-| --------------- | ------------------------- | ------------------------------ | ------------ |
-| Frontend        | `web-frontend/`           | Next.js, TypeScript, Tailwind  | `3000`       |
-| Garment API     | `garment-processing-api/` | FastAPI, TensorFlow, rembg, uv | `5000`       |
-| CatVTON service | `catvton-gradio/`         | Gradio, PyTorch                | `7860`       |
-| Cloudinary      | external                  | Managed CDN                    | N/A          |
+Use macOS or Linux with Git, Bash 3.2+, and make. The reproducible tool versions are:
 
-## Quick Start
+| Tool    | Version                                                    |
+| ------- | ---------------------------------------------------------- |
+| Node.js | **22.23.3**, declared in [`.nvmrc`](.nvmrc)                |
+| pnpm    | **10.13.1**                                                |
+| Python  | **3.11**, declared in [`.python-version`](.python-version) |
+| uv      | **0.11.1**                                                 |
 
-Start with `make help` and [CONTRIBUTING.md](CONTRIBUTING.md) to select the
-pinned runtime/tools, then `make doctor` and `make setup`. Model restoration
-and live credentials are separate operations. `make dev-frontend` and
-`make dev-api` start the configured services. Direct equivalents follow.
+See [CONTRIBUTING.md](CONTRIBUTING.md#prerequisites-and-current-setup) for installation instructions and [shared tool versions](scripts/tool-versions.env) for verification tooling. `make setup-api` provisions Python through uv when needed.
 
-Frontend:
+### 2. Install locked dependencies
+
+From the repository root:
 
 ```bash
-cd web-frontend
-pnpm install --frozen-lockfile
-[ -e .env.local ] || cp .env.example .env.local
-pnpm dev
+make help       # List all commands; no application dependencies required
+make doctor     # Check installed tools
+make setup      # Install frontend and API dependencies from their lockfiles
 ```
 
-Garment Processing API:
+Setup uses frozen pnpm and uv locks. Model restoration, browser installation, and Git hook installation are explicit, separate steps.
+
+Copy environment examples without overwriting existing configuration:
 
 ```bash
-cd garment-processing-api
-uv sync --locked
-[ -e .env ] || cp .env.example .env
-# Fill .env and restore models explicitly for live inference; see CONTRIBUTING.md.
-uv run --no-sync uvicorn app:app --env-file .env --reload --host 127.0.0.1 --port 5000
+[ -e web-frontend/.env.local ] || cp web-frontend/.env.example web-frontend/.env.local
+[ -e garment-processing-api/.env ] || cp garment-processing-api/.env.example garment-processing-api/.env
 ```
 
-CatVTON local inference:
+### 3. Start the application
 
 ```bash
-cd catvton-gradio
-python app.py
+make dev-frontend
 ```
 
-Local CatVTON inference can require significant GPU memory. The project can also use a configured Hugging Face Space.
+Open **http://localhost:3000**. For live API operations, configure the API environment and restore the required TensorFlow weights using the [model guide](garment-processing-api/README.md#model-files). Then, in another terminal:
 
-## Contributing
+```bash
+make dev-api
+```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, verification and the
-[Agentic SDD](https://github.com/nawodyaishan/agentic-sdd) workflow.
-Coding agents should start with [AGENTS.md](AGENTS.md). The
-[engineering foundation](specs/001-engineering-foundation/tasks.md) records
-Makefile commands, hooks and CI validation.
+Interactive API documentation is available at **http://localhost:5000/docs**.
+
+Live upload and inference require Cloudinary credentials and access to the configured CatVTON provider. The frontend can start before those are ready, but photo generation needs the live services. Keep credentials in private environment files; `NEXT_PUBLIC_` values are visible in the browser. See the contributor guide for model-download prerequisites and provider configuration.
+
+## Engineering workflow
+
+The root **Makefile** is the command interface for development and CI. Run `make help` to discover individual service commands and prerequisites.
+
+| Command                | Purpose                                                                                               |
+| ---------------------- | ----------------------------------------------------------------------------------------------------- |
+| `make verify`          | Lint, formatting, TypeScript, lock freshness, isolated tests, and current tracked-text secret checks. |
+| `make build`           | Build the frontend for production.                                                                    |
+| `make browser-install` | Explicitly install Playwright Chromium.                                                               |
+| `make test-e2e`        | Run the mocked photo journey with managed local servers.                                              |
+| `make workflow-check`  | Validate GitHub Actions and workflow shell syntax.                                                    |
+| `make hooks-install`   | Install Lefthook precommit checks after installing the required tools.                                |
+| `make check-staged`    | Check staged content for secrets, whitespace, formatting, and lint.                                   |
+| `make format`          | Explicitly rewrite owned source and configuration formatting.                                         |
+
+After installing the verification tools described in [CONTRIBUTING.md](CONTRIBUTING.md), run:
+
+```bash
+make workflow-check
+make verify
+make build
+make browser-install  # Once per browser installation; Linux also needs system libraries
+make test-e2e
+```
+
+The [GitHub Actions workflow](.github/workflows/engineering-foundation.yml) runs equivalent checks, the build, and the browser journey. Hooks inspect staged content without formatting, staging, or stashing changes. Formatting and linting cover owned application and workflow code; vendored and deprecated runtimes have separate scope.
+
+### What verification proves
+
+Frontend state/client tests, API route tests, and the Chromium photo journey use synthetic inputs and replaced model/provider boundaries. They run without cloud credentials, inference weights, or hosted inference calls. Live model quality, camera behavior, and provider integration require separate validation.
+
+Dependency installation and browser downloads need network access. An uncached frontend build also fetches Google Fonts. See the [foundation execution record](specs/001-engineering-foundation/tasks.md) for completed verification evidence.
+
+## Contributing with Agentic SDD
+
+Start with [CONTRIBUTING.md](CONTRIBUTING.md). Coding agents should read [AGENTS.md](AGENTS.md) and use the **Agentic SDD router** to select the appropriate workflow:
+
+1. Draft a feature's **specification, plan, and tasks** together.
+2. Obtain one combined human approval before implementation.
+3. Implement one authorized batch, verify it, and stop for review.
+4. Use focused implementation and verification for clearly scoped direct fixes.
+
+The workflow is defined by [Agentic SDD](https://github.com/nawodyaishan/agentic-sdd). In an indexed checkout, use **CodeGraph** first for code discovery, as directed in AGENTS.md.
+
+## Roadmap and current scope
+
+The engineering foundation is implemented and reviewed: reproducible setup, Makefile commands, contributor and agent guidance, staged checks, isolated tests, and CI.
+
+The next proposed outcomes are:
+
+1. Reproducible application containers and artifact supply-chain controls.
+2. Headless asynchronous inference with measured GPU-provider tradeoffs.
+3. Declarative infrastructure and GitOps.
+4. Observability, reliability targets, and recovery evidence.
+5. Reproducible portfolio demonstrations and model regression evidence.
+
+These are future stages requiring their own feature review. Provider selection, cloud budget, and deployment dates remain undecided. Read the [canonical roadmap](docs/ROADMAP.md) for scope and completion criteria.
 
 ## Documentation
 
-- [Project specification](docs/PROJECT_SPEC.md)
-- [Frontend README](web-frontend/README.md)
-- [Garment API README](garment-processing-api/README.md)
-- [Garment API reference](garment-processing-api/docs/api/API_DOCUMENTATION.md)
-- [Garment API deployment guide](garment-processing-api/docs/deployment/DEPLOYMENT.md)
-- [CatVTON README](catvton-gradio/README.md)
-- [Deprecated backends](deprecated-backends/README.md)
-- [Roadmap](docs/ROADMAP.md)
+| Document                                                                     | Use it for                                                                    |
+| ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| [Product specification](docs/PROJECT_SPEC.md)                                | Detailed capabilities, architecture, and product workflows.                   |
+| [Contributor guide](CONTRIBUTING.md)                                         | Tool installation, environments, verification, hooks, and contribution rules. |
+| [Agent instructions](AGENTS.md)                                              | Repository guidance, SDD routing, and CodeGraph usage.                        |
+| [API reference](garment-processing-api/docs/api/API_DOCUMENTATION.md)        | Routes and request/response contracts.                                        |
+| [API deployment guide](garment-processing-api/docs/deployment/DEPLOYMENT.md) | Service-specific deployment guidance.                                         |
+| [Engineering foundation](specs/001-engineering-foundation/spec.md)           | Approved foundation scope and acceptance criteria.                            |
+| [Roadmap](docs/ROADMAP.md)                                                   | Ordered engineering and platform outcomes.                                    |
 
 ## License
 
-MIT License.
+Repository code is licensed under the [MIT License](LICENSE). Third-party models, weights, and datasets have their own terms; review their licenses before use or redistribution.

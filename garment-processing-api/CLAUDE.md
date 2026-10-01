@@ -451,7 +451,8 @@ CORS_ALLOW_ORIGINS=https://frontend.com
 **Test model loading locally:**
 ```python
 from tensorflow.keras.models import load_model
-model = load_model('models/best_clothing_model.h5', compile=False)
+
+model = load_model("models/best_clothing_model.h5", compile=False)
 print(model.summary())
 ```
 
@@ -459,6 +460,7 @@ print(model.summary())
 ```python
 import cloudinary
 import cloudinary.api
+
 cloudinary.config(cloud_name="xxx", api_key="xxx", api_secret="xxx")
 print(cloudinary.api.ping())  # Should return {'status': 'ok'}
 ```

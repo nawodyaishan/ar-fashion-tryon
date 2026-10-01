@@ -71,10 +71,7 @@ garment_type = response.json()["label"]
 ### 3. Outfit Visualization
 ```python
 # Create complete outfit from separates
-files = {
-    "upper_garment": open("shirt.jpg", "rb"),
-    "lower_garment": open("pants.jpg", "rb")
-}
+files = {"upper_garment": open("shirt.jpg", "rb"), "lower_garment": open("pants.jpg", "rb")}
 response = requests.post(f"{BASE_URL}/construct_outfit", files=files)
 outfit_url = response.json()["outfit"]["url"]
 ```
@@ -82,10 +79,7 @@ outfit_url = response.json()["outfit"]["url"]
 ### 4. Virtual Try-On
 ```python
 # Show how garments look on models
-files = {
-    "person_image": open("model.jpg", "rb"),
-    "garment_image": open("dress.jpg", "rb")
-}
+files = {"person_image": open("model.jpg", "rb"), "garment_image": open("dress.jpg", "rb")}
 data = {"cloth_type": "overall", "num_inference_steps": 50}
 response = requests.post(f"{BASE_URL}/virtual_tryon", files=files, data=data)
 result_url = response.json()["result_url"]
@@ -146,10 +140,7 @@ BASE_URL = "https://ar-fashion-tryon-production.up.railway.app"
 
 # Classify garment
 with open("shirt.jpg", "rb") as f:
-    response = requests.post(
-        f"{BASE_URL}/classify_garment",
-        files={"garment": f}
-    )
+    response = requests.post(f"{BASE_URL}/classify_garment", files={"garment": f})
     data = response.json()
     print(f"Type: {data['label']}, Confidence: {data['confidence']}")
     print(f"Cutout: {data['cutout_url']}")
@@ -157,11 +148,7 @@ with open("shirt.jpg", "rb") as f:
 # Construct outfit
 with open("shirt.jpg", "rb") as upper, open("pants.jpg", "rb") as lower:
     response = requests.post(
-        f"{BASE_URL}/construct_outfit",
-        files={
-            "upper_garment": upper,
-            "lower_garment": lower
-        }
+        f"{BASE_URL}/construct_outfit", files={"upper_garment": upper, "lower_garment": lower}
     )
     outfit_url = response.json()["outfit"]["url"]
     print(f"Outfit: {outfit_url}")
@@ -271,6 +258,7 @@ from fastapi import Security, HTTPException
 from fastapi.security import APIKeyHeader
 
 api_key_header = APIKeyHeader(name="X-API-Key")
+
 
 async def verify_api_key(api_key: str = Security(api_key_header)):
     if api_key != os.getenv("API_KEY"):

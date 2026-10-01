@@ -183,12 +183,12 @@ The fixes ensure compatibility with:
 1. **Re-save model with TensorFlow 2.15:**
    ```python
    # In training environment
-   model.save('best_clothing_model_tf215.h5')
+   model.save("best_clothing_model_tf215.h5")
    ```
 
 2. **Use SavedModel format instead of H5:**
    ```python
-   model.save('best_clothing_model')  # Creates a directory
+   model.save("best_clothing_model")  # Creates a directory
    ```
 
 3. **Pin TensorFlow version in requirements.txt** to ensure consistency

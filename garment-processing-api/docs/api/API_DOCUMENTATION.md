@@ -630,27 +630,21 @@ print(f"Quick detection: {result['label']} ({result['confidence']:.2%})")
 
 # 3. Construct Outfit
 url = "https://your-api-domain.com/construct_outfit"
-files = {
-    "upper_garment": open("shirt.jpg", "rb"),
-    "lower_garment": open("pants.jpg", "rb")
-}
+files = {"upper_garment": open("shirt.jpg", "rb"), "lower_garment": open("pants.jpg", "rb")}
 response = requests.post(url, files=files)
 result = response.json()
 print(f"Outfit URL: {result['outfit']['url']}")
 
 # 4. Virtual Try-On
 url = "https://your-api-domain.com/virtual_tryon"
-files = {
-    "person_image": open("model.jpg", "rb"),
-    "garment_image": open("shirt.jpg", "rb")
-}
+files = {"person_image": open("model.jpg", "rb"), "garment_image": open("shirt.jpg", "rb")}
 data = {
     "cloth_type": "upper",
     "num_inference_steps": 50,
     "guidance_scale": 2.5,
     "seed": 42,
     "show_type": "result only",
-    "process_garment": "true"
+    "process_garment": "true",
 }
 response = requests.post(url, files=files, data=data)
 result = response.json()
