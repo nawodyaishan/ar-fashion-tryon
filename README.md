@@ -1,6 +1,21 @@
 # AR Fashion Try-On
 
-[![Engineering foundation](https://github.com/nawodyaishan/ar-fashion-tryon/actions/workflows/engineering-foundation.yml/badge.svg?branch=main&event=push)](https://github.com/nawodyaishan/ar-fashion-tryon/actions/workflows/engineering-foundation.yml)
+[![Engineering foundation](https://img.shields.io/github/actions/workflow/status/nawodyaishan/ar-fashion-tryon/engineering-foundation.yml?branch=main&event=push&label=CI&logo=githubactions&logoColor=white)](https://github.com/nawodyaishan/ar-fashion-tryon/actions/workflows/engineering-foundation.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+[![Hugging Face Space](https://img.shields.io/badge/demo-Hugging%20Face%20Space-FFD21E?logo=huggingface&logoColor=black)](https://huggingface.co/spaces/nawodyaishan/ar-fashion-tryon)
+[![Last commit](https://img.shields.io/github/last-commit/nawodyaishan/ar-fashion-tryon/main)](https://github.com/nawodyaishan/ar-fashion-tryon/commits/main)
+
+![Next.js](https://img.shields.io/badge/Next.js-15-000000?logo=nextdotjs&logoColor=white)
+![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)
+![Three.js](https://img.shields.io/badge/Three.js-r178-000000?logo=threedotjs&logoColor=white)
+![MediaPipe](https://img.shields.io/badge/MediaPipe-Pose-0097A7?logo=mediapipe&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)
+![TensorFlow](https://img.shields.io/badge/TensorFlow-FF6F00?logo=tensorflow&logoColor=white)
+![PyTorch](https://img.shields.io/badge/PyTorch-CatVTON-EE4C2C?logo=pytorch&logoColor=white)
+![Cloudinary](https://img.shields.io/badge/Cloudinary-3448C5?logo=cloudinary&logoColor=white)
+![Railway](https://img.shields.io/badge/Railway-0B0D0E?logo=railway&logoColor=white)
 
 Preview clothing with live camera overlays or generate a photo try-on from person and garment images. The application combines a Next.js interface, a FastAPI garment-processing API, and CatVTON inference through a hosted Gradio service.
 
