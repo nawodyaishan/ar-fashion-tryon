@@ -176,17 +176,73 @@ The next proposed outcomes are:
 
 These are future stages requiring their own feature review. Provider selection, cloud budget, and deployment dates remain undecided. Read the [canonical roadmap](docs/ROADMAP.md) for scope and completion criteria.
 
+## Repository map
+
+Start here when navigating the code. Each link points to the file that owns the behavior.
+
+### Frontend (`web-frontend/`)
+
+| Concern                        | Entry point                                                                                                                                                                                             |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Try-on page                    | [`app/try-on/page.tsx`](web-frontend/app/try-on/page.tsx)                                                                                                                                               |
+| Photo try-on wizard            | [`components/tryon/PhotoWizard.tsx`](web-frontend/components/tryon/PhotoWizard.tsx)                                                                                                                     |
+| Live AR preview                | [`ARStage.tsx`](web-frontend/components/tryon/ARStage.tsx), [`GarmentOverlay.tsx`](web-frontend/components/tryon/GarmentOverlay.tsx), [`ARPanel.tsx`](web-frontend/components/tryon/ARPanel.tsx)        |
+| MediaPipe pose detection       | [`lib/hooks/usePoseDetection.ts`](web-frontend/lib/hooks/usePoseDetection.ts), [`lib/pose-utils.ts`](web-frontend/lib/pose-utils.ts)                                                                    |
+| Try-on state                   | [`lib/store/useVtonStore.ts`](web-frontend/lib/store/useVtonStore.ts), [`lib/tryon-store.ts`](web-frontend/lib/tryon-store.ts)                                                                          |
+| Garment API and try-on clients | [`lib/services/garmentApi.ts`](web-frontend/lib/services/garmentApi.ts), [`lib/services/vtonApi.ts`](web-frontend/lib/services/vtonApi.ts), [`lib/services/http.ts`](web-frontend/lib/services/http.ts) |
+| Shared types                   | [`lib/types.ts`](web-frontend/lib/types.ts)                                                                                                                                                             |
+| Tests                          | [`tests/unit/`](web-frontend/tests/unit), [`tests/e2e/photo.spec.ts`](web-frontend/tests/e2e/photo.spec.ts)                                                                                             |
+
+### Garment API (`garment-processing-api/`)
+
+| Concern                     | Entry point                                                                                                                                                          |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| FastAPI app and routes      | [`app.py`](garment-processing-api/app.py): `/health`, `/classify_garment`, `/classify_garment_by_url`, `/detect_garment_type`, `/construct_outfit`, `/virtual_tryon` |
+| Configuration and providers | [`config.py`](garment-processing-api/config.py)                                                                                                                      |
+| Request/response models     | [`models.py`](garment-processing-api/models.py)                                                                                                                      |
+| Garment classification      | [`services/classifier.py`](garment-processing-api/services/classifier.py)                                                                                            |
+| Cutouts and outfit merging  | [`services/image_processing.py`](garment-processing-api/services/image_processing.py)                                                                                |
+| Cloudinary storage          | [`services/cloudinary_service.py`](garment-processing-api/services/cloudinary_service.py)                                                                            |
+| CatVTON Gradio client       | [`services/gradio_service.py`](garment-processing-api/services/gradio_service.py)                                                                                    |
+| Model label mapping         | [`models/README.md`](garment-processing-api/models/README.md)                                                                                                        |
+| Railway deployment          | [`nixpacks.toml`](garment-processing-api/nixpacks.toml)                                                                                                              |
+| Tests                       | [`tests/unit/test_routes.py`](garment-processing-api/tests/unit/test_routes.py)                                                                                      |
+
+### Inference (`catvton-gradio/`)
+
+| Concern          | Entry point                                             |
+| ---------------- | ------------------------------------------------------- |
+| Gradio app       | [`app.py`](catvton-gradio/app.py)                       |
+| CatVTON pipeline | [`model/pipeline.py`](catvton-gradio/model/pipeline.py) |
+
+### Tooling
+
+| Concern               | Entry point                                                                                    |
+| --------------------- | ---------------------------------------------------------------------------------------------- |
+| Command interface     | [`Makefile`](Makefile)                                                                         |
+| CI workflow           | [`.github/workflows/engineering-foundation.yml`](.github/workflows/engineering-foundation.yml) |
+| Pinned tool versions  | [`scripts/tool-versions.env`](scripts/tool-versions.env)                                       |
+| Pull request template | [`.github/pull_request_template.md`](.github/pull_request_template.md)                         |
+
 ## Documentation
 
-| Document                                                                     | Use it for                                                                    |
-| ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| [Product specification](docs/PROJECT_SPEC.md)                                | Detailed capabilities, architecture, and product workflows.                   |
-| [Contributor guide](CONTRIBUTING.md)                                         | Tool installation, environments, verification, hooks, and contribution rules. |
-| [Agent instructions](AGENTS.md)                                              | Repository guidance, SDD routing, and CodeGraph usage.                        |
-| [API reference](garment-processing-api/docs/api/API_DOCUMENTATION.md)        | Routes and request/response contracts.                                        |
-| [API deployment guide](garment-processing-api/docs/deployment/DEPLOYMENT.md) | Service-specific deployment guidance.                                         |
-| [Engineering foundation](specs/001-engineering-foundation/spec.md)           | Approved foundation scope and acceptance criteria.                            |
-| [Roadmap](docs/ROADMAP.md)                                                   | Ordered engineering and platform outcomes.                                    |
+| Document                                                                             | Use it for                                                                    |
+| ------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------- |
+| [Product specification](docs/PROJECT_SPEC.md)                                        | Detailed capabilities, architecture, and product workflows.                   |
+| [Contributor guide](CONTRIBUTING.md)                                                 | Tool installation, environments, verification, hooks, and contribution rules. |
+| [Agent instructions](AGENTS.md)                                                      | Repository guidance, SDD routing, and CodeGraph usage.                        |
+| [API reference](garment-processing-api/docs/api/API_DOCUMENTATION.md)                | Routes and request/response contracts.                                        |
+| [API deployment guide](garment-processing-api/docs/deployment/DEPLOYMENT.md)         | Service-specific deployment guidance.                                         |
+| [Engineering foundation](specs/001-engineering-foundation/spec.md)                   | Approved foundation scope and acceptance criteria.                            |
+| [Roadmap](docs/ROADMAP.md)                                                           | Ordered engineering and platform outcomes.                                    |
+| [Engineering foundation plan](specs/001-engineering-foundation/plan.md)              | Technical plan behind the foundation specification.                           |
+| [API architecture](garment-processing-api/docs/architecture/ARCHITECTURE.md)         | Garment API module layout and responsibilities.                               |
+| [Model compatibility](garment-processing-api/docs/deployment/MODEL_COMPATIBILITY.md) | TensorFlow model format and runtime compatibility.                            |
+| [AR documentation index](web-frontend/docs/AR/DOCUMENTATION_INDEX.md)                | Live AR preview architecture and implementation notes.                        |
+| [AR MediaPipe guide](web-frontend/docs/ar-mediapipe-docs/README.md)                  | Pose detection, overlay positioning algorithms, and AR components.            |
+| [CatVTON technical docs](catvton-gradio/TECHNICAL_DOCUMENTATION.md)                  | Inference pipeline, preprocessing, and Gradio service internals.              |
+| [Security remediation record](docs/SECURITY_REMEDIATION.md)                          | Reviewed Dependabot alerts and dependency fixes.                              |
+| [Claude Code guidance](CLAUDE.md)                                                    | Service-level commands and architecture notes for coding agents.              |
 
 ## License
 
