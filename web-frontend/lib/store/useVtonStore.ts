@@ -5,6 +5,12 @@ import { virtualTryOn } from '@/lib/services/vtonApi';
 import { detectGarmentType, constructOutfit } from '@/lib/services/garmentApi';
 import { analyzeImageQuality, type QualityLevel } from '@/lib/utils/imageQuality';
 import { ensureBackendCompatibleFormat } from '@/lib/utils/imageConversion';
+import {
+  CLASSIFY_TIMEOUT_MS,
+  OUTFIT_TIMEOUT_MS,
+  TRYON_TIMEOUT_MS,
+  withTimeout,
+} from '@/lib/utils/timeout';
 import { toast } from 'sonner';
 
 // Three different try-on paths
@@ -271,7 +277,11 @@ export const useVtonStore = create<VtonState>((set, get) => ({
 
     // Classify garment type for NORMAL path
     try {
-      const classification = await detectGarmentType(file);
+      const classification = await withTimeout(
+        detectGarmentType(file),
+        CLASSIFY_TIMEOUT_MS,
+        'Garment classification timed out',
+      );
 
       // Map label to detected type for UI
       const label = classification.label.toUpperCase();
@@ -399,7 +409,11 @@ export const useVtonStore = create<VtonState>((set, get) => ({
 
     // Classify upper garment
     try {
-      const classification = await detectGarmentType(file);
+      const classification = await withTimeout(
+        detectGarmentType(file),
+        CLASSIFY_TIMEOUT_MS,
+        'Garment classification timed out',
+      );
       const label = classification.label.toUpperCase();
       let detectedType: 'upper' | 'lower' | 'full' | undefined;
 
@@ -483,7 +497,11 @@ export const useVtonStore = create<VtonState>((set, get) => ({
 
     // Classify lower garment
     try {
-      const classification = await detectGarmentType(file);
+      const classification = await withTimeout(
+        detectGarmentType(file),
+        CLASSIFY_TIMEOUT_MS,
+        'Garment classification timed out',
+      );
       const label = classification.label.toUpperCase();
       let detectedType: 'upper' | 'lower' | 'full' | undefined;
 
@@ -532,7 +550,11 @@ export const useVtonStore = create<VtonState>((set, get) => ({
     set({ status: 'constructing', error: undefined });
 
     try {
-      const result = await constructOutfit(upperGarment.file, lowerGarment.file);
+      const result = await withTimeout(
+        constructOutfit(upperGarment.file, lowerGarment.file),
+        OUTFIT_TIMEOUT_MS,
+        'Building the outfit took too long. Please try again.',
+      );
 
       set({
         outfit: {
@@ -737,6 +759,8 @@ export const useVtonStore = create<VtonState>((set, get) => ({
 
     set({ status: 'processing', error: undefined, resultUrl: undefined });
     const controller = new AbortController();
+    const tryOnTimeoutMessage =
+      'Generation timed out. The try-on service may be busy; please try again.';
 
     try {
       let garmentFileForTryOn: File;
@@ -750,7 +774,12 @@ export const useVtonStore = create<VtonState>((set, get) => ({
         }
 
         // Download outfit image as File
-        const response = await fetch(outfit.url);
+        const response = await withTimeout(
+          fetch(outfit.url, { signal: controller.signal }),
+          TRYON_TIMEOUT_MS,
+          tryOnTimeoutMessage,
+          () => controller.abort(),
+        );
         const blob = await response.blob();
         garmentFileForTryOn = new File([blob], 'outfit.png', { type: 'image/png' });
         clothTypeForTryOn = 'overall';
@@ -768,19 +797,24 @@ export const useVtonStore = create<VtonState>((set, get) => ({
       }
 
       // Call virtual try-on API
-      const response = await virtualTryOn(
-        {
-          bodyFile: body.file,
-          garmentFile: garmentFileForTryOn,
-          clothType: clothTypeForTryOn,
-          options: {
-            numInferenceSteps: options.numInferenceSteps ?? 50,
-            guidanceScale: options.guidanceScale ?? 2.5,
-            seed: options.seed ?? 42,
+      const response = await withTimeout(
+        virtualTryOn(
+          {
+            bodyFile: body.file,
+            garmentFile: garmentFileForTryOn,
+            clothType: clothTypeForTryOn,
+            options: {
+              numInferenceSteps: options.numInferenceSteps ?? 50,
+              guidanceScale: options.guidanceScale ?? 2.5,
+              seed: options.seed ?? 42,
+            },
           },
-        },
-        tryOnPath !== 'REFERENCE', // Process garment only for NORMAL and FULL modes
-        controller.signal,
+          tryOnPath !== 'REFERENCE', // Process garment only for NORMAL and FULL modes
+          controller.signal,
+        ),
+        TRYON_TIMEOUT_MS,
+        tryOnTimeoutMessage,
+        () => controller.abort(),
       );
 
       console.log('✅ Virtual try-on complete:', {
