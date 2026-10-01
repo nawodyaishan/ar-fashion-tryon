@@ -3,6 +3,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { useTryonStore } from '@/lib/tryon-store';
+import { APP_VERSION } from '@/lib/version';
 import { Github, ExternalLink, Sparkles } from 'lucide-react';
 
 export default function AboutModal() {
@@ -22,7 +23,7 @@ export default function AboutModal() {
           {/* Version */}
           <div className="flex items-center justify-between">
             <span className="text-sm text-muted-foreground">Version</span>
-            <Badge variant="outline">1.0.0</Badge>
+            <Badge variant="outline">{APP_VERSION}</Badge>
           </div>
 
           {/* Description */}
@@ -74,7 +75,7 @@ export default function AboutModal() {
             <h3 className="font-semibold">Links</h3>
             <div className="flex flex-col gap-2">
               <a
-                href="https://github.com/your-repo/ar-fashion-tryon"
+                href="https://github.com/nawodyaishan/ar-fashion-tryon"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 text-sm text-primary hover:underline"
@@ -84,7 +85,7 @@ export default function AboutModal() {
                 <ExternalLink className="h-3 w-3" />
               </a>
               <a
-                href="https://docs.your-project.com"
+                href="https://github.com/nawodyaishan/ar-fashion-tryon/blob/main/README.md#documentation"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 text-sm text-primary hover:underline"
