@@ -6,40 +6,28 @@ Preview clothing with live camera overlays or generate a photo try-on from perso
 
 [Product specification](docs/PROJECT_SPEC.md) · [Contributor guide](CONTRIBUTING.md) · [Roadmap](docs/ROADMAP.md) · [Security reporting](SECURITY.md)
 
-![Person photo and garment inputs with generated try-on results for normal, full outfit, and reference modes](docs/assets/try-on-modes.png)
-
-<sub>Input pairs (top) and generated CatVTON results (bottom) for the three photo try-on modes.</sub>
-
-## What you can do
-
-| Experience           | Workflow                                                                                                    |
-| -------------------- | ----------------------------------------------------------------------------------------------------------- |
-| **Live AR preview**  | Use browser camera input and MediaPipe pose tracking to position, scale, and rotate garment overlays.       |
-| **Normal mode**      | Upload a person and garment image, classify the garment, remove its background, and request a photo try-on. |
-| **Full outfit mode** | Combine separate upper and lower garments, preview the constructed outfit, and generate a try-on.           |
-| **Reference mode**   | Use a reference image with manual garment-type selection for an experimental photo workflow.                |
-
-Photo workflows expose inference controls and a result viewer with download options. Live AR overlays and generated photo results are separate experiences; their behavior is detailed in the [product specification](docs/PROJECT_SPEC.md).
-
 ## Architecture
 
-![AR Fashion Try-On system architecture: Next.js frontend, FastAPI backend on Railway, Cloudinary storage, and CatVTON inference on a Hugging Face GPU Space](docs/assets/architecture/ar_fashion_architecture.png)
+![AR Fashion Try-On reference architecture: Next.js frontend, FastAPI microservices on Railway, Cloudinary storage and delivery, and CatVTON inference on a Hugging Face GPU Space](docs/assets/architecture.png)
 
-The system has four layers: a **Next.js frontend** (with a client-side MediaPipe + Three.js AR preview), a **FastAPI backend** on Railway, **Cloudinary** for storage and delivery, and **CatVTON** inference on a Hugging Face GPU Space.
+The system has four layers:
+
+- **Frontend (Next.js):** photo try-on in normal, full outfit, and reference modes, plus an on-device AR preview where MediaPipe Pose landmarks drive a Three.js garment overlay.
+- **Backend (FastAPI on Railway):** a gateway in front of the garment classifier (TensorFlow CNN), garment extraction (U²-Net background removal), outfit constructor (OpenCV), and the Gradio try-on client.
+- **Storage and delivery (Cloudinary):** `originals/`, `garments/`, `outfits/`, and `results/` folders served over the CDN.
+- **AI inference (Hugging Face Space, GPU):** CatVTON pre-processing (DensePose and SCHP) followed by latent diffusion (VAE encode, UNet2D masked inpainting, VAE decode).
 
 A photo try-on request follows the numbered steps in the diagram:
 
-1. The shopper opens the Next.js app. AR mode stays in the browser: MediaPipe Pose landmarks drive a Three.js garment overlay.
-2. The frontend uploads the person and garment images to Cloudinary.
-3. The frontend calls the FastAPI gateway.
-4. The API classifies the garment (TensorFlow CNN), removes its background (`rembg` / U²-Net), and stores the cutout.
-5. For full outfits, OpenCV merges upper and lower cutouts and the API stores the outfit.
-6. The try-on client calls the Gradio API `predict()` on the Hugging Face Space.
-7. The Space fetches the inputs, runs DensePose + SCHP preprocessing, then CatVTON diffusion.
-8. The result is uploaded to Cloudinary.
-9. The frontend receives the result URL and displays it.
-
-The diagram is generated from code with [`diagrams`](https://diagrams.mingrammer.com/); edit [`architecture.py`](docs/assets/architecture/architecture.py) and run `python architecture.py` from `docs/assets/architecture/` (requires Graphviz) to regenerate it.
+1. The shopper opens the app and picks a try-on mode.
+2. Photos upload directly to Cloudinary (`originals/`).
+3. The frontend calls the FastAPI gateway with the image URLs.
+4. U²-Net cut-outs are stored in `garments/`.
+5. Merged upper and lower outfits are stored in `outfits/`.
+6. The try-on client calls the CatVTON Space through Gradio `predict()`.
+7. The Space pulls the person and garment images by URL.
+8. The generated image is uploaded to `results/`.
+9. The result is served to the browser over the CDN.
 
 | Component                | Location                                                      | Role                                                                                                         |
 | ------------------------ | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
@@ -49,6 +37,21 @@ The diagram is generated from code with [`diagrams`](https://diagrams.mingrammer
 | Image service            | Cloudinary                                                    | Uploads, persisted results, and image delivery.                                                              |
 
 The API currently selects a hosted Hugging Face Space. Starting a local Gradio server does not automatically switch the API's provider. The root `docker-compose.yml` contains supporting PostgreSQL/Redis experiments and does not launch this application. Historical services live in [`deprecated-backends/`](deprecated-backends/README.md).
+
+## What you can do
+
+![Person photo and garment inputs with generated try-on results for normal, full outfit, and reference modes](docs/assets/try-on-modes.png)
+
+<sub>Input pairs (top) and generated CatVTON results (bottom) for the three photo try-on modes.</sub>
+
+| Experience           | Workflow                                                                                                    |
+| -------------------- | ----------------------------------------------------------------------------------------------------------- |
+| **Live AR preview**  | Use browser camera input and MediaPipe pose tracking to position, scale, and rotate garment overlays.       |
+| **Normal mode**      | Upload a person and garment image, classify the garment, remove its background, and request a photo try-on. |
+| **Full outfit mode** | Combine separate upper and lower garments, preview the constructed outfit, and generate a try-on.           |
+| **Reference mode**   | Use a reference image with manual garment-type selection for an experimental photo workflow.                |
+
+Photo workflows expose inference controls and a result viewer with download options. Live AR overlays and generated photo results are separate experiences; their behavior is detailed in the [product specification](docs/PROJECT_SPEC.md).
 
 ## Getting started
 
