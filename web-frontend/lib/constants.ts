@@ -25,6 +25,9 @@ export const brand = {
   beta: 'Beta: HD mode may use our server for processing.',
 };
 
+// Public CatVTON demo, offered when the photo try-on backend is unreachable
+export const HF_SPACE_URL = 'https://huggingface.co/spaces/nawodyaishan/ar-fashion-tryon';
+
 // Modes (primary features)
 export const modes = [
   {

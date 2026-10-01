@@ -14,7 +14,8 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { useVtonStore } from '@/lib/store/useVtonStore';
+import { useVtonStore, type TryOnPath } from '@/lib/store/useVtonStore';
+import { checkBackendHealth } from '@/lib/services/healthCheckService';
 import { useTryonStore } from '@/lib/tryon-store';
 import {
   AlertCircle,
@@ -26,6 +27,7 @@ import {
   HelpCircle,
   Image as ImageIcon,
   Layers,
+  Loader2,
   RefreshCw,
   Shirt,
   Sparkles,
@@ -44,6 +46,7 @@ import ClothTypeSelector from './ClothTypeSelector';
 import ScrollIndicator from '@/components/ui/scroll-indicator';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ProcessingOverlay } from './ProcessingOverlay';
+import { BackendOfflineDialog } from './BackendOfflineDialog';
 import Webcam from 'react-webcam';
 
 export default function PhotoWizard() {
@@ -93,6 +96,25 @@ export default function PhotoWizard() {
   const [showGarmentCamera, setShowGarmentCamera] = useState(false);
   const [bodyFacingMode, setBodyFacingMode] = useState<'user' | 'environment'>('environment');
   const [garmentFacingMode, setGarmentFacingMode] = useState<'user' | 'environment'>('environment');
+  const [checkingPath, setCheckingPath] = useState<TryOnPath | null>(null);
+  const [offlinePath, setOfflinePath] = useState<TryOnPath | null>(null);
+
+  // Photo try-on depends on the backend, so confirm it is reachable before any upload step
+  const selectPath = useCallback(
+    async (path: TryOnPath) => {
+      if (checkingPath) return;
+      setCheckingPath(path);
+      const health = await checkBackendHealth();
+      setCheckingPath(null);
+      if (health.status === 'ok') {
+        setOfflinePath(null);
+        setPath(path);
+      } else {
+        setOfflinePath(path);
+      }
+    },
+    [checkingPath, setPath],
+  );
 
   // Progress tracking
   useEffect(() => {
@@ -403,7 +425,8 @@ export default function PhotoWizard() {
               {/* NORMAL Path */}
               <Card
                 className="p-4 sm:p-6 cursor-pointer hover:border-primary transition-all active:scale-[0.98]"
-                onClick={() => setPath('NORMAL')}
+                onClick={() => selectPath('NORMAL')}
+                aria-busy={checkingPath === 'NORMAL'}
               >
                 <div className="flex items-start gap-4">
                   <div className="h-12 w-12 sm:h-14 sm:w-14 rounded-full bg-blue-500/10 flex items-center justify-center shrink-0">
@@ -418,14 +441,19 @@ export default function PhotoWizard() {
                       Recommended
                     </Badge>
                   </div>
-                  <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0" />
+                  {checkingPath === 'NORMAL' ? (
+                    <Loader2 className="h-5 w-5 text-muted-foreground shrink-0 animate-spin" />
+                  ) : (
+                    <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0" />
+                  )}
                 </div>
               </Card>
 
               {/* FULL Path */}
               <Card
                 className="p-4 sm:p-6 cursor-pointer hover:border-primary transition-all active:scale-[0.98]"
-                onClick={() => setPath('FULL')}
+                onClick={() => selectPath('FULL')}
+                aria-busy={checkingPath === 'FULL'}
               >
                 <div className="flex items-start gap-4">
                   <div className="h-12 w-12 sm:h-14 sm:w-14 rounded-full bg-purple-500/10 flex items-center justify-center shrink-0">
@@ -440,14 +468,19 @@ export default function PhotoWizard() {
                       Advanced
                     </Badge>
                   </div>
-                  <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0" />
+                  {checkingPath === 'FULL' ? (
+                    <Loader2 className="h-5 w-5 text-muted-foreground shrink-0 animate-spin" />
+                  ) : (
+                    <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0" />
+                  )}
                 </div>
               </Card>
 
               {/* REFERENCE Path */}
               <Card
                 className="p-4 sm:p-6 cursor-pointer hover:border-primary transition-all active:scale-[0.98]"
-                onClick={() => setPath('REFERENCE')}
+                onClick={() => selectPath('REFERENCE')}
+                aria-busy={checkingPath === 'REFERENCE'}
               >
                 <div className="flex items-start gap-4">
                   <div className="h-12 w-12 sm:h-14 sm:w-14 rounded-full bg-green-500/10 flex items-center justify-center shrink-0">
@@ -462,10 +495,21 @@ export default function PhotoWizard() {
                       Experimental
                     </Badge>
                   </div>
-                  <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0" />
+                  {checkingPath === 'REFERENCE' ? (
+                    <Loader2 className="h-5 w-5 text-muted-foreground shrink-0 animate-spin" />
+                  ) : (
+                    <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0" />
+                  )}
                 </div>
               </Card>
             </div>
+
+            <BackendOfflineDialog
+              open={offlinePath !== null}
+              onOpenChange={(open) => !open && setOfflinePath(null)}
+              onRetry={() => offlinePath && selectPath(offlinePath)}
+              retrying={checkingPath !== null}
+            />
           </div>
         )}
 

@@ -92,3 +92,54 @@ test('photo upload, classification, generation and download affordance', async (
   expect(generationCalls).toBe(1);
   expect(unexpected).toEqual([]);
 });
+
+test('offline backend blocks photo modes and points to the Hugging Face Space', async ({
+  page,
+  context,
+}) => {
+  let healthChecks = 0;
+  const uploads: string[] = [];
+  await context.addInitScript(() => {
+    localStorage.setItem(
+      'tryon-store-v2',
+      JSON.stringify({ state: { activeMode: 'photo', garments: [] }, version: 0 }),
+    );
+    localStorage.setItem('ar-tryon-onboarding-seen', 'true');
+    localStorage.setItem('photo-tryon-onboarding-seen', 'true');
+  });
+  await context.route('**/*', async (route) => {
+    const url = new URL(route.request().url());
+    if (url.origin === 'http://127.0.0.1:5100') {
+      if (url.pathname === '/health') {
+        healthChecks++;
+        return route.fulfill({ status: 503, json: { status: 'error' } });
+      }
+      uploads.push(url.pathname);
+      return route.abort();
+    }
+    if (url.origin === 'http://127.0.0.1:3100') return route.continue();
+    return route.abort();
+  });
+  await page.goto('/try-on');
+  await page.getByRole('tab', { name: /Photo/ }).click();
+
+  for (const mode of ['Single Garment', 'Complete Outfit', 'Full Reference']) {
+    await page.getByText(mode, { exact: true }).click();
+    const dialog = page.getByRole('alertdialog');
+    await expect(dialog.getByText('Photo try-on is offline')).toBeVisible();
+    await expect(dialog.getByRole('link', { name: 'Open Hugging Face Space' })).toHaveAttribute(
+      'href',
+      'https://huggingface.co/spaces/nawodyaishan/ar-fashion-tryon',
+    );
+    await dialog.getByRole('button', { name: 'Not now' }).click();
+    await expect(dialog).toBeHidden();
+    await expect(page.locator('input[type=file]')).toHaveCount(0);
+  }
+
+  const before = healthChecks;
+  await page.getByText('Single Garment', { exact: true }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Retry' }).click();
+  await expect.poll(() => healthChecks).toBeGreaterThan(before + 1);
+  await expect(page.getByRole('alertdialog')).toBeVisible();
+  expect(uploads).toEqual([]);
+});
