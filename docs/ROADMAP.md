@@ -1,154 +1,66 @@
-## Phase Roadmap
+# Engineering and Platform Roadmap
 
-### Prototype
+Revision: R1, 2026-10-01. Planning status: draft for combined review.
 
-**Duration:** 6-8 weeks  
-**Goal:** Proof-of-concept demonstrating core AR try-on functionality with static inputs
+## Direction and decisions
 
-**Core Features:**
+Build a maintainable portfolio application around the active Next.js frontend,
+FastAPI garment API, and CatVTON inference integration described in
+[PROJECT_SPEC.md](PROJECT_SPEC.md). The user selected engineering foundation
+only, Makefile only, and local/CI first in this conversation on 2026-10-01.
+No cloud budget, deployment date, or provider has been committed.
 
-- Single garment type (upper body/shirt)
-- Static image input for both garment and user
-- 2D pose estimation and garment overlay
-- Basic size/fit adjustment
-- Local Python/JavaScript execution
-- Simple UI for image upload and visualization
+This is the canonical roadmap. It replaces the historical prototype schedule
+and proposed NestJS architecture previously in this file; that content remains
+in Git history. Product capabilities remain defined by PROJECT_SPEC.md.
+Future platform choices below are proposals requiring their own feature review.
 
-**Technical Stack:**
+## Ordered outcomes
 
-- YOLOv8-seg for garment segmentation
-- MediaPipe Pose for body keypoint detection
-- OpenCV for image warping
-- Three.js for basic AR visualization
-- Flask/FastAPI for local server
-- Simple HTML/CSS/JS frontend
+| Stage | Outcome | Completion evidence | State |
+| --- | --- | --- | --- |
+| 1 | Engineering foundation: contributor/agent guidance, Makefile, reproducible setup, hooks, tests, CI | Clean checkout passes documented local checks and equivalent PR jobs without cloud credentials or model downloads | [Draft 001](../specs/001-engineering-foundation/spec.md) |
+| 2 | Reproducible application containers and artifact supply chain | CPU service containers run locally; image scans, SBOMs and signed provenance are demonstrated against immutable digests | Future |
+| 3 | Headless asynchronous inference on an external GPU provider | Job contracts and recovery tested; measured quality, latency, cold starts and cost justify provider/GPU/scheduler selection | Future |
+| 4 | Declarative CPU platform and GitOps | Reviewed IaC provisions an explicitly authorized environment; routing, secrets, backups and rollback demonstrated | Future |
+| 5 | Observability and reliability evidence | Queue/API/inference metrics and traces feed dashboards; measured SLIs establish SLOs and tested runbooks | Future |
+| 6 | Portfolio delivery evidence | Bounded load/failure experiment, model regression evidence, architecture tradeoffs and reproducible demo | Future |
 
-### Final
+Stage 1 is the only detailed feature in this approval package. Each later stage
+gets its own spec, plan and tasks when selected. Dates and paid resources are
+assigned at that stage's review, using actual capacity and budget.
 
-**Duration:** 10-12 weeks  
-**Goal:** Production-ready WebAR system with real-time camera feed and cloud infrastructure
+## How the supplied platform research informs this roadmap
 
-**Enhanced Features:**
+Source: the user-supplied **2026 Platform Engineering Roadmap: Upgrading “AR
+Fashion Try-On” into a World-Class Portfolio Artifact** Markdown document,
+read from Downloads on 2026-10-01. Its machine-specific location is not a
+repository dependency. Its architecture proposals inform stages 2–6; its
+price, latency, quality and version figures are research inputs, not promises.
 
-- Multiple garment types (shirts, pants, dresses)
-- Real-time webcam/mobile camera processing
-- 3D body mesh estimation
-- AI-powered size recommendations
-- Cloud-based processing pipeline
-- User accounts and garment catalog
-- Performance monitoring and analytics
+- Evaluate Modal with cached weights and scale-to-zero for stage 3; benchmark
+  L4/L40S and any scheduler/step reduction before selecting production defaults.
+  RunPod is a candidate alternative, not an automatic failover commitment.
+- Evaluate OpenTofu, a small CPU Kubernetes cluster, Argo CD and Gateway API
+  for stage 4. Provider, versions, state backend and budget remain undecided.
+- Add supply-chain controls incrementally: pinned CI actions now; image/model
+  signing, provenance and admission verification when those artifacts exist.
+- Select a small observability stack and inference-specific SLIs from measured
+  traffic; avoid adopting the source document's latency targets as guarantees.
+- Review upstream model and dataset licenses before distributing weights or
+  describing permitted deployment uses. Do not change the repository's own
+  license or redistribute model weights in stage 1.
 
-**Production Stack:**
+Primary references for future design validation:
+[Modal GPU documentation](https://modal.com/docs/guide/gpu),
+[Modal memory snapshots](https://modal.com/docs/guide/memory-snapshots),
+[CatVTON upstream](https://github.com/Zheng-Chong/CatVTON), and
+[Kubernetes Ingress NGINX retirement statement](https://kubernetes.io/blog/2026/01/29/ingress-nginx-statement/).
+Confirm current pricing, compatibility and versions when drafting each stage.
 
-- Detectron2 + custom training for garment parsing
-- MediaPipe Holistic or SMPL-X for 3D body
-- Cloth-VTON++ for realistic draping
-- Three.js + AR.js for WebAR
-- NestJS backend with PostgreSQL
-- AWS/GCP deployment with CDN
-- Model quantization via ONNX/TensorRT
+## Workflow
 
-## Parallel-Work Plan – Option 1
-
-**Split by Domain: Garment Pipeline vs Body/AR Pipeline**
-
-### Prototype Phase
-
-**Developer A - Garment Processing Track:**
-
-- Week 1-2: Setup YOLOv8-seg, train on DeepFashion subset
-- Week 3-4: Build garment feature extractor (color, pattern, dimensions)
-- Week 5-6: Create garment preprocessing pipeline (background removal, normalization)
-- Week 7-8: Integration API and performance optimization
-
-**Developer B - Body Detection & AR Track:**
-
-- Week 1-2: Setup MediaPipe Pose, create keypoint extraction module
-- Week 3-4: Build 2D warping algorithm for garment placement
-- Week 5-6: Implement Three.js AR viewer with overlay logic
-- Week 7-8: Create unified frontend and integration testing
-
-### Final Phase
-
-**Developer A - Advanced Garment & ML Track:**
-
-- Week 1-3: Migrate to Detectron2, train multi-class segmentation
-- Week 4-6: Implement Cloth-VTON warping network
-- Week 7-9: Build size recommendation ML model
-- Week 10-12: Model optimization (ONNX) and edge deployment
-
-**Developer B - 3D Body & WebAR Track:**
-
-- Week 1-3: Upgrade to MediaPipe Holistic/SMPL-X
-- Week 4-6: Implement real-time WebAR with AR.js
-- Week 7-9: Build cloud infrastructure (NestJS + PostgreSQL)
-- Week 10-12: Performance optimization and mobile compatibility
-
-## Parallel-Work Plan – Option 2
-
-**Split by Stack: Frontend/AR vs Backend/ML**
-
-### Prototype Phase
-
-**Developer A - Frontend & AR Track:**
-
-- Week 1-2: Build React/Next.js frontend with image upload
-- Week 3-4: Integrate Three.js for AR visualization
-- Week 5-6: Implement client-side pose detection with MediaPipe.js
-- Week 7-8: Create interactive UI for garment adjustment
-
-**Developer B - Backend & ML Track:**
-
-- Week 1-2: Setup Flask/FastAPI server with ML pipeline
-- Week 3-4: Train and deploy YOLOv8-seg model
-- Week 5-6: Build image processing and warping algorithms
-- Week 7-8: Create REST APIs and model serving infrastructure
-
-### Final Phase
-
-**Developer A - Full WebAR Experience:**
-
-- Week 1-3: Migrate to production React with AR.js integration
-- Week 4-6: Implement real-time camera feed processing
-- Week 7-9: Build responsive mobile UI and PWA features
-- Week 10-12: Frontend performance optimization and testing
-
-**Developer B - Cloud ML & Infrastructure:**
-
-- Week 1-3: Setup NestJS + PostgreSQL + AWS deployment
-- Week 4-6: Implement Detectron2 and Cloth-VTON in cloud
-- Week 7-9: Build user management and catalog system
-- Week 10-12: ML pipeline optimization and auto-scaling
-
-## Artefacts Checklist
-
-### Prototype Artefacts
-
-- [ ] Trained YOLOv8-seg model (.pt file + metrics report)
-- [ ] MediaPipe pose extraction module (Python package)
-- [ ] Image warping algorithm implementation
-- [ ] Three.js AR viewer component
-- [ ] Flask/FastAPI server with endpoints documentation
-- [ ] Frontend prototype (HTML/CSS/JS or React)
-- [ ] Integration test suite (pytest + Jest)
-- [ ] Demo video showing end-to-end flow
-- [ ] Technical documentation (README + API docs)
-- [ ] Performance benchmark report
-
-### Final Artefacts
-
-- [ ] Production-grade Detectron2 model with multi-class support
-- [ ] Cloth-VTON implementation with custom training
-- [ ] SMPL-X or MediaPipe Holistic integration
-- [ ] WebAR application (Three.js + AR.js)
-- [ ] NestJS backend with full API documentation
-- [ ] PostgreSQL schema and migration scripts
-- [ ] AWS/GCP deployment configuration (Terraform/CloudFormation)
-- [ ] ONNX/TensorRT optimized models
-- [ ] User authentication and privacy compliance module
-- [ ] Garment catalog management system
-- [ ] Real-time analytics dashboard
-- [ ] Load testing results (K6/JMeter)
-- [ ] Security audit report
-- [ ] User manual and admin guide
-- [ ] Final thesis/project report
+Use [Agentic SDD](https://github.com/nawodyaishan/agentic-sdd): draft one feature's
+spec, plan and tasks; obtain one combined approval; execute one authorized
+batch; verify and stop for human review. Small fixes may use the direct-fix
+path. A successful check does not authorize another batch or a deployment.
