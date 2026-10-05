@@ -8,9 +8,11 @@ experiments; Compose does not start the active application.
 
 ## Prerequisites and current setup
 
-Use macOS or Linux, Git, Bash 3.2+, make, Node 22.12+ (reference .nvmrc), pnpm 10.13.1 and uv 0.11.1.
+Use macOS or Linux, Git, Bash 3.2+, make, Node 22.12+ (reference .nvmrc), pnpm 10.13.1+ and uv 0.11.1+.
 The pinned Node patch is in .nvmrc; shared tool declarations are in
-scripts/tool-versions.env. Python 3.11 is declared in .python-version and
+scripts/tool-versions.env; local checks accept those tool versions or newer
+(CI installs them exactly). Newer pnpm releases honour the packageManager field
+in web-frontend/package.json, so installs still run with pnpm 10.13.1. Python 3.11 is declared in .python-version and
 make setup-api provisions it through uv if needed. Ubuntu 24.04 is the CI
 reference platform. Setup and verification have also been exercised on macOS ARM.
 The [hosted foundation run](https://github.com/nawodyaishan/ar-fashion-tryon/actions/runs/36876555480)
@@ -147,7 +149,7 @@ Hook bypass does not waive required verification.
 
 After make setup, run make lint format-check typecheck lock-check and
 make secret-check. Use make format only when you intend to rewrite formatting.
-Install Lefthook 2.1.15 and Gitleaks 8.30.1 from their official releases, put
+Install Lefthook 2.1.15+ and Gitleaks 8.30.1+ from their official releases, put
 both on PATH, then run make hooks-install. Ruff 0.16.9 is installed by setup-api
 from the development dependency lock. Version requirements live in
 scripts/tool-versions.env; installation fails clearly when tools are missing.
@@ -209,7 +211,7 @@ make workflow-check
 
 The installer verifies committed SHA256 values before extracting actionlint and
 Gitleaks. It supports Linux x64/ARM64 and macOS ARM64; other machines can use
-the official release instructions. Hooks additionally require Lefthook 2.1.15.
+the official release instructions. Hooks additionally require Lefthook 2.1.15 or newer.
 make workflow-check runs pinned actionlint and Bash syntax checks; actionlint
 uses ShellCheck when it is available. Ubuntu runners include ShellCheck.
 

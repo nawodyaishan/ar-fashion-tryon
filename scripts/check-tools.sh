@@ -9,25 +9,43 @@ cd "$repo_dir"
 export npm_config_manage_package_manager_versions=false
 
 fail() { printf '%s\n' "$*" >&2; exit 1; }
+# Extract the first dotted version number from tool output (strips "v", names, build info).
+extract_version() { printf '%s\n' "$1" | grep -oE '[0-9]+(\.[0-9]+)+' | head -n 1; }
+# version_ge ACTUAL MINIMUM: succeed when ACTUAL >= MINIMUM, comparing numeric components.
+version_ge() {
+    local IFS=.
+    local -a a=($1) m=($2)
+    local i n=${#m[@]}
+    (( ${#a[@]} > n )) && n=${#a[@]}
+    for (( i = 0; i < n; i++ )); do
+        (( 10#${a[i]:-0} > 10#${m[i]:-0} )) && return 0
+        (( 10#${a[i]:-0} < 10#${m[i]:-0} )) && return 1
+    done
+    return 0
+}
+# require_min_version NAME RAW_OUTPUT MINIMUM: fail unless the reported version meets the minimum.
+require_min_version() {
+    local actual
+    actual="$(extract_version "$2")"
+    [[ -n "$actual" ]] || fail "Could not determine $1 version from: $2"
+    version_ge "$actual" "$3" || fail "$1 $3 or newer required; found $actual. See CONTRIBUTING.md."
+}
 require_command() { command -v "$1" >/dev/null 2>&1 || fail "Missing $1. See CONTRIBUTING.md for installation."; }
 check_frontend() {
     require_command node
     actual_node="$(node --version)"
-    expected_node_major="${NODE_VERSION%%.*}"
-    [[ "$actual_node" == v"$expected_node_major".* ]] || fail "Node 22 required (pinned $NODE_VERSION); found $actual_node. Run nvm install && nvm use, or use the declared runtime."
-    actual_node_minor="${actual_node#v22.}"
-    actual_node_minor="${actual_node_minor%%.*}"
-    [[ "$actual_node_minor" -ge 12 ]] || fail "Node 22.12+ required by Vitest; found $actual_node. Run nvm install && nvm use."
+    # Vitest needs 22.12+; .nvmrc ($NODE_VERSION) is the reference version, not an upper bound.
+    require_min_version Node "$actual_node" "$NODE_MIN_VERSION"
     require_command pnpm
     actual_pnpm="$(pnpm --version)"
-    [[ "$actual_pnpm" == "$PNPM_VERSION" ]] || fail "pnpm $PNPM_VERSION required; found $actual_pnpm. Install the declared version explicitly."
+    require_min_version pnpm "$actual_pnpm" "$PNPM_VERSION"
     printf 'Frontend: Node %s; pnpm %s\n' "$actual_node" "$actual_pnpm"
 }
 check_api() {
     require_command uv
     actual_uv="$(uv --version)"
-    [[ "$actual_uv" == "uv $UV_VERSION" || "$actual_uv" == "uv $UV_VERSION "* ]] || fail "uv $UV_VERSION required; found $actual_uv. Install the declared version explicitly."
-    printf 'API tooling: uv %s; target Python %s\n' "$UV_VERSION" "$PYTHON_VERSION"
+    require_min_version uv "$actual_uv" "$UV_VERSION"
+    printf 'API tooling: %s; target Python %s\n' "$actual_uv" "$PYTHON_VERSION"
 }
 check_python_env() {
     [[ -x garment-processing-api/.venv/bin/python ]] || fail 'API environment missing. Run make setup-api.'
@@ -39,13 +57,13 @@ check_python_env() {
 check_hook_tools() {
     require_command lefthook
     require_command gitleaks
-    [[ "$(lefthook version)" == "$LEFTHOOK_VERSION" ]] || fail "Lefthook $LEFTHOOK_VERSION required. See CONTRIBUTING.md."
-    [[ "$(gitleaks version)" == "$GITLEAKS_VERSION" ]] || fail "Gitleaks $GITLEAKS_VERSION required. See CONTRIBUTING.md."
+    require_min_version Lefthook "$(lefthook version)" "$LEFTHOOK_VERSION"
+    require_min_version Gitleaks "$(gitleaks version)" "$GITLEAKS_VERSION"
 }
 case "${1:-doctor}" in
     frontend) check_frontend ;;
     hooks) check_hook_tools ;;
-    secrets) require_command gitleaks; [[ "$(gitleaks version)" == "$GITLEAKS_VERSION" ]] || fail "Gitleaks $GITLEAKS_VERSION required." ;;
+    secrets) require_command gitleaks; require_min_version Gitleaks "$(gitleaks version)" "$GITLEAKS_VERSION" ;;
     api) check_api ;;
     frontend-ready)
         check_frontend

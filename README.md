@@ -72,7 +72,7 @@ Photo workflows expose inference controls and a result viewer with download opti
 
 ### 1. Select the tools
 
-Use macOS or Linux with Git, Bash 3.2+, and make. The reproducible tool versions are:
+Use macOS or Linux with Git, Bash 3.2+, and make. The reproducible tool versions are (pnpm and uv accept these or newer; Node accepts 22.12+):
 
 | Tool    | Version                                                    |
 | ------- | ---------------------------------------------------------- |

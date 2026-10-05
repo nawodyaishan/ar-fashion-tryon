@@ -6,7 +6,7 @@ SHELL := /bin/bash
 help: ## List available commands and prerequisites (no application dependencies needed)
 	@printf 'AR Fashion Try-On — available commands\n\n'
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z0-9_-]+:.*## / {printf "  %-22s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
-	@printf '\nPrerequisites: Node 22.12+ (see .nvmrc), pnpm 10.13.1, uv 0.11.1, Bash 3.2+ and make.\n'
+	@printf '\nPrerequisites: Node 22.12+ (see .nvmrc), pnpm 10.13.1+, uv 0.11.1+, Bash 3.2+ and make.\n'
 	@printf 'setup-api provisions Python 3.11 through uv if needed. Models and credentials are separate.\n'
 
 doctor: ## Check runtime/tool versions; report optional live prerequisites without secrets
