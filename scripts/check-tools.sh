@@ -38,7 +38,7 @@ check_frontend() {
     require_min_version Node "$actual_node" "$NODE_MIN_VERSION"
     require_command pnpm
     actual_pnpm="$(pnpm --version)"
-    require_min_version pnpm "$actual_pnpm" "$PNPM_VERSION"
+    require_min_version pnpm "$actual_pnpm" "$PNPM_MIN_VERSION"
     printf 'Frontend: Node %s; pnpm %s\n' "$actual_node" "$actual_pnpm"
 }
 check_api() {

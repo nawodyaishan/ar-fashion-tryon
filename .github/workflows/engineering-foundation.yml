@@ -46,12 +46,14 @@ jobs:
         run: npm install --global "pnpm@$PNPM_VERSION"
       - name: Locate pnpm download cache
         id: pnpm-cache
-        run: printf 'path=%s\n' "$(pnpm --dir web-frontend store path --silent)" >> "$GITHUB_OUTPUT"
+        run: |
+          printf 'path=%s\n' "$(pnpm --dir web-frontend store path --silent)" >> "$GITHUB_OUTPUT"
+          printf 'version=%s\n' "$(pnpm --version)" >> "$GITHUB_OUTPUT"
       - name: Cache pnpm downloads
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ steps.pnpm-cache.outputs.path }}
-          key: pnpm-${{ runner.os }}-${{ runner.arch }}-${{ steps.versions.outputs.node }}-${{ steps.versions.outputs.pnpm }}-${{ hashFiles('web-frontend/pnpm-lock.yaml') }}
+          key: pnpm-${{ runner.os }}-${{ runner.arch }}-${{ steps.versions.outputs.node }}-${{ steps.pnpm-cache.outputs.version }}-${{ hashFiles('web-frontend/pnpm-lock.yaml', 'web-frontend/pnpm-workspace.yaml') }}
       - name: Set up uv
         uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:

@@ -24,6 +24,7 @@ REPO_FORMAT_FILES = {
     "docs/SECURITY_REMEDIATION.md",
     "lefthook.yml",
     "opencode.json",
+    "web-frontend/pnpm-workspace.yaml",
     ".github/workflows/engineering-foundation.yml",
 }
 FRONTEND_CONFIG_FILES = {

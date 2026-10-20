@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Development Commands
 
-This project uses **pnpm** as the package manager (version 10.13.1 specified in packageManager field).
+This project uses **pnpm**, latest stable (12+) or newer. package.json declares a minimum only; do not add an exact packageManager pin. Keep pnpm-workspace.yaml security overrides and the dependency lockfile.
 
 - **Development server**: `pnpm dev` (uses Turbopack, runs on http://localhost:3000)
 - **Build**: `pnpm build`

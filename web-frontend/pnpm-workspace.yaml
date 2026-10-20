@@ -1,0 +1,5 @@
+# Keep dependency-resolution settings here for current pnpm releases.
+# Checks must never install dependencies implicitly; use make setup-frontend.
+verifyDepsBeforeRun: false
+overrides:
+  '@tailwindcss/oxide>tar': '7.5.19'

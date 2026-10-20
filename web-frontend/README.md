@@ -1,7 +1,7 @@
 # AR Fashion Try-On Frontend
 
 The active Next.js application provides live AR and photo try-on workflows.
-Use pnpm 10.13.1, as declared in package.json.
+Use the latest stable pnpm (12+); package.json declares a minimum only, with no exact-version pin or upper bound.
 
 ## Local setup
 

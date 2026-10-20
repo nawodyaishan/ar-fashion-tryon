@@ -8,11 +8,19 @@ experiments; Compose does not start the active application.
 
 ## Prerequisites and current setup
 
-Use macOS or Linux, Git, Bash 3.2+, make, Node 22.12+ (reference .nvmrc), pnpm 10.13.1+ and uv 0.11.1+.
+Use macOS or Linux, Git, Bash 3.2+, make, Node 22.12+ (reference .nvmrc), pnpm 12+ and uv 0.11.1+.
 The pinned Node patch is in .nvmrc; shared tool declarations are in
 scripts/tool-versions.env; local checks accept those tool versions or newer
-(CI installs them exactly). Newer pnpm releases honour the packageManager field
-in web-frontend/package.json, so installs still run with pnpm 10.13.1. Python 3.11 is declared in .python-version and
+(CI pins other tools but installs `pnpm@latest`). pnpm publishes a stable `latest`
+channel, not a separate LTS tag. Use the current stable release or newer; the
+frontend declares only `engines.pnpm >=12.0.0`, with no exact manager pin or upper
+bound. This admits newer versions, not a guarantee of future-major compatibility.
+The dependency lockfile remains frozen, and security overrides live in
+`web-frontend/pnpm-workspace.yaml`. That file disables automatic dependency
+installation before scripts (`verifyDepsBeforeRun: false`); run setup explicitly.
+Current pnpm can reject unapproved dependency build scripts during setup: review
+the named packages deliberately rather than enabling all builds or approving
+them inside routine checks. Python 3.11 is declared in .python-version and
 make setup-api provisions it through uv if needed. Ubuntu 24.04 is the CI
 reference platform. Setup and verification have also been exercised on macOS ARM.
 The [hosted foundation run](https://github.com/nawodyaishan/ar-fashion-tryon/actions/runs/36876555480)
@@ -24,7 +32,7 @@ Select the runtime and install package tooling explicitly (example with nvm):
 ```bash
 nvm install
 nvm use
-npm install --global pnpm@10.13.1
+npm install --global pnpm@latest
 # With an existing uv installation, select the pinned version explicitly:
 uv self update 0.11.1
 ```
@@ -124,6 +132,9 @@ fetches Geist fonts from Google on an uncached build, so make build needs networ
 access for those assets. It does not require cloud credentials or live inference.
 Lock checks are offline: frontend validation runs in a disposable directory to
 avoid rewriting source; API validation uses uv lock --check without syncing.
+Current pnpm also verifies supply-chain metadata: a cold metadata cache may
+block offline frontend validation. Restore that cache through an explicitly
+authorized online setup; do not disable supply-chain checks to force a pass.
 
 ## Foundation commands and hooks
 

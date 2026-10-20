@@ -5,6 +5,32 @@ Approval reference: [spec.md combined approval](spec.md#combined-approval--sole-
 Sources: [roadmap](../../docs/ROADMAP.md), existing frontend package/lock,
 API pyproject/uv.lock, and PROJECT_SPEC development/testing sections.
 
+## pnpm policy amendment — 2026-10-20
+
+The user explicitly requested “use latest lts pnpm version and or upper version
+(do not lock in to a version)”. This supersedes this plan's historical pnpm
+10.13.1 pin only: CI installs `pnpm@latest`; local tooling requires pnpm 12+ with
+no upper bound or exact `packageManager` pin. pnpm has no published LTS dist-tag;
+the stable `latest` tag was 12.14.0 when checked. Dependency locks remain frozen,
+and the existing tar override moves unchanged to `pnpm-workspace.yaml` so current
+pnpm reads it. Other approved foundation scope is unchanged. See CONTRIBUTING.md
+for current setup and offline metadata-cache prerequisites. Historical test
+evidence below retains the versions actually used, not retroactive claims.
+
+Primary sources: https://registry.npmjs.org/-/package/pnpm/dist-tags and
+https://pnpm.io/settings (consulted 2026-10-20).
+
+Follow-up verification: latest stable 12.14.0 was run through temporary
+`npm exec --package=pnpm@latest` tooling, without replacing global pnpm. The first
+script validation exposed pnpm's automatic install-before-run behavior: it
+refreshed ignored node_modules and reported unapproved dependency build scripts.
+`verifyDepsBeforeRun: false` now prevents that implicit installation; build-script
+approval was not broadened. With metadata cached, the final latest-pnpm run passed
+offline frontend lock validation, 15 frontend tests, lint, typecheck, all format
+checks, 4 pnpm-policy tests and 6 guardrail/scope tests. The dependency lockfile
+was unchanged. A cold offline metadata cache and explicit dependency build-script
+review remain setup considerations; Gitleaks/actionlint are still absent locally.
+
 ## Architecture and design decisions
 
 Keep the current Next.js/FastAPI/CatVTON application architecture. Build a

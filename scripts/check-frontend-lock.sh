@@ -7,5 +7,6 @@ export npm_config_manage_package_manager_versions=false
 check_dir="$(mktemp -d "${TMPDIR:-/tmp}/ar-fashion-lock.XXXXXX")"
 trap 'rm -rf -- "$check_dir"' EXIT
 cp "$repo_dir/web-frontend/package.json" "$repo_dir/web-frontend/pnpm-lock.yaml" "$check_dir/"
+cp "$repo_dir/web-frontend/pnpm-workspace.yaml" "$check_dir/"
 pnpm --dir "$check_dir" install --lockfile-only --frozen-lockfile --offline --ignore-scripts
 printf 'Frontend lock agrees with package.json; source files unchanged.\n'
