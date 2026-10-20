@@ -13,14 +13,14 @@ export function HeroSplit() {
   const slides = [
     {
       image:
-        'https://res.cloudinary.com/ddjp9nox3/image/upload/v1760049771/hero_live_ar_preview_dark_gradient_ahvy8h.png',
+        'https://res.cloudinary.com/ddjp9nox3/image/upload/v1792496389/hero_1_ytdrmo.png',
       alt: 'AR Preview Live',
       badge: 'Fast',
       badgeClass: 'bg-violet-500/20 border-violet-500/40 text-white',
     },
     {
       image:
-        'https://res.cloudinary.com/ddjp9nox3/image/upload/v1760049770/card_live_ar_preview_dark_gradient_txfpza.png',
+        'https://res.cloudinary.com/ddjp9nox3/image/upload/v1792496387/hero_2_vv39fh.png',
       alt: 'Photo Try-On HD',
       badge: 'HD',
       badgeClass: 'bg-purple-500/20 border-purple-500/40 text-white',
@@ -37,7 +37,7 @@ export function HeroSplit() {
             {/* Soft vignette */}
             <div className="absolute inset-0 bg-gradient-to-br from-black/20 via-transparent to-black/30 z-10" />
             <Image
-              src="https://res.cloudinary.com/ddjp9nox3/image/upload/v1760049770/card_live_ar_preview_dark_gradient_txfpza.png"
+              src="https://res.cloudinary.com/ddjp9nox3/image/upload/v1792496387/hero_2_vv39fh.png"
               alt="AR Preview Live"
               fill
               sizes="(max-width: 768px) 100vw, 50vw"
@@ -60,7 +60,7 @@ export function HeroSplit() {
             {/* Soft vignette */}
             <div className="absolute inset-0 bg-gradient-to-bl from-black/20 via-transparent to-black/30 z-10" />
             <Image
-              src="https://res.cloudinary.com/ddjp9nox3/image/upload/v1760049771/hero_live_ar_preview_dark_gradient_ahvy8h.png"
+              src="https://res.cloudinary.com/ddjp9nox3/image/upload/v1792496389/hero_1_ytdrmo.png"
               alt="Photo Try-On HD"
               fill
               sizes="(max-width: 768px) 100vw, 50vw"
