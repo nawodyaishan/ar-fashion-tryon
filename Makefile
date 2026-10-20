@@ -108,7 +108,7 @@ secret-check: ## Scan the current tracked text tree with redacted Gitleaks outpu
 	@bash scripts/check-tools.sh api-ready
 	garment-processing-api/.venv/bin/python scripts/check-files.py secrets
 
-.PHONY: test test-frontend test-api browser-install test-e2e verify
+.PHONY: test test-frontend test-api test-opencode browser-install test-e2e verify
 
 test: test-frontend test-api ## Run isolated frontend and API tests without live providers
 
@@ -120,6 +120,10 @@ test-api: ## Run pytest route tests with provider/model boundaries replaced
 	@bash scripts/check-tools.sh api-ready
 	cd garment-processing-api && uv run --no-sync pytest
 
+test-opencode: ## Check OpenCode guardrail rules, commands and lifecycle hooks (Node 22.12+, Python 3)
+	python3 scripts/test-check-files.py
+	node --test scripts/test-opencode*.mjs
+
 browser-install: ## Explicitly download Playwright Chromium (Linux CI also needs system libraries)
 	@bash scripts/check-tools.sh frontend-ready
 	pnpm --dir web-frontend browser:install
@@ -128,7 +132,7 @@ test-e2e: ## Run mocked photo journey with a managed local frontend server
 	@bash scripts/check-tools.sh frontend-ready
 	pnpm --dir web-frontend test:e2e
 
-verify: lint format-check typecheck lock-check test secret-check ## Run full source checks and isolated tests; build/browser are separate
+verify: lint format-check typecheck lock-check test test-opencode secret-check ## Run full source checks and isolated tests; build/browser are separate
 
 .PHONY: ci-tools-install workflow-check
 

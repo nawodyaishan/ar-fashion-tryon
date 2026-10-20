@@ -30,6 +30,16 @@ Stage 1 is the only detailed feature in this approval package. Each later stage
 gets its own spec, plan and tasks when selected. Dates and paid resources are
 assigned at that stage's review, using actual capacity and budget.
 
+## Contributor-tooling feature index
+
+- [Feature 001: Engineering foundation](../specs/001-engineering-foundation/spec.md)
+  delivers stage 1.
+- [Feature 002: OpenCode guardrails](../specs/002-opencode-guardrails/spec.md)
+  is an approved contributor-tooling follow-up; B1 is implemented and human-reviewed.
+  Verification evidence and environment blockers are recorded in
+  its [tasks](../specs/002-opencode-guardrails/tasks.md).
+  It does not reorder stages 2–6 or authorize deployment or paid inference.
+
 ## Platform design direction
 
 The platform proposals inform stages 2–6. Price, latency, quality and version

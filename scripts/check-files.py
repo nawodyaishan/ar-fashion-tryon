@@ -23,6 +23,7 @@ REPO_FORMAT_FILES = {
     "docs/ROADMAP.md",
     "docs/SECURITY_REMEDIATION.md",
     "lefthook.yml",
+    "opencode.json",
     ".github/workflows/engineering-foundation.yml",
 }
 FRONTEND_CONFIG_FILES = {
@@ -127,8 +128,14 @@ def frontend_owned(name):
 
 
 def repo_formatted(name):
-    return name in REPO_FORMAT_FILES or (
-        name.startswith("specs/001-engineering-foundation/") and name.endswith(".md")
+    return (
+        name in REPO_FORMAT_FILES
+        or (
+            name.startswith(("specs/001-engineering-foundation/", "specs/002-opencode-guardrails/"))
+            and name.endswith(".md")
+        )
+        or (name.startswith(".opencode/plugins/") and Path(name).suffix in {".ts", ".mjs", ".json"})
+        or (name.startswith("scripts/test-opencode") and name.endswith(".mjs"))
     )
 
 
@@ -272,7 +279,16 @@ def format_repo(write):
     paths = sorted(REPO_FORMAT_FILES)
     paths.extend(
         str(path.relative_to(ROOT))
-        for path in (ROOT / "specs/001-engineering-foundation").glob("*.md")
+        for folder in ("specs/001-engineering-foundation", "specs/002-opencode-guardrails")
+        for path in (ROOT / folder).glob("*.md")
+    )
+    paths.extend(
+        str(path.relative_to(ROOT))
+        for path in (ROOT / ".opencode/plugins").rglob("*")
+        if path.is_file() and repo_formatted(str(path.relative_to(ROOT)))
+    )
+    paths.extend(
+        str(path.relative_to(ROOT)) for path in (ROOT / "scripts").glob("test-opencode*.mjs")
     )
     failed = False
     for name in paths:

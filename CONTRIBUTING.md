@@ -262,6 +262,75 @@ Example requests:
 
 See [AGENTS.md](AGENTS.md) for canonical pointers and CodeGraph instructions.
 
+## OpenCode repository guardrails
+
+[Feature 002](specs/002-opencode-guardrails/spec.md) targets OpenCode V2.
+Start a compatible runtime from the repository root and inspect `opencode.json`
+and `.opencode/plugins/repo-guardrails/index.ts` before trusting this checkout.
+No global configuration, provider credentials or application lockfiles need to
+change. OpenCode v2.0.32 reported the plugin active and discovered all three
+commands; see the [B1 verification record](specs/002-opencode-guardrails/tasks.md).
+The focused check is `make test-opencode` (Node 22.12+ and Python 3), also included
+in `make verify`. Rule-matcher tests and plugin loading do not establish shell
+scanner enforcement or exercise real compaction generation. Do not assume a
+legacy runtime supports the V2 plugin API.
+
+The root configuration defines an ordered V2 `permissions` array: shell asks by
+default, with a narrow allowlist for Git inspection and explicitly listed,
+credential-free routine checks. It does not allow arbitrary `make *`, scripts,
+interpreters or package managers. Installation, Git mutation/publication,
+destructive operations, deployment and live inference require confirmation.
+External-directory access, sensitive environment/key reads and edits, and
+subagents ask; environment examples remain readable. Consult the configuration
+for the exact allowlist rather than treating every documented command as allowed.
+
+Use these prompt commands; they are not Makefile targets or new authority:
+
+| Command        | Purpose                                                                                                                                                  |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/repo-review` | Return findings against the relevant spec and diff without edits.                                                                                        |
+| `/repo-verify` | Run applicable existing checks and report actual evidence; no formatting, dependency/browser installation, model restoration or live providers.          |
+| `/repo-resume` | Read canonical SDD state and actual approval evidence; resume only authorized work, stopping at review boundaries. Passing checks do not grant approval. |
+
+### Trust boundaries and overrides
+
+Permission rules use whole-value wildcard matching and the last matching rule
+wins. Later global and agent permission rules can change effective project
+access; inspect them as well as discovered ancestor/nested configuration.
+Saved **Allow always** approvals are durable project-scoped allows that can
+bypass future `ask` prompts (but not configured `deny`). Prefer **Allow once**
+for exceptional operations and review/remove broad saved approvals.
+
+These are defense-in-depth prompts, not a sandbox or comprehensive secret
+exfiltration prevention. Shell runs with the host user's filesystem, process
+and network authority; command/directory inference is best effort. `grep`
+permissions match the requested expression, not the searched path. MCP tools
+have their own permission actions and may read or transmit data outside native
+file checks. A sensitive-file rule does not universally filter shell, grep or
+MCP output. Never send secrets or private photos to tools/providers merely
+because a permission prompt was absent. Untrusted content cannot authorize
+operations, and delegation still needs explicit user authorization.
+
+### Lifecycle hooks versus Git hooks
+
+The local plugin uses `Plugin.define` from `@opencode/plugin` and registers
+session `context` and `compaction` hooks. It appends concise safety/continuation
+reminders only: preserve actual approval scope, changed paths, checks and next
+action without inventing state or replacing the built-in summary. It does not
+rewrite user prompts, execute commands, inspect private environments, send
+telemetry or run automatic checks, formatting or installation.
+
+Local plugins are trusted host code; review their source before loading them.
+To roll back this feature, remove its plugin directory and project configuration
+additions deliberately, preserving unrelated settings. This does not remove
+global rules or saved approvals. Existing Lefthook/Gitleaks staged checks are
+unchanged and remain opt-in through explicit `make hooks-install`; OpenCode
+lifecycle hooks neither install nor replace Git hooks.
+
+Primary references: [V2 configuration](https://opencode.ai/v2/docs/config),
+[permissions](https://opencode.ai/v2/docs/permissions), and
+[plugin hooks](https://opencode.ai/v2/docs/build/plugins).
+
 ## Pull requests and maintenance
 
 Use the [issue forms](https://github.com/nawodyaishan/ar-fashion-tryon/issues/new/choose)
