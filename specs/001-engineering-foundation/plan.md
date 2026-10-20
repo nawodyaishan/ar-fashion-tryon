@@ -7,6 +7,20 @@ API pyproject/uv.lock, and PROJECT_SPEC development/testing sections.
 
 ## pnpm policy amendment — 2026-10-20
 
+Subsequent user direction: “if so , downgrade to a one majot version of pnpm”.
+The current policy therefore supersedes the 12+ policy below: CI follows
+`latest-11` (verified as 11.28.6), with local range `>=11.0.0 <12`, still no exact
+patch pin. Five locked install scripts are explicitly declined in workspace
+settings while strict checking remains enabled. A fresh frozen installation
+passes without modifying the manifest, lockfile or workspace settings. This
+fixes the reported `ERR_PNPM_IGNORED_BUILDS` without permitting arbitrary scripts.
+Verification on Linux with Node 24.21.0 and pnpm 11.28.6: the fresh installation
+passed 15 frontend tests, ESLint, TypeScript and the full Next.js production build
+(12 static pages). Repository policy/guardrail tests, offline lock validation,
+Ruff and formatting checks also passed. This is local evidence, not a new hosted
+GitHub Actions result; the runner's Node 22 environment was not reproduced.
+The following paragraphs retain the earlier policy and verification history.
+
 The user explicitly requested “use latest lts pnpm version and or upper version
 (do not lock in to a version)”. This supersedes this plan's historical pnpm
 10.13.1 pin only: CI installs `pnpm@latest`; local tooling requires pnpm 12+ with

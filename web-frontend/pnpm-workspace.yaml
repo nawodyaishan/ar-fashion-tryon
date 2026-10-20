@@ -1,5 +1,16 @@
 # Keep dependency-resolution settings here for current pnpm releases.
 # Checks must never install dependencies implicitly; use make setup-frontend.
 verifyDepsBeforeRun: false
+# Record decisions instead of suppressing errors for unreviewed dependencies.
+strictDepBuilds: true
+allowBuilds:
+  # Native packages ship binaries as optional dependencies or bundled prebuilds.
+  # Source-build/download fallbacks are unnecessary on the supported CI platform.
+  '@tailwindcss/oxide@4.1.11': false
+  'bufferutil@4.0.9': false
+  'sharp@0.34.3': false
+  'unrs-resolver@1.11.1': false
+  # Worker-file synchronization is not needed by our mocked Playwright routes.
+  'msw@2.10.4': false
 overrides:
   '@tailwindcss/oxide>tar': '7.5.19'

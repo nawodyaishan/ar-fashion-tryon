@@ -72,12 +72,12 @@ Photo workflows expose inference controls and a result viewer with download opti
 
 ### 1. Select the tools
 
-Use macOS or Linux with Git, Bash 3.2+, and make. Reference versions and minimums are below; pnpm follows the latest stable channel without an exact-version pin:
+Use macOS or Linux with Git, Bash 3.2+, and make. Reference versions and minimums are below; pnpm follows major 11 updates without an exact patch pin:
 
 | Tool    | Version                                                    |
 | ------- | ---------------------------------------------------------- |
 | Node.js | **22.23.3**, declared in [`.nvmrc`](.nvmrc)                |
-| pnpm    | **Latest stable (12+)**, newer versions accepted           |
+| pnpm    | **11.x**, installed via `pnpm@latest-11`                   |
 | Python  | **3.11**, declared in [`.python-version`](.python-version) |
 | uv      | **0.11.1**                                                 |
 

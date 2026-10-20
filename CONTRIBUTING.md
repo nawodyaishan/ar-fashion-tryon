@@ -8,19 +8,20 @@ experiments; Compose does not start the active application.
 
 ## Prerequisites and current setup
 
-Use macOS or Linux, Git, Bash 3.2+, make, Node 22.12+ (reference .nvmrc), pnpm 12+ and uv 0.11.1+.
+Use macOS or Linux, Git, Bash 3.2+, make, Node 22.12+ (reference .nvmrc), pnpm 11.x and uv 0.11.1+.
 The pinned Node patch is in .nvmrc; shared tool declarations are in
 scripts/tool-versions.env; local checks accept those tool versions or newer
-(CI pins other tools but installs `pnpm@latest`). pnpm publishes a stable `latest`
-channel, not a separate LTS tag. Use the current stable release or newer; the
-frontend declares only `engines.pnpm >=12.0.0`, with no exact manager pin or upper
-bound. This admits newer versions, not a guarantee of future-major compatibility.
+(CI pins other tools but installs `pnpm@latest-11`). Following the requested
+one-major downgrade, the frontend accepts `engines.pnpm >=11.0.0 <12` without
+an exact patch pin. pnpm has no LTS tag; `latest-11` tracks major 11 updates.
 The dependency lockfile remains frozen, and security overrides live in
 `web-frontend/pnpm-workspace.yaml`. That file disables automatic dependency
 installation before scripts (`verifyDepsBeforeRun: false`); run setup explicitly.
-Current pnpm can reject unapproved dependency build scripts during setup: review
-the named packages deliberately rather than enabling all builds or approving
-them inside routine checks. Python 3.11 is declared in .python-version and
+The workspace explicitly declines the five locked dependency install scripts:
+oxide, bufferutil, sharp and unrs-resolver use shipped native binaries; MSW worker
+synchronization is unnecessary for our mocked Playwright routes. Strict checking
+remains enabled so new versions with unreviewed scripts fail setup. Review those
+deliberately instead of enabling all builds. Python 3.11 is declared in .python-version and
 make setup-api provisions it through uv if needed. Ubuntu 24.04 is the CI
 reference platform. Setup and verification have also been exercised on macOS ARM.
 The [hosted foundation run](https://github.com/nawodyaishan/ar-fashion-tryon/actions/runs/36876555480)
@@ -32,7 +33,7 @@ Select the runtime and install package tooling explicitly (example with nvm):
 ```bash
 nvm install
 nvm use
-npm install --global pnpm@latest
+npm install --global pnpm@latest-11
 # With an existing uv installation, select the pinned version explicitly:
 uv self update 0.11.1
 ```

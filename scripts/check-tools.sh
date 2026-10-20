@@ -39,6 +39,9 @@ check_frontend() {
     require_command pnpm
     actual_pnpm="$(pnpm --version)"
     require_min_version pnpm "$actual_pnpm" "$PNPM_MIN_VERSION"
+    if version_ge "$(extract_version "$actual_pnpm")" "$PNPM_MAX_VERSION"; then
+        fail "pnpm 11.x required; found $actual_pnpm. Install pnpm@latest-11."
+    fi
     printf 'Frontend: Node %s; pnpm %s\n' "$actual_node" "$actual_pnpm"
 }
 check_api() {
